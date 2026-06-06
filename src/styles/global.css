@@ -1,0 +1,111 @@
+/* ============================================================
+   ADB Manager — Global Styles
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import './variables.css';
+
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background-color: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+/* Scrollbar theming */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--action-bg);
+  outline-offset: 2px;
+}
+
+/* Button base */
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  transition: all var(--transition-fast);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Input base */
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  transition: border-color var(--transition-fast);
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--action-bg);
+  outline: none;
+}
+
+/* Selection */
+::selection {
+  background: var(--action-bg);
+  color: var(--action-fg);
+}
+
+/* Utility classes */
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
