@@ -6,10 +6,13 @@ use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
+use qrcode::{render::svg, QrCode};
+use rand::{distr::Alphanumeric, Rng};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::adb;
+use crate::models::{AndroidUser, KeyboardInputMethod, SystemState};
 use crate::tools::{self, ToolsStatus};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,12 +67,20 @@ pub struct FileEntry {
     pub modified: String,
     pub is_directory: bool,
     pub is_link: bool,
+    pub link_target: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct MediaVolumeState {
     pub level: i32,
     pub maximum: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WirelessQrPayload {
+    pub service_name: String,
+    pub password: String,
+    pub qr_data_url: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -562,17 +573,254 @@ pub async fn run_device_action(serial: String, args: Vec<String>) -> Result<Stri
 }
 
 #[tauri::command]
-pub async fn run_host_action(args: Vec<String>) -> Result<String, String> {
-    if args.is_empty() {
-        return Err("No ADB arguments supplied".to_string());
+pub async fn connect_wireless_device(endpoint: String) -> Result<String, String> {
+    let endpoint = endpoint.trim();
+    if endpoint.is_empty() || !endpoint.contains(':') {
+        return Err("Introduce una dirección IP y puerto válidos".to_string());
     }
-    let arg_refs = refs(&args);
-    let result = adb::run_adb(&arg_refs).await?;
+    let result = adb::run_adb(&["connect", endpoint]).await?;
+    if result.ok() && !result.output.to_ascii_lowercase().contains("failed") {
+        Ok(result.output.trim().to_string())
+    } else {
+        Err(result.output.trim().to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn pair_wireless_device(endpoint: String, code: String) -> Result<String, String> {
+    let endpoint = endpoint.trim();
+    let code = code.trim();
+    if endpoint.is_empty() || !endpoint.contains(':') || code.is_empty() {
+        return Err("Introduce el endpoint y el código de emparejamiento".to_string());
+    }
+    let result = adb::run_adb(&["pair", endpoint, code]).await?;
+    if result.ok() && !result.output.to_ascii_lowercase().contains("failed") {
+        Ok(result.output.trim().to_string())
+    } else {
+        Err(result.output.trim().to_string())
+    }
+}
+
+fn random_wireless_token(length: usize) -> String {
+    rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect::<String>()
+        .to_ascii_uppercase()
+}
+
+#[tauri::command]
+pub fn generate_wireless_qr() -> Result<WirelessQrPayload, String> {
+    let service_name = format!("studio-{}", random_wireless_token(8));
+    let password = random_wireless_token(12);
+    let payload = format!("WIFI:T:ADB;S:{service_name};P:{password};;");
+    let svg = QrCode::new(payload.as_bytes())
+        .map_err(|error| error.to_string())?
+        .render::<svg::Color>()
+        .min_dimensions(360, 360)
+        .dark_color(svg::Color("#000000"))
+        .light_color(svg::Color("#ffffff"))
+        .build();
+    Ok(WirelessQrPayload {
+        service_name,
+        password,
+        qr_data_url: format!("data:image/svg+xml;base64,{}", STANDARD.encode(svg)),
+    })
+}
+
+#[tauri::command]
+pub async fn pair_wireless_qr(service_name: String, password: String) -> Result<String, String> {
+    if service_name.trim().is_empty() || password.trim().is_empty() {
+        return Err("Genera y escanea primero un código QR".to_string());
+    }
+    let endpoint_pattern =
+        Regex::new(r"(?m)^(\S+)\s+(_adb-tls-pairing\._tcp)\s+((?:\d{1,3}\.){3}\d{1,3}):(\d+)")
+            .map_err(|error| error.to_string())?;
+    for _ in 0..30 {
+        let result = adb::run_adb(&["mdns", "services"]).await?;
+        if result.ok() {
+            for captures in endpoint_pattern.captures_iter(&result.output) {
+                if captures.get(1).map_or("", |value| value.as_str()) == service_name.trim() {
+                    let endpoint = format!("{}:{}", &captures[3], &captures[4]);
+                    return pair_wireless_device(endpoint, password).await;
+                }
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+    Err("No se encontró el dispositivo. Genera otro QR y vuelve a escanearlo.".to_string())
+}
+
+async fn wireless_host_for_serial(serial: &str) -> Result<String, String> {
+    let patterns = [
+        (
+            vec!["shell", "ip", "route", "show", "dev", "wlan0"],
+            r"\bsrc\s+((?:\d{1,3}\.){3}\d{1,3})\b",
+        ),
+        (
+            vec!["shell", "ip", "route"],
+            r"\bsrc\s+((?:\d{1,3}\.){3}\d{1,3})\b",
+        ),
+        (
+            vec!["shell", "ip", "-f", "inet", "addr", "show", "wlan0"],
+            r"\binet\s+((?:\d{1,3}\.){3}\d{1,3})\b",
+        ),
+    ];
+    for (args, pattern) in patterns {
+        let result = adb::run_adb_for_serial(serial, &args).await?;
+        if result.ok() {
+            let regex = Regex::new(pattern).map_err(|error| error.to_string())?;
+            if let Some(host) = regex
+                .captures(&result.output)
+                .and_then(|captures| captures.get(1))
+                .map(|value| value.as_str().to_string())
+            {
+                return Ok(host);
+            }
+        }
+    }
+    let property =
+        adb::run_adb_for_serial(serial, &["shell", "getprop", "dhcp.wlan0.ipaddress"]).await?;
+    let host = property.output.trim();
+    if property.ok() && !host.is_empty() {
+        Ok(host.to_string())
+    } else {
+        Err("No se pudo detectar la IP Wi-Fi del dispositivo".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn connect_usb_over_tcpip(serial: String) -> Result<String, String> {
+    if serial.contains(':') || serial.starts_with("emulator-") {
+        return Err("Selecciona un dispositivo conectado físicamente por USB".to_string());
+    }
+    let host = wireless_host_for_serial(&serial).await?;
+    let tcpip = adb::run_adb_for_serial(&serial, &["tcpip", "5555"]).await?;
+    if !tcpip.ok() || tcpip.output.to_ascii_lowercase().contains("failed") {
+        return Err(tcpip.output.trim().to_string());
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(1400)).await;
+    let endpoint = format!("{host}:5555");
+    connect_wireless_device(endpoint.clone()).await?;
+    Ok(endpoint)
+}
+
+async fn run_system_query(serial: &str, args: &[&str]) -> Result<String, String> {
+    let result = adb::run_adb_for_serial(serial, args).await?;
     if result.ok() {
         Ok(result.output.trim().to_string())
     } else {
         Err(result.output.trim().to_string())
     }
+}
+
+fn parse_system_users(output: &str, current_user_id: i32) -> Vec<AndroidUser> {
+    let pattern = Regex::new(r"UserInfo\{(\d+):([^:}]+):[^}]*\}(.*)$").unwrap();
+    let mut users = output
+        .lines()
+        .filter_map(|line| {
+            let captures = pattern.captures(line.trim())?;
+            let id = captures.get(1)?.as_str().parse::<i32>().ok()?;
+            let suffix = captures.get(3).map_or("", |value| value.as_str());
+            Some(AndroidUser {
+                id,
+                name: captures.get(2)?.as_str().trim().to_string(),
+                is_running: id == current_user_id
+                    || suffix.to_ascii_lowercase().contains("running"),
+            })
+        })
+        .collect::<Vec<_>>();
+    users.sort_by_key(|user| user.id);
+    users
+}
+
+fn parse_keyboard_ids(output: &str) -> Vec<String> {
+    let mut ids = Vec::new();
+    for line in output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let candidate = if let Some(id) = line.strip_prefix("mId=") {
+            Some(id.trim())
+        } else if line.contains('/') && !line.contains(' ') {
+            Some(line)
+        } else {
+            None
+        };
+        if let Some(id) = candidate {
+            if !ids.iter().any(|current| current == id) {
+                ids.push(id.to_string());
+            }
+        }
+    }
+    ids
+}
+
+#[tauri::command]
+pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
+    let users_output = run_system_query(&serial, &["shell", "pm", "list", "users"]).await?;
+    let current_user_output =
+        run_system_query(&serial, &["shell", "am", "get-current-user"]).await?;
+    let app_languages_output = run_system_query(
+        &serial,
+        &[
+            "shell",
+            "settings",
+            "get",
+            "global",
+            "settings_app_locale_opt_in_enabled",
+        ],
+    )
+    .await?;
+    let overlays_output = run_system_query(&serial, &["shell", "cmd", "overlay", "list"]).await?;
+    let all_keyboards_output =
+        match run_system_query(&serial, &["shell", "ime", "list", "-a", "-s"]).await {
+            Ok(output) => output,
+            Err(_) => run_system_query(&serial, &["shell", "ime", "list", "-a"]).await?,
+        };
+    let enabled_keyboards_output =
+        run_system_query(&serial, &["shell", "ime", "list", "-s"]).await?;
+    let current_keyboard_id = run_system_query(
+        &serial,
+        &["shell", "settings", "get", "secure", "default_input_method"],
+    )
+    .await?;
+
+    let current_user_id = last_integer(&current_user_output).unwrap_or(-1);
+    let mut all_keyboard_ids = parse_keyboard_ids(&all_keyboards_output);
+    let enabled_keyboard_ids = parse_keyboard_ids(&enabled_keyboards_output);
+    if !current_keyboard_id.is_empty()
+        && !all_keyboard_ids
+            .iter()
+            .any(|keyboard| keyboard == &current_keyboard_id)
+    {
+        all_keyboard_ids.push(current_keyboard_id.clone());
+    }
+
+    Ok(SystemState {
+        users: parse_system_users(&users_output, current_user_id),
+        current_user_id,
+        gestural_navigation: overlays_output.lines().any(|line| {
+            line.contains("com.android.internal.systemui.navbar.gestural")
+                && (line.trim_start().starts_with("[x]") || line.trim_start().starts_with("[X]"))
+        }),
+        app_languages_enabled: matches!(
+            app_languages_output.trim().to_ascii_lowercase().as_str(),
+            "false" | "0"
+        ),
+        keyboards: all_keyboard_ids
+            .into_iter()
+            .map(|id| KeyboardInputMethod {
+                label: id.clone(),
+                enabled: enabled_keyboard_ids.iter().any(|keyboard| keyboard == &id),
+                is_default: id == current_keyboard_id,
+                id,
+            })
+            .collect(),
+        current_keyboard_id,
+    })
 }
 
 #[tauri::command]
@@ -824,48 +1072,6 @@ pub async fn enrich_app_summary(
 }
 
 #[tauri::command]
-pub fn select_apk_destination(package_name: String) -> Result<String, String> {
-    if !cfg!(windows) {
-        return Err("El selector nativo todavía no está disponible en esta plataforma".to_string());
-    }
-    let file_name = format!("{package_name}.apk");
-    let script = r#"Add-Type -AssemblyName System.Windows.Forms;$d=New-Object System.Windows.Forms.SaveFileDialog;$d.Filter='Android package (*.apk)|*.apk';$d.FileName=$args[0];if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileName}"#;
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-STA", "-Command", script])
-        .arg(file_name)
-        .output()
-        .map_err(|error| error.to_string())?;
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-#[tauri::command]
-pub fn select_application_packages() -> Result<Vec<String>, String> {
-    if !cfg!(windows) {
-        return Err("El selector de paquetes está disponible actualmente en Windows".to_string());
-    }
-    let script = r#"Add-Type -AssemblyName System.Windows.Forms;$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Filter='Paquetes Android (*.apk;*.apks;*.apkm;*.xapk;*.zip;*.aab)|*.apk;*.apks;*.apkm;*.xapk;*.zip;*.aab';$d.Multiselect=$true;$d.Title='Seleccionar aplicaciones para instalar';if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileNames}"#;
-    let output = Command::new("powershell.exe")
-        .args([
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            script,
-        ])
-        .output()
-        .map_err(|error| format!("No se pudo abrir el selector: {error}"))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(str::to_string)
-        .collect())
-}
-
-#[tauri::command]
 pub async fn install_application_packages(
     serial: String,
     files: Vec<String>,
@@ -1043,7 +1249,12 @@ pub fn clear_application_cache() -> Result<String, String> {
 
 #[tauri::command]
 pub async fn list_directory(serial: String, path: String) -> Result<Vec<FileEntry>, String> {
-    let result = adb::run_adb_for_serial(&serial, &["shell", "ls", "-la", &path]).await?;
+    let listing_path = if path == "/" {
+        path.clone()
+    } else {
+        format!("{}/", path.trim_end_matches('/'))
+    };
+    let result = adb::run_adb_for_serial(&serial, &["shell", "ls", "-la", &listing_path]).await?;
     if !result.ok() {
         return Err(result.output);
     }
@@ -1053,20 +1264,29 @@ pub async fn list_directory(serial: String, path: String) -> Result<Vec<FileEntr
         .lines()
         .filter_map(|line| {
             let parts = line.split_whitespace().collect::<Vec<_>>();
-            if parts.len() < 7 || !parts[0].starts_with(['d', '-', 'l']) {
+            if parts.len() < 8 || !parts[0].starts_with(['d', '-', 'l']) {
                 return None;
             }
-            let name = parts[6..].join(" ");
+            let raw_name = parts[7..].join(" ");
+            let (name, link_target) = if parts[0].starts_with('l') {
+                raw_name
+                    .split_once(" -> ")
+                    .map(|(name, target)| (name.to_string(), target.to_string()))
+                    .unwrap_or((raw_name, String::new()))
+            } else {
+                (raw_name, String::new())
+            };
             if name == "." || name == ".." {
                 return None;
             }
             Some(FileEntry {
                 name,
                 permissions: parts[0].to_string(),
-                size: parts[3].parse().unwrap_or(0),
-                modified: format!("{} {}", parts[4], parts[5]),
+                size: parts[4].parse().unwrap_or(0),
+                modified: format!("{} {}", parts[5], parts[6]),
                 is_directory: parts[0].starts_with('d'),
                 is_link: parts[0].starts_with('l'),
+                link_target,
             })
         })
         .collect();
@@ -1105,6 +1325,19 @@ pub async fn get_file_thumbnail(serial: String, path: String) -> Result<String, 
         _ => "image/png",
     };
     Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)))
+}
+
+#[cfg(test)]
+mod wireless_tests {
+    use super::generate_wireless_qr;
+
+    #[test]
+    fn generates_hidden_credentials_and_scannable_qr() {
+        let qr = generate_wireless_qr().expect("QR generation should succeed");
+        assert!(qr.service_name.starts_with("studio-"));
+        assert_eq!(qr.password.len(), 12);
+        assert!(qr.qr_data_url.starts_with("data:image/svg+xml;base64,"));
+    }
 }
 
 #[tauri::command]
@@ -1172,6 +1405,11 @@ pub fn get_tools_status() -> ToolsStatus {
 }
 
 #[tauri::command]
+pub async fn check_tool_updates() -> ToolsStatus {
+    tools::tools_status_with_updates().await
+}
+
+#[tauri::command]
 pub fn set_tool_path(tool: String, path: String) -> Result<ToolsStatus, String> {
     tools::save_tool_path(&tool, &path)
 }
@@ -1181,14 +1419,4 @@ pub async fn install_or_update_tool(tool: String) -> Result<ToolsStatus, String>
     tauri::async_runtime::spawn_blocking(move || tools::install_or_update(&tool))
         .await
         .map_err(|error| error.to_string())?
-}
-
-#[tauri::command]
-pub async fn get_adb_info() -> Result<String, String> {
-    let result = adb::run_adb(&["version"]).await?;
-    if result.ok() {
-        Ok(result.output.trim().to_string())
-    } else {
-        Err(result.output)
-    }
 }

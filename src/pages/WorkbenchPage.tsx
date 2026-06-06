@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { confirm, open, save } from '@tauri-apps/plugin-dialog';
 import { useDevices } from '../context/DeviceContext';
 import { useI18n } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
@@ -11,12 +12,17 @@ type AppSummary = { package_name: string; display_name: string; apk_path: string
 type AppPermissionInfo = { name: string; granted: boolean; runtime: boolean };
 type AppDetailsInfo = AppSummary & { version_name: string; version_code: string; target_sdk: string; min_sdk: string; installer: string; data_dir: string; code_size_bytes: number; data_size_bytes: number; cache_size_bytes: number; background_mode: string; permissions: AppPermissionInfo[] };
 type AppFilter = 'user' | 'all' | 'system' | 'disabled';
-type FileEntry = { name: string; permissions: string; size: number; modified: string; is_directory: boolean; is_link: boolean };
-type ToolStatus = { name: string; available: boolean; version: string; path: string; source: string };
+type FileEntry = { name: string; permissions: string; size: number; modified: string; is_directory: boolean; is_link: boolean; link_target: string };
+type FileView = 'list' | 'grid';
+type FileSortKey = 'name' | 'type' | 'size' | 'permissions' | 'modified';
+type ToolStatus = { name: string; available: boolean; version: string; latest_version: string; update_checked: boolean; update_available: boolean; path: string; source: string };
 type ToolsStatus = { adb: ToolStatus; scrcpy: ToolStatus; java: ToolStatus };
 type MediaVolumeState = { level: number; maximum: number };
 type MirrorMode = 'display' | 'virtual' | 'camera';
 type SoundMode = 'NORMAL' | 'VIBRATE' | 'SILENT';
+type AndroidUser = { id: number; name: string; is_running: boolean };
+type KeyboardInputMethod = { id: string; label: string; enabled: boolean; is_default: boolean };
+type SystemState = { users: AndroidUser[]; current_user_id: number; gestural_navigation: boolean; app_languages_enabled: boolean; keyboards: KeyboardInputMethod[]; current_keyboard_id: string };
 
 const words = (value: string) =>
   value.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(part => part.replace(/^"|"$/g, '')) ?? [];
@@ -76,8 +82,16 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [installBypass, setInstallBypass] = useState(false);
   const [path, setPath] = useState('/sdcard');
   const [files, setFiles] = useState<FileEntry[]>([]);
-  const [toolInfo, setToolInfo] = useState('');
+  const [fileView, setFileView] = useState<FileView>('list');
+  const [fileFilter, setFileFilter] = useState('');
+  const [filePathEditing, setFilePathEditing] = useState(false);
+  const [fileSort, setFileSort] = useState<{ key: FileSortKey; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [fileHistory, setFileHistory] = useState<string[]>(['/sdcard']);
+  const [fileHistoryIndex, setFileHistoryIndex] = useState(0);
+  const [fileThumbnails, setFileThumbnails] = useState<Record<string, string>>({});
   const [tools, setTools] = useState<ToolsStatus | null>(null);
+  const [toolUpdatesChecking, setToolUpdatesChecking] = useState(false);
   const [adbPath, setAdbPath] = useState('');
   const [scrcpyPath, setScrcpyPath] = useState('');
   const [javaPath, setJavaPath] = useState('');
@@ -115,6 +129,11 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [rotationAuto, setRotationAuto] = useState(true);
   const [rotation, setRotation] = useState(0);
   const [soundMode, setSoundMode] = useState<SoundMode>('NORMAL');
+  const [systemState, setSystemState] = useState<SystemState | null>(null);
+  const [selectedSystemUser, setSelectedSystemUser] = useState('');
+  const [newSystemUser, setNewSystemUser] = useState('');
+  const [selectedKeyboard, setSelectedKeyboard] = useState('');
+  const [systemLoading, setSystemLoading] = useState(false);
 
   const run = async (args: string[], success = 'Acción completada') => {
     if (!serial) { setStatus('Selecciona un dispositivo'); return; }
@@ -126,13 +145,51 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
-  const host = async (args: string[]) => {
-    setBusy(true);
+  const refreshSystemState = async () => {
+    if (!serial) return;
+    setSystemLoading(true);
     try {
-      const output = await invoke<string>('run_host_action', { args });
-      setStatus(output || 'Acción completada');
-      await refreshDevices();
-    } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
+      const value = await invoke<SystemState>('get_system_state', { serial });
+      setSystemState(value);
+      setSelectedSystemUser(current => value.users.some(user => String(user.id) === current) ? current : String(value.current_user_id));
+      setSelectedKeyboard(current => value.keyboards.some(keyboard => keyboard.id === current) ? current : value.current_keyboard_id);
+      setStatus('Ajustes del sistema actualizados');
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setSystemLoading(false);
+    }
+  };
+
+  const applySystemAction = async (args: string[], success: string) => {
+    if (!serial) return setStatus('Selecciona un dispositivo');
+    setSystemLoading(true);
+    try {
+      await invoke<string>('run_device_action', { serial, args });
+      setStatus(success);
+      await refreshSystemState();
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setSystemLoading(false);
+    }
+  };
+
+  const createSystemUser = async () => {
+    const name = newSystemUser.trim();
+    if (!name) return setStatus('Introduce un nombre para el nuevo usuario');
+    await applySystemAction(['shell', 'pm', 'create-user', name], `Usuario "${name}" creado`);
+    setNewSystemUser('');
+  };
+
+  const removeSystemUser = async () => {
+    if (!selectedSystemUser) return;
+    const user = systemState?.users.find(item => String(item.id) === selectedSystemUser);
+    const accepted = await confirm(
+      `Se eliminará el usuario ${user?.name || selectedSystemUser} y sus datos del dispositivo.\n\nEsta acción no se puede deshacer.`,
+      { title: 'Eliminar usuario', kind: 'warning', okLabel: 'Eliminar', cancelLabel: 'Cancelar' },
+    );
+    if (accepted) await applySystemAction(['shell', 'pm', 'remove-user', selectedSystemUser], `Usuario ${selectedSystemUser} eliminado`);
   };
 
   const refreshApps = async () => {
@@ -206,9 +263,15 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
   const chooseInstallFiles = async () => {
     try {
-      const selected = await invoke<string[]>('select_application_packages');
-      if (selected.length) {
-        setInstallFiles(current => [...new Set([...current, ...selected])]);
+      const selected = await open({
+        title: 'Seleccionar aplicaciones para instalar',
+        multiple: true,
+        directory: false,
+        filters: [{ name: 'Paquetes Android', extensions: ['apk', 'apks', 'apkm', 'xapk', 'zip', 'aab'] }],
+      });
+      const selectedFiles = Array.isArray(selected) ? selected : selected ? [selected] : [];
+      if (selectedFiles.length) {
+        setInstallFiles(current => [...new Set([...current, ...selectedFiles])]);
         setInstallResult('');
       }
     } catch (error) { setInstallResult(String(error)); }
@@ -238,14 +301,127 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     }
   };
 
-  const refreshFiles = async (nextPath = path) => {
+  const normalizeDevicePath = (value: string) => {
+    const parts: string[] = [];
+    for (const part of value.replace(/\\/g, '/').split('/')) {
+      if (!part || part === '.') continue;
+      if (part === '..') parts.pop(); else parts.push(part);
+    }
+    return `/${parts.join('/')}`;
+  };
+
+  const filePath = (file: FileEntry) => normalizeDevicePath(`${path}/${file.name}`);
+  const linkPath = (file: FileEntry) => normalizeDevicePath(file.link_target.startsWith('/') ? file.link_target : `${path}/${file.link_target}`);
+  const filteredFiles = useMemo(() => {
+    const query = fileFilter.trim().toLowerCase();
+    const matching = files.filter(file => !query || file.name.toLowerCase().includes(query) || file.link_target.toLowerCase().includes(query));
+    const direction = fileSort.direction === 'asc' ? 1 : -1;
+    return [...matching].sort((left, right) => {
+      const leftValue = fileSort.key === 'type' ? (left.is_link ? 'link' : left.is_directory ? 'directory' : 'file') : left[fileSort.key];
+      const rightValue = fileSort.key === 'type' ? (right.is_link ? 'link' : right.is_directory ? 'directory' : 'file') : right[fileSort.key];
+      return (typeof leftValue === 'number' && typeof rightValue === 'number'
+        ? leftValue - rightValue
+        : String(leftValue).localeCompare(String(rightValue), 'es', { numeric: true, sensitivity: 'base' })) * direction;
+    });
+  }, [files, fileFilter, fileSort]);
+  const selectedFileEntries = useMemo(() => files.filter(file => selectedFiles.includes(file.name)), [files, selectedFiles]);
+
+  const refreshFiles = async (nextPath = path, addHistory = false) => {
     if (!serial) return;
     setBusy(true);
     try {
-      const value = await invoke<FileEntry[]>('list_directory', { serial, path: nextPath });
-      setFiles(value); setPath(nextPath); setStatus(`${value.length} elementos`);
+      const normalized = normalizeDevicePath(nextPath);
+      const value = await invoke<FileEntry[]>('list_directory', { serial, path: normalized });
+      setFiles(value); setPath(normalized); setSelectedFiles([]); setStatus(`${value.length} elementos`);
+      if (addHistory && normalized !== fileHistory[fileHistoryIndex]) {
+        setFileHistory(current => [...current.slice(0, fileHistoryIndex + 1), normalized]);
+        setFileHistoryIndex(fileHistoryIndex + 1);
+      }
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
+
+  const openFileEntry = async (file: FileEntry) => {
+    if (file.is_directory) return refreshFiles(filePath(file), true);
+    if (file.is_link) return refreshFiles(linkPath(file), true);
+  };
+
+  const goFileHistory = async (index: number) => {
+    if (index < 0 || index >= fileHistory.length) return;
+    await refreshFiles(fileHistory[index]);
+    setFileHistoryIndex(index);
+  };
+
+  const uploadFiles = async () => {
+    const selected = await open({ multiple: true, directory: false });
+    const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
+    for (const localPath of paths) {
+      await run(['push', localPath, path]);
+    }
+    if (paths.length) await refreshFiles();
+  };
+
+  const downloadSelectedFiles = async () => {
+    if (!selectedFileEntries.length) return;
+    const destination = await open({ directory: true, multiple: false });
+    if (!destination || Array.isArray(destination)) return;
+    setBusy(true);
+    try {
+      for (const file of selectedFileEntries) {
+        const localPath = `${destination}\\${file.name}`;
+        setStatus(await invoke<string>('pull_file', { serial, remotePath: filePath(file), localPath }));
+      }
+    } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
+  };
+
+  const createDeviceFolder = async () => {
+    const name = window.prompt('Nombre de la nueva carpeta');
+    if (name?.trim()) await run(['shell', 'mkdir', '-p', `${path}/${name.trim()}`]).then(() => refreshFiles());
+  };
+
+  const renameSelectedFile = async () => {
+    const file = selectedFileEntries[0];
+    if (!file) return;
+    const name = window.prompt('Nuevo nombre', file.name);
+    if (name?.trim() && name !== file.name) await run(['shell', 'mv', filePath(file), `${path}/${name.trim()}`]).then(() => refreshFiles());
+  };
+
+  const duplicateSelectedFile = async () => {
+    const file = selectedFileEntries[0];
+    if (!file) return;
+    const extensionIndex = file.is_directory ? -1 : file.name.lastIndexOf('.');
+    const suggestedName = extensionIndex > 0
+      ? `${file.name.slice(0, extensionIndex)} - copia${file.name.slice(extensionIndex)}`
+      : `${file.name} - copia`;
+    const name = window.prompt('Nombre de la copia', suggestedName);
+    if (name?.trim()) await run(['shell', 'cp', '-r', filePath(file), `${path}/${name.trim()}`]).then(() => refreshFiles());
+  };
+
+  const deleteSelectedFiles = async () => {
+    if (!selectedFileEntries.length) return;
+    const accepted = await confirm(
+      `Se eliminarán permanentemente ${selectedFileEntries.length} elemento(s) del dispositivo.\n\nEsta acción no se puede deshacer.`,
+      { title: 'Confirmar eliminación', kind: 'warning', okLabel: 'Eliminar', cancelLabel: 'Cancelar' },
+    );
+    if (!accepted) return;
+    for (const file of selectedFileEntries) await run(['shell', 'rm', '-rf', filePath(file)]);
+    await refreshFiles();
+  };
+
+  const changeSelectedPermissions = async () => {
+    if (!selectedFileEntries.length) return;
+    const mode = window.prompt('Permisos octales, por ejemplo 755 o 644', '755');
+    if (!mode?.match(/^[0-7]{3,4}$/)) return;
+    for (const file of selectedFileEntries) await run(['shell', 'chmod', mode, filePath(file)]);
+    await refreshFiles();
+  };
+
+  useEffect(() => {
+    if (tab !== 'files' || fileView !== 'grid' || !serial) return;
+    filteredFiles.filter(file => !file.is_directory && !file.is_link && file.size <= 5 * 1024 * 1024 && /\.(png|jpe?g|webp|gif)$/i.test(file.name) && !fileThumbnails[filePath(file)]).slice(0, 12).forEach(file => {
+      const remotePath = filePath(file);
+      invoke<string>('get_file_thumbnail', { serial, path: remotePath }).then(value => setFileThumbnails(current => ({ ...current, [remotePath]: value }))).catch(() => undefined);
+    });
+  }, [tab, fileView, serial, path, filteredFiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scrcpy = async (extraArgs: string[]) => {
     if (!serial) return setStatus('Selecciona un dispositivo');
@@ -299,7 +475,11 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
       setJavaPath(value.java.path);
+      setToolUpdatesChecking(true);
+      const updated = await invoke<ToolsStatus>('check_tool_updates');
+      setTools(updated);
     } catch (error) { setStatus(String(error)); }
+    finally { setToolUpdatesChecking(false); }
   };
 
   const saveToolPath = async (tool: 'adb' | 'scrcpy' | 'java', pathValue: string) => {
@@ -312,6 +492,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setJavaPath(value.java.path);
       setStatus(`Ruta de ${tool} guardada`);
       if (tool === 'adb') await refreshDevices();
+      await refreshTools();
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
@@ -326,6 +507,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setJavaPath(value.java.path);
       setStatus(`${tool} instalado o actualizado correctamente`);
       if (tool === 'adb') await refreshDevices();
+      await refreshTools();
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
@@ -333,7 +515,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     if (tab === 'apps') refreshApps();
     if (tab === 'files') refreshFiles();
     if (tab === 'settings') {
-      invoke<string>('get_adb_info').then(setToolInfo).catch(error => setToolInfo(String(error)));
       refreshTools();
     }
     if (tab === 'mirroring') {
@@ -346,6 +527,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
         setControlVolumeMax(value.maximum);
       }).catch(() => undefined);
     }
+    if (tab === 'system') refreshSystemState();
   }, [tab, serial]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -567,7 +749,11 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const exportApk = async () => {
     if (!appDetails) return;
     try {
-      const destination = await invoke<string>('select_apk_destination', { packageName: appDetails.package_name });
+      const destination = await save({
+        title: 'Guardar APK',
+        defaultPath: `${appDetails.package_name}.apk`,
+        filters: [{ name: 'Paquete Android', extensions: ['apk'] }],
+      });
       if (destination) await run(['pull', appDetails.apk_path, destination], `APK guardado en ${destination}`);
     } catch (error) { setStatus(String(error)); }
   };
@@ -660,20 +846,123 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     </div>}
   </div>;
 
-  const filesPage = <div className="work-panel file-page">
-    <div className="panel-toolbar"><button onClick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/')}>Subir</button><input value={path} onChange={e => setPath(e.target.value)} onKeyDown={e => e.key === 'Enter' && refreshFiles()} /><button onClick={() => refreshFiles()}>Actualizar</button></div>
-    <div className="file-actions">
-      <form onSubmit={e => { e.preventDefault(); run(['shell', 'mkdir', '-p', `${path}/${new FormData(e.currentTarget).get('name')}`]).then(() => refreshFiles()); }}><input name="name" placeholder="Nueva carpeta" /><button>Crear</button></form>
-      <form onSubmit={e => { e.preventDefault(); run(['push', String(new FormData(e.currentTarget).get('local')), path]).then(() => refreshFiles()); }}><input name="local" placeholder="Ruta local para subir" /><button>Subir</button></form>
-      <form onSubmit={e => { e.preventDefault(); const d = new FormData(e.currentTarget); run(['pull', String(d.get('remote')), String(d.get('local'))]); }}><input name="remote" placeholder="Ruta remota" /><input name="local" placeholder="Destino local" /><button>Descargar</button></form>
-    </div>
-    <div className="file-table">{files.map(file => <div className="file-row" key={file.name} onDoubleClick={() => file.is_directory && refreshFiles(`${path.replace(/\/$/, '')}/${file.name}`)}><span>{file.is_directory ? 'DIR' : 'FILE'}</span><strong>{file.name}</strong><span>{file.permissions}</span><span>{file.size}</span><button className="danger" onClick={() => run(['shell', 'rm', '-rf', `${path.replace(/\/$/, '')}/${file.name}`]).then(() => refreshFiles())}>Eliminar</button></div>)}</div>
+  const selectFileEntry = (event: MouseEvent, file: FileEntry) => {
+    setSelectedFiles(current => event.ctrlKey || event.metaKey
+      ? current.includes(file.name) ? current.filter(name => name !== file.name) : [...current, file.name]
+      : [file.name]);
+  };
+  const fileType = (file: FileEntry) => file.is_link ? 'Enlace simbólico' : file.is_directory ? 'Carpeta' : 'Archivo';
+  const fileSize = (file: FileEntry) => file.is_directory || file.is_link ? '-' : formatBytes(file.size);
+  const fileIcon = (file: FileEntry) => file.is_link ? '↗' : file.is_directory ? '▰' : '▤';
+  const pathParts = path.split('/').filter(Boolean);
+  const changeFileSort = (key: FileSortKey) => setFileSort(current => current.key === key
+    ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+    : { key, direction: 'asc' });
+  const sortIndicator = (key: FileSortKey) => fileSort.key === key ? (fileSort.direction === 'asc' ? ' ↑' : ' ↓') : '';
+
+  const filesPage = <div className="file-explorer">
+    <section className="file-explorer-header">
+      <div><span className="file-kicker">DISPOSITIVO</span><h2>Explorador de archivos</h2><p>Administra archivos, carpetas, permisos y enlaces simbólicos.</p></div>
+      <div className="file-view-switch"><button className={fileView === 'list' ? 'active' : ''} title="Vista en lista" onClick={() => setFileView('list')}>☷</button><button className={fileView === 'grid' ? 'active' : ''} title="Vista en cuadrícula" onClick={() => setFileView('grid')}>▦</button></div>
+    </section>
+    <section className="file-command-bar">
+      <div className="file-navigation">
+        <button title="Atrás" disabled={fileHistoryIndex <= 0} onClick={() => goFileHistory(fileHistoryIndex - 1)}>←</button>
+        <button title="Adelante" disabled={fileHistoryIndex >= fileHistory.length - 1} onClick={() => goFileHistory(fileHistoryIndex + 1)}>→</button>
+        <button title="Subir" disabled={path === '/'} onClick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}>↑</button>
+        <button title="Recargar" onClick={() => refreshFiles()}>↻</button>
+      </div>
+      <div className="file-primary-actions">
+        <button onClick={createDeviceFolder}>＋ Nueva carpeta</button>
+        <button className="primary" onClick={uploadFiles}>↑ Enviar al dispositivo</button>
+        <button disabled={!selectedFileEntries.length} onClick={downloadSelectedFiles}>↓ Descargar al PC</button>
+      </div>
+      <div className="file-selection-actions">
+        <button disabled={selectedFileEntries.length !== 1} onClick={renameSelectedFile}>Renombrar</button>
+        <button disabled={selectedFileEntries.length !== 1} onClick={duplicateSelectedFile}>Duplicar</button>
+        <button disabled={!selectedFileEntries.length} onClick={changeSelectedPermissions}>Permisos</button>
+        <button className="danger" disabled={!selectedFileEntries.length} onClick={deleteSelectedFiles}>Eliminar</button>
+      </div>
+    </section>
+    <section className="file-location-bar">
+      <div className={`file-address ${filePathEditing ? 'editing' : ''}`} onClick={() => setFilePathEditing(true)}>
+        {filePathEditing
+          ? <input autoFocus value={path} aria-label="Ruta" onFocus={event => event.currentTarget.select()} onBlur={() => setFilePathEditing(false)} onChange={event => setPath(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { refreshFiles(path, true); setFilePathEditing(false); } if (event.key === 'Escape') setFilePathEditing(false); }} />
+          : <nav className="file-breadcrumbs"><button onClick={event => { event.stopPropagation(); refreshFiles('/', true); }}>/</button>{pathParts.map((part, index) => <button key={`${part}-${index}`} onClick={event => { event.stopPropagation(); refreshFiles(`/${pathParts.slice(0, index + 1).join('/')}`, true); }}>{part}</button>)}</nav>}
+      </div>
+      <input className="file-filter" value={fileFilter} onChange={event => setFileFilter(event.target.value)} placeholder="Filtrar archivos…" />
+    </section>
+    <section className={`file-browser ${fileView}`}>
+      {fileView === 'list' && <div className="file-list-table">
+        <div className="file-list-header"><button onClick={() => changeFileSort('name')}>Nombre{sortIndicator('name')}</button><button onClick={() => changeFileSort('type')}>Tipo{sortIndicator('type')}</button><button onClick={() => changeFileSort('size')}>Tamaño{sortIndicator('size')}</button><button onClick={() => changeFileSort('permissions')}>Permisos{sortIndicator('permissions')}</button><button onClick={() => changeFileSort('modified')}>Modificado{sortIndicator('modified')}</button></div>
+        {filteredFiles.map(file => <button className={`file-list-row ${selectedFiles.includes(file.name) ? 'selected' : ''}`} key={file.name} onClick={event => selectFileEntry(event, file)} onDoubleClick={() => openFileEntry(file)}>
+          <span className={`file-name-cell ${file.is_link ? 'symbolic' : ''}`}>{!file.is_link && <b>{fileIcon(file)}</b>}<span><strong>{file.name}{file.is_link && <small title={file.link_target}> → {file.link_target}</small>}</strong></span></span>
+          <span>{fileType(file)}</span><span>{fileSize(file)}</span><code>{file.permissions}</code><span>{file.modified}</span>
+        </button>)}
+      </div>}
+      {fileView === 'grid' && <div className="file-grid-view">
+        {filteredFiles.map(file => <button className={`file-grid-card ${selectedFiles.includes(file.name) ? 'selected' : ''}`} key={file.name} onClick={event => selectFileEntry(event, file)} onDoubleClick={() => openFileEntry(file)}>
+          {file.is_link ? <span className="file-grid-symbolic"><strong>{file.name}</strong><small title={file.link_target}> → {file.link_target}</small></span> : <span className="file-grid-preview">{fileThumbnails[filePath(file)] ? <img src={fileThumbnails[filePath(file)]} alt="" /> : <b>{fileIcon(file)}</b>}</span>}
+          {!file.is_link && <strong title={file.name}>{file.name}</strong>}
+          <span>{fileType(file)} · {fileSize(file)}</span>
+          <code>{file.permissions}</code>
+        </button>)}
+      </div>}
+      {!filteredFiles.length && <div className="file-empty"><b>Carpeta vacía</b><span>No hay elementos que coincidan con el filtro.</span></div>}
+    </section>
+    <footer className="file-status-bar"><span>{filteredFiles.length} elementos</span><span>{selectedFileEntries.length ? `${selectedFileEntries.length} seleccionados` : 'Sin selección'}</span><span>{path}</span></footer>
   </div>;
 
-  const system = <div className="work-grid">
-    <Panel title="Energía"><div className="button-row"><button onClick={() => run(['reboot'])}>Reiniciar</button><button onClick={() => run(['reboot', 'recovery'])}>Recovery</button><button onClick={() => run(['reboot', 'bootloader'])}>Bootloader</button><button onClick={() => run(['shell', 'reboot', '-p'])}>Apagar</button></div></Panel>
-    <Panel title="Usuarios"><div className="button-row"><button onClick={() => run(['shell', 'pm', 'list', 'users'])}>Listar usuarios</button><button onClick={() => run(['shell', 'am', 'get-current-user'])}>Usuario actual</button></div><form className="form-row" onSubmit={e => { e.preventDefault(); run(['shell', 'pm', 'create-user', String(new FormData(e.currentTarget).get('name'))]); }}><input name="name" placeholder="Nuevo usuario" /><button>Crear</button></form></Panel>
-    <Panel title="Diagnóstico"><div className="button-row"><button onClick={() => run(['shell', 'ime', 'list', '-s'])}>Teclados</button><button onClick={() => run(['shell', 'getprop'])}>Propiedades</button><button onClick={() => run(['shell', 'dumpsys', 'battery'])}>Batería</button></div></Panel>
+  const selectedKeyboardInfo = systemState?.keyboards.find(keyboard => keyboard.id === selectedKeyboard);
+  const system = <div className="system-page">
+    <section className="system-intro">
+      <div><span className="system-kicker">ADMINISTRACIÓN DEL DISPOSITIVO</span><h2>Sistema</h2><p>Gestiona perfiles, preferencias de navegación y métodos de entrada.</p></div>
+      <button disabled={systemLoading || !serial} onClick={refreshSystemState}>{systemLoading ? 'Actualizando...' : 'Actualizar sistema'}</button>
+    </section>
+
+    {!serial && <section className="system-empty"><b>Conecta un dispositivo</b><span>La administración del sistema estará disponible cuando ADB detecte un dispositivo.</span></section>}
+
+    {serial && <div className="system-layout">
+      <section className="system-card system-users-card">
+        <header><span className="system-card-icon">U</span><div><h3>Usuarios</h3><p>Crea perfiles independientes o cambia la sesión activa.</p></div><strong>{systemState?.users.length || 0}</strong></header>
+        <div className="system-current-user"><span>Usuario actual</span><b>{systemState?.users.find(user => user.id === systemState.current_user_id)?.name || `ID ${systemState?.current_user_id ?? '-'}`}</b></div>
+        <div className="system-user-grid">
+          {systemState?.users.map(user => <button key={user.id} className={selectedSystemUser === String(user.id) ? 'selected' : ''} onClick={() => setSelectedSystemUser(String(user.id))}>
+            <span>{user.name.slice(0, 1).toUpperCase()}</span><div><b>{user.name}</b><small>ID {user.id}{user.id === systemState.current_user_id ? ' · actual' : user.is_running ? ' · activo' : ''}</small></div>{user.id === systemState.current_user_id && <em>En uso</em>}
+          </button>)}
+        </div>
+        <div className="system-user-create"><input value={newSystemUser} onChange={event => setNewSystemUser(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') createSystemUser(); }} placeholder="Nombre del nuevo usuario" /><button className="primary" disabled={!newSystemUser.trim() || systemLoading} onClick={createSystemUser}>Crear usuario</button></div>
+        <div className="system-card-actions">
+          <button disabled={!selectedSystemUser || selectedSystemUser === String(systemState?.current_user_id) || systemLoading} onClick={() => applySystemAction(['shell', 'am', 'switch-user', selectedSystemUser], `Cambiado al usuario ${selectedSystemUser}`)}>Cambiar a este usuario</button>
+          <button className="danger" disabled={!selectedSystemUser || selectedSystemUser === String(systemState?.current_user_id) || systemLoading} onClick={removeSystemUser}>Eliminar usuario</button>
+        </div>
+      </section>
+
+      <div className="system-side-column">
+        <section className="system-card system-setting-card">
+          <header><span className="system-card-icon">A</span><div><h3>Idiomas por aplicación</h3><p>Muestra todas las apps en el selector de idioma de Android.</p></div></header>
+          <div className="system-setting-row"><div><b>Mostrar todas las aplicaciones</b><span>{systemState?.app_languages_enabled ? 'El filtro del sistema está desactivado' : 'Solo aparecen aplicaciones compatibles'}</span></div><button className={`system-switch ${systemState?.app_languages_enabled ? 'checked' : ''}`} role="switch" aria-checked={systemState?.app_languages_enabled || false} disabled={!systemState || systemLoading} onClick={() => applySystemAction(['shell', 'settings', 'put', 'global', 'settings_app_locale_opt_in_enabled', systemState?.app_languages_enabled ? 'true' : 'false'], 'Lista de idiomas por aplicación actualizada')}><span /></button></div>
+        </section>
+        <section className="system-card system-setting-card">
+          <header><span className="system-card-icon">G</span><div><h3>Navegación por gestos</h3><p>Activa el overlay gestual del sistema Android.</p></div></header>
+          <div className="system-setting-row"><div><b>Usar navegación gestual</b><span>{systemState?.gestural_navigation ? 'Gestos activos' : 'Botones de navegación activos'}</span></div><button className={`system-switch ${systemState?.gestural_navigation ? 'checked' : ''}`} role="switch" aria-checked={systemState?.gestural_navigation || false} disabled={!systemState || systemLoading} onClick={() => applySystemAction(['shell', 'cmd', 'overlay', systemState?.gestural_navigation ? 'disable' : 'enable', 'com.android.internal.systemui.navbar.gestural'], 'Navegación del sistema actualizada')}><span /></button></div>
+        </section>
+      </div>
+
+      <section className="system-card system-keyboards-card">
+        <header><span className="system-card-icon">K</span><div><h3>Teclados y métodos de entrada</h3><p>Activa un teclado y establécelo como método predeterminado.</p></div><strong>{systemState?.keyboards.length || 0}</strong></header>
+        <div className="system-keyboard-list">
+          {systemState?.keyboards.map(keyboard => <button key={keyboard.id} className={selectedKeyboard === keyboard.id ? 'selected' : ''} onClick={() => setSelectedKeyboard(keyboard.id)}>
+            <span className="keyboard-mark">{keyboard.is_default ? 'D' : keyboard.enabled ? 'A' : '-'}</span><div><b>{keyboard.label || keyboard.id}</b><code>{keyboard.id}</code></div><em className={keyboard.is_default ? 'default' : keyboard.enabled ? 'enabled' : ''}>{keyboard.is_default ? 'Predeterminado' : keyboard.enabled ? 'Activado' : 'Desactivado'}</em>
+          </button>)}
+          {!systemState?.keyboards.length && <div className="system-inline-empty">No se encontraron métodos de entrada.</div>}
+        </div>
+        <div className="system-card-actions">
+          <button disabled={!selectedKeyboard || systemLoading} onClick={() => applySystemAction(['shell', 'ime', selectedKeyboardInfo?.enabled ? 'disable' : 'enable', selectedKeyboard], selectedKeyboardInfo?.enabled ? 'Teclado deshabilitado' : 'Teclado habilitado')}>{selectedKeyboardInfo?.enabled ? 'Deshabilitar' : 'Habilitar'}</button>
+          <button className="primary" disabled={!selectedKeyboard || selectedKeyboardInfo?.is_default || systemLoading} onClick={async () => { await applySystemAction(['shell', 'ime', 'enable', selectedKeyboard], 'Teclado habilitado'); await applySystemAction(['shell', 'settings', 'put', 'secure', 'default_input_method', selectedKeyboard], 'Teclado predeterminado actualizado'); }}>Establecer como predeterminado</button>
+        </div>
+      </section>
+    </div>}
   </div>;
 
   const mirroring = <div className="mirror-page">
@@ -714,12 +1003,10 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
   const settings = <div className="work-grid">
     <Panel title="Apariencia"><div className="button-row"><button className={theme === 'light' ? 'primary' : ''} onClick={() => setTheme('light')}>Claro</button><button className={theme === 'dark' ? 'primary' : ''} onClick={() => setTheme('dark')}>Oscuro</button></div><label className="settings-select">Idioma<select value={language} onChange={event => setLanguage(event.target.value as 'es' | 'en')}><option value="es">Español</option><option value="en">English</option></select></label></Panel>
-    <Panel title="Conexión inalámbrica"><form className="form-row" onSubmit={e => { e.preventDefault(); host(['connect', String(new FormData(e.currentTarget).get('endpoint'))]); }}><input name="endpoint" placeholder="192.168.1.10:5555" /><button>Conectar</button></form><form className="form-row" onSubmit={e => { e.preventDefault(); const d = new FormData(e.currentTarget); host(['pair', String(d.get('endpoint')), String(d.get('code'))]); }}><input name="endpoint" placeholder="IP:puerto" /><input name="code" placeholder="Código" /><button>Emparejar</button></form></Panel>
-    <Panel title="ADB"><div className="tool-status"><strong>{tools?.adb.available ? 'Disponible' : 'No instalado'}</strong><span>Origen: {tools?.adb.source || '-'}</span><span>Versión: {tools?.adb.version || '-'}</span></div><div className="form-stack"><input value={adbPath} onChange={event => setAdbPath(event.target.value)} placeholder="Ruta a adb.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('adb', adbPath)}>Guardar ruta</button><button onClick={() => saveToolPath('adb', '')}>Detección automática</button><button className="primary" onClick={() => installTool('adb')}>{tools?.adb.available ? 'Actualizar ADB' : 'Instalar ADB'}</button></div></div><pre>{toolInfo || 'Consultando ADB...'}</pre></Panel>
-    <Panel title="scrcpy"><div className="tool-status"><strong>{tools?.scrcpy.available ? 'Disponible' : 'No instalado'}</strong><span>Origen: {tools?.scrcpy.source || '-'}</span><span>Versión: {tools?.scrcpy.version || '-'}</span></div><div className="form-stack"><input value={scrcpyPath} onChange={event => setScrcpyPath(event.target.value)} placeholder="Ruta a scrcpy.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('scrcpy', scrcpyPath)}>Guardar ruta</button><button onClick={() => saveToolPath('scrcpy', '')}>Detección automática</button><button className="primary" onClick={() => installTool('scrcpy')}>{tools?.scrcpy.available ? 'Actualizar scrcpy' : 'Instalar scrcpy'}</button></div></div></Panel>
+    <Panel title="ADB"><div className="tool-status"><strong>{!tools?.adb.available ? 'No instalado' : tools.adb.update_available ? 'Actualización disponible' : toolUpdatesChecking ? 'Comprobando actualización...' : tools.adb.update_checked ? 'Actualizado' : 'No se pudo comprobar'}</strong><span>Origen: {tools?.adb.source || '-'}</span><span>Versión instalada: {tools?.adb.version || '-'}</span>{tools?.adb.latest_version && <span>Última versión: {tools.adb.latest_version}</span>}</div><div className="form-stack"><input value={adbPath} onChange={event => setAdbPath(event.target.value)} placeholder="Ruta a adb.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('adb', adbPath)}>Guardar ruta</button><button onClick={() => saveToolPath('adb', '')}>Detección automática</button>{!tools?.adb.available && <button className="primary" onClick={() => installTool('adb')}>Instalar ADB</button>}{tools?.adb.update_available && <button className="primary" onClick={() => installTool('adb')}>Actualizar ADB</button>}</div></div></Panel>
+    <Panel title="scrcpy"><div className="tool-status"><strong>{!tools?.scrcpy.available ? 'No instalado' : tools.scrcpy.update_available ? 'Actualización disponible' : toolUpdatesChecking ? 'Comprobando actualización...' : tools.scrcpy.update_checked ? 'Actualizado' : 'No se pudo comprobar'}</strong><span>Origen: {tools?.scrcpy.source || '-'}</span><span>Versión instalada: {tools?.scrcpy.version || '-'}</span>{tools?.scrcpy.latest_version && <span>Última versión: {tools.scrcpy.latest_version}</span>}</div><div className="form-stack"><input value={scrcpyPath} onChange={event => setScrcpyPath(event.target.value)} placeholder="Ruta a scrcpy.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('scrcpy', scrcpyPath)}>Guardar ruta</button><button onClick={() => saveToolPath('scrcpy', '')}>Detección automática</button>{!tools?.scrcpy.available && <button className="primary" onClick={() => installTool('scrcpy')}>Instalar scrcpy</button>}{tools?.scrcpy.update_available && <button className="primary" onClick={() => installTool('scrcpy')}>Actualizar scrcpy</button>}</div></div></Panel>
     <Panel title="Java para AAB y APKS"><div className="tool-status"><strong>{tools?.java.available ? 'Compatible' : tools?.java.path ? 'Versión no compatible' : 'No detectado'}</strong><span>Origen: {tools?.java.source || '-'}</span><span>Versión: {tools?.java.version || '-'}</span></div><div className="form-stack"><p className="muted">Necesario para procesar archivos .aab y .apks con bundletool. Indica la ruta a java.exe, a la carpeta bin o al directorio de Java.</p><input value={javaPath} onChange={event => setJavaPath(event.target.value)} placeholder="Ruta a java.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('java', javaPath)}>Guardar ruta</button><button onClick={() => saveToolPath('java', '')}>Detección automática</button><a className="settings-link-button" href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">Descargar Temurin LTS</a></div><p className="settings-recommendation">Se recomienda instalar la última versión LTS de Eclipse Temurin. Java 11 o superior es obligatorio para bundletool.</p></div></Panel>
     <Panel title="Caché de aplicaciones"><p className="muted">Solo almacena localmente los nombres e iconos obtenidos de las aplicaciones.</p><div className="button-row settings-cache-actions"><button className="danger" onClick={clearApplicationCache}>Borrar caché de nombres e iconos</button></div></Panel>
-    <Panel title="Herramientas de red"><button onClick={() => host(['mdns', 'services'])}>Descubrir dispositivos Wi-Fi</button></Panel>
   </div>;
 
   const pages: Record<WorkTab, ReactNode> = { display, mirroring, control, apps: appsPage, files: filesPage, system, settings };

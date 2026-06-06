@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -18,6 +19,9 @@ pub struct ToolStatus {
     pub name: String,
     pub available: bool,
     pub version: String,
+    pub latest_version: String,
+    pub update_checked: bool,
+    pub update_available: bool,
     pub path: String,
     pub source: String,
 }
@@ -309,6 +313,9 @@ fn status_for(tool: &str) -> ToolStatus {
             .as_ref()
             .map(|value| version_for(tool, value))
             .unwrap_or_else(|| "-".to_string()),
+        latest_version: String::new(),
+        update_checked: false,
+        update_available: false,
         path: path
             .map(|value| value.to_string_lossy().to_string())
             .unwrap_or_default(),
@@ -322,6 +329,96 @@ pub fn tools_status() -> ToolsStatus {
         scrcpy: status_for("scrcpy"),
         java: status_for("java"),
     }
+}
+
+fn numeric_version(value: &str) -> Vec<u64> {
+    Regex::new(r"\d+(?:\.\d+)+")
+        .ok()
+        .and_then(|pattern| pattern.find(value))
+        .map(|matched| {
+            matched
+                .as_str()
+                .split('.')
+                .filter_map(|part| part.parse::<u64>().ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn is_newer_version(latest: &str, installed: &str) -> bool {
+    let mut latest_parts = numeric_version(latest);
+    let mut installed_parts = numeric_version(installed);
+    let length = latest_parts.len().max(installed_parts.len());
+    latest_parts.resize(length, 0);
+    installed_parts.resize(length, 0);
+    !latest_parts.is_empty() && latest_parts > installed_parts
+}
+
+async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> {
+    let repository = client
+        .get("https://dl.google.com/android/repository/repository2-1.xml")
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .text()
+        .await
+        .map_err(|error| error.to_string())?;
+    let package = Regex::new(
+        r#"(?s)<remotePackage path="platform-tools".*?<revision>\s*<major>(\d+)</major>(?:\s*<minor>(\d+)</minor>)?(?:\s*<micro>(\d+)</micro>)?"#,
+    )
+    .map_err(|error| error.to_string())?
+    .captures(&repository)
+    .ok_or_else(|| "No se pudo leer la última versión de Platform Tools".to_string())?;
+    Ok(format!(
+        "{}.{}.{}",
+        package.get(1).map_or("0", |value| value.as_str()),
+        package.get(2).map_or("0", |value| value.as_str()),
+        package.get(3).map_or("0", |value| value.as_str())
+    ))
+}
+
+async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, String> {
+    let release = client
+        .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
+        .header(reqwest::header::USER_AGENT, "ADB-Manager")
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())?;
+    release
+        .get("tag_name")
+        .and_then(serde_json::Value::as_str)
+        .map(|value| value.trim_start_matches('v').to_string())
+        .ok_or_else(|| "No se pudo leer la última versión de scrcpy".to_string())
+}
+
+pub async fn tools_status_with_updates() -> ToolsStatus {
+    let mut status = tools_status();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(12))
+        .build()
+        .unwrap_or_default();
+    let (adb_latest, scrcpy_latest) =
+        tokio::join!(latest_adb_version(&client), latest_scrcpy_version(&client));
+    if let Ok(latest) = adb_latest {
+        status.adb.update_checked = true;
+        status.adb.update_available =
+            status.adb.available && is_newer_version(&latest, &status.adb.version);
+        status.adb.latest_version = latest;
+    }
+    if let Ok(latest) = scrcpy_latest {
+        status.scrcpy.update_checked = true;
+        status.scrcpy.update_available =
+            status.scrcpy.available && is_newer_version(&latest, &status.scrcpy.version);
+        status.scrcpy.latest_version = latest;
+    }
+    status
 }
 
 fn run_powershell(script: &str) -> Result<(), String> {
@@ -373,4 +470,17 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
     )
     .map_err(|error| error.to_string())?;
     Ok(tools_status())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_newer_version;
+
+    #[test]
+    fn compares_tool_versions_numerically() {
+        assert!(is_newer_version("37.0.1", "Version 37.0.0-14910828"));
+        assert!(is_newer_version("4.1", "scrcpy 4.0"));
+        assert!(!is_newer_version("4.0", "scrcpy 4.0"));
+        assert!(!is_newer_version("36.0.2", "Version 37.0.0-14910828"));
+    }
 }

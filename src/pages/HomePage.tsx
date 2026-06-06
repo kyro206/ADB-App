@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { useDevices, DeviceDetails } from '../context/DeviceContext';
 import { useI18n } from '../i18n';
 import './HomePage.css';
@@ -89,9 +90,12 @@ function MetricCard({ title, value, total, percent, color }: MetricCardProps) {
 
 export function HomePage() {
   const { t } = useI18n();
-  const { selectedDevice, deviceDetails } = useDevices();
+  const { selectedDevice, deviceDetails, refreshDevices } = useDevices();
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [powerMenuOpen, setPowerMenuOpen] = useState(false);
+  const [powerBusy, setPowerBusy] = useState(false);
+  const [powerStatus, setPowerStatus] = useState('');
 
   const captureScreenshot = useCallback(async () => {
     if (!selectedDevice || selectedDevice.state !== 'device') return;
@@ -105,6 +109,36 @@ export function HomePage() {
       setCapturing(false);
     }
   }, [selectedDevice]);
+
+  const performPowerAction = async (label: string, args: string[], exitHint = '') => {
+    if (!selectedDevice || powerBusy) return;
+    if (exitHint) {
+      const accepted = await confirm(
+        `El dispositivo se reiniciará en ${label}.\n\nCómo salir:\n${exitHint}\n\n¿Seguro que quieres continuar?`,
+        { title: `Reiniciar en ${label}`, kind: 'warning', okLabel: 'Reiniciar', cancelLabel: 'Cancelar' },
+      );
+      if (!accepted) return;
+    } else if (label !== 'apagar pantalla') {
+      const accepted = await confirm(
+        `Se ejecutará "${label}" sobre el dispositivo ${selectedDevice.serial}.\n\n¿Quieres continuar?`,
+        { title: 'Confirmar acción de energía', kind: 'warning', okLabel: 'Continuar', cancelLabel: 'Cancelar' },
+      );
+      if (!accepted) return;
+    }
+    setPowerBusy(true);
+    setPowerMenuOpen(false);
+    setPowerStatus(`Enviando orden: ${label}...`);
+    try {
+      await invoke<string>('run_device_action', { serial: selectedDevice.serial, args });
+      setPowerStatus(`Orden enviada: ${label}`);
+      window.setTimeout(() => refreshDevices(), 4000);
+      window.setTimeout(() => refreshDevices(), 12000);
+    } catch (error) {
+      setPowerStatus(String(error));
+    } finally {
+      setPowerBusy(false);
+    }
+  };
 
   const hasDevice = !!deviceDetails;
   const dd = deviceDetails;
@@ -135,6 +169,25 @@ export function HomePage() {
               </span>
             </div>
           </div>
+          <div className="hero-card__power">
+            <button className="hero-power-button" disabled={!selectedDevice || powerBusy} onClick={() => setPowerMenuOpen(current => !current)} title="Opciones de energía">⏻</button>
+            {powerMenuOpen && <div className="power-menu">
+              <header><div><b>Opciones de energía</b><span>{selectedDevice?.model || selectedDevice?.serial}</span></div><button onClick={() => setPowerMenuOpen(false)}>×</button></header>
+              <div className="power-menu__quick">
+                <button onClick={() => performPowerAction('apagar pantalla', ['shell', 'input', 'keyevent', 'KEYCODE_SLEEP'])}><b>◐</b><span>Apagar pantalla</span></button>
+                <button onClick={() => performPowerAction('reiniciar Android', ['reboot'])}><b>↻</b><span>Reiniciar</span></button>
+                <button className="danger" onClick={() => performPowerAction('apagar dispositivo', ['shell', 'reboot', '-p'])}><b>⏻</b><span>Apagar</span></button>
+              </div>
+              <p>Modos de arranque avanzados</p>
+              <div className="power-menu__advanced">
+                <button onClick={() => performPowerAction('Recovery', ['reboot', 'recovery'], 'Selecciona "Reboot system now" en el menú Recovery para volver a Android.')}><span><b>Recovery</b><small>Recuperación y mantenimiento</small></span><i>›</i></button>
+                <button onClick={() => performPowerAction('Bootloader', ['reboot', 'bootloader'], 'Conecta el dispositivo al PC y ejecuta "fastboot reboot", o elige Start con los botones físicos.')}><span><b>Bootloader</b><small>Gestor de arranque</small></span><i>›</i></button>
+                <button onClick={() => performPowerAction('Fastbootd', ['reboot', 'fastboot'], 'Selecciona "Reboot system now" o ejecuta "fastboot reboot" desde el PC.')}><span><b>Fastbootd</b><small>Fastboot en espacio de usuario</small></span><i>›</i></button>
+                <button onClick={() => performPowerAction('modo descarga', ['reboot', 'download'], 'Normalmente debes mantener Power y Volumen abajo varios segundos. La combinación exacta depende del fabricante.')}><span><b>Modo descarga</b><small>Flasheo específico del fabricante</small></span><i>›</i></button>
+              </div>
+            </div>}
+          </div>
+          {powerStatus && <span className="hero-power-status">{powerStatus}</span>}
         </div>
 
         {/* Facts Grid */}
