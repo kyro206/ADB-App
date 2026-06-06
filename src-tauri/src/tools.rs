@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -433,42 +434,225 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
     status
 }
 
-fn run_powershell(script: &str) -> Result<(), String> {
-    let status = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            script,
-        ])
-        .status()
-        .map_err(|error| format!("Could not start PowerShell: {error}"))?;
-    status
-        .success()
-        .then_some(())
-        .ok_or_else(|| "Tool download or extraction failed".to_string())
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ArchiveKind {
+    Zip,
+    TarGz,
+}
+
+fn adb_download() -> Result<(&'static str, ArchiveKind), String> {
+    adb_download_for(env::consts::OS)
+}
+
+fn adb_download_for(os: &str) -> Result<(&'static str, ArchiveKind), String> {
+    Ok((
+        match os {
+            "windows" => {
+                "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
+            }
+            "macos" => "https://dl.google.com/android/repository/platform-tools-latest-darwin.zip",
+            "linux" => "https://dl.google.com/android/repository/platform-tools-latest-linux.zip",
+            _ => return Err("ADB no ofrece Platform Tools para este sistema operativo".to_string()),
+        },
+        ArchiveKind::Zip,
+    ))
+}
+
+fn scrcpy_asset_pattern() -> Result<(String, ArchiveKind), String> {
+    scrcpy_asset_pattern_for(env::consts::OS, env::consts::ARCH)
+}
+
+fn scrcpy_asset_pattern_for(os: &str, architecture: &str) -> Result<(String, ArchiveKind), String> {
+    match (os, architecture) {
+        ("windows", "x86_64") => Ok(("scrcpy-win64-".to_string(), ArchiveKind::Zip)),
+        ("windows", "x86") => Ok(("scrcpy-win32-".to_string(), ArchiveKind::Zip)),
+        ("linux", "x86_64") => Ok(("scrcpy-linux-x86_64-".to_string(), ArchiveKind::TarGz)),
+        ("macos", "x86_64") => Ok(("scrcpy-macos-x86_64-".to_string(), ArchiveKind::TarGz)),
+        ("macos", "aarch64") => Ok(("scrcpy-macos-aarch64-".to_string(), ArchiveKind::TarGz)),
+        _ => Err(format!(
+            "scrcpy no publica un binario gestionado para {} {}. Instálalo con el gestor de paquetes del sistema y usa Detección automática.",
+            os,
+            architecture
+        )),
+    }
+}
+
+fn latest_scrcpy_asset(
+    client: &reqwest::blocking::Client,
+) -> Result<(String, ArchiveKind), String> {
+    let (pattern, kind) = scrcpy_asset_pattern()?;
+    let release = client
+        .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
+        .header(reqwest::header::USER_AGENT, "ADB-Manager")
+        .send()
+        .map_err(|error| format!("No se pudo consultar scrcpy: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("GitHub rechazó la consulta de scrcpy: {error}"))?
+        .json::<serde_json::Value>()
+        .map_err(|error| format!("No se pudo leer la respuesta de scrcpy: {error}"))?;
+    release
+        .get("assets")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|assets| {
+            assets.iter().find_map(|asset| {
+                let name = asset.get("name")?.as_str()?;
+                let extension_matches = match kind {
+                    ArchiveKind::Zip => name.ends_with(".zip"),
+                    ArchiveKind::TarGz => name.ends_with(".tar.gz"),
+                };
+                (name.starts_with(&pattern) && extension_matches)
+                    .then(|| {
+                        asset
+                            .get("browser_download_url")?
+                            .as_str()
+                            .map(str::to_string)
+                    })
+                    .flatten()
+            })
+        })
+        .map(|url| (url, kind))
+        .ok_or_else(|| {
+            format!(
+                "La última versión de scrcpy no incluye un archivo compatible con {} {}",
+                env::consts::OS,
+                env::consts::ARCH
+            )
+        })
+}
+
+fn download_bytes(client: &reqwest::blocking::Client, url: &str) -> Result<Vec<u8>, String> {
+    client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, "ADB-Manager")
+        .send()
+        .map_err(|error| format!("No se pudo descargar la herramienta: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("La descarga de la herramienta falló: {error}"))?
+        .bytes()
+        .map(|bytes| bytes.to_vec())
+        .map_err(|error| format!("No se pudo leer la descarga: {error}"))
+}
+
+fn extract_archive(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination).map_err(|error| error.to_string())?;
+    let archive_path = destination.with_extension(match kind {
+        ArchiveKind::Zip => "zip",
+        ArchiveKind::TarGz => "tar.gz",
+    });
+    fs::write(&archive_path, bytes).map_err(|error| error.to_string())?;
+
+    let status = if cfg!(windows) {
+        if kind != ArchiveKind::Zip {
+            return Err("Este formato de herramienta no se puede extraer en Windows".to_string());
+        }
+        Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force",
+            ])
+            .arg(&archive_path)
+            .arg(destination)
+            .status()
+    } else {
+        match kind {
+            ArchiveKind::Zip => Command::new("unzip")
+                .arg("-q")
+                .arg(&archive_path)
+                .arg("-d")
+                .arg(destination)
+                .status(),
+            ArchiveKind::TarGz => Command::new("tar")
+                .arg("-xzf")
+                .arg(&archive_path)
+                .arg("-C")
+                .arg(destination)
+                .status(),
+        }
+    }
+    .map_err(|error| format!("No se pudo iniciar el extractor del sistema: {error}"))?;
+    let _ = fs::remove_file(&archive_path);
+    if status.success() {
+        Ok(())
+    } else {
+        Err("El extractor del sistema no pudo abrir la descarga".to_string())
+    }
+}
+
+fn find_file(directory: &Path, name: &str) -> Option<PathBuf> {
+    let entries = fs::read_dir(directory).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.file_name().is_some_and(|value| value == name) {
+            return Some(path);
+        }
+        if path.is_dir() {
+            if let Some(found) = find_file(&path, name) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}
+
+fn remove_directory_if_present(path: &Path) -> Result<(), String> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn install_archive(tool: &str, bytes: &[u8], kind: ArchiveKind) -> Result<(), String> {
+    let target = managed_dir(tool);
+    let parent = target
+        .parent()
+        .ok_or_else(|| "No se pudo preparar la carpeta de la herramienta".to_string())?;
+    let staging = parent.join("staging");
+    remove_directory_if_present(&staging)?;
+    fs::create_dir_all(&staging).map_err(|error| error.to_string())?;
+    extract_archive(bytes, kind, &staging)?;
+
+    let executable = find_file(&staging, &executable_name(tool)).ok_or_else(|| {
+        format!(
+            "El archivo descargado no contiene {}",
+            executable_name(tool)
+        )
+    })?;
+    let extracted_root = if tool == "adb" {
+        staging.clone()
+    } else {
+        executable
+            .parent()
+            .ok_or_else(|| "La herramienta extraída no tiene una carpeta válida".to_string())?
+            .to_path_buf()
+    };
+
+    remove_directory_if_present(&target)?;
+    fs::rename(&extracted_root, &target)
+        .map_err(|error| format!("No se pudo activar la herramienta descargada: {error}"))?;
+    if staging != target {
+        remove_directory_if_present(&staging)?;
+    }
+    Ok(())
 }
 
 pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
-    if !cfg!(windows) {
-        return Err("Managed installation is currently available on Windows only".to_string());
-    }
-    let target = managed_dir(tool);
-    fs::create_dir_all(target.parent().unwrap_or(&target)).map_err(|error| error.to_string())?;
-    let escaped_target = target.to_string_lossy().replace('\'', "''");
-
-    let script = match tool {
-        "adb" => format!(
-            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $zip=Join-Path $env:TEMP 'adb-manager-platform-tools.zip'; Invoke-WebRequest -UseBasicParsing 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip' -OutFile $zip; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Expand-Archive $zip $target -Force; Remove-Item $zip -Force"
-        ),
-        "scrcpy" => format!(
-            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-Manager'}} 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'; $asset=$release.assets|Where-Object{{$_.name -like 'scrcpy-win64-*.zip'}}|Select-Object -First 1; if(-not $asset){{throw 'No compatible scrcpy release found'}}; $zip=Join-Path $env:TEMP 'adb-manager-scrcpy.zip'; Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $zip; $temp=Join-Path $env:TEMP 'adb-manager-scrcpy-extract'; if(Test-Path $temp){{Remove-Item $temp -Recurse -Force}}; Expand-Archive $zip $temp -Force; $root=Get-ChildItem $temp -Directory|Select-Object -First 1; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Copy-Item (Join-Path $root.FullName '*') $target -Recurse -Force; Remove-Item $zip -Force; Remove-Item $temp -Recurse -Force"
-        ),
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let (url, kind) = match tool {
+        "adb" => {
+            let (url, kind) = adb_download()?;
+            (url.to_string(), kind)
+        }
+        "scrcpy" => latest_scrcpy_asset(&client)?,
         _ => return Err(format!("Unknown tool: {tool}")),
     };
-    run_powershell(&script)?;
+    let bytes = download_bytes(&client, &url)?;
+    install_archive(tool, &bytes, kind)?;
     let mut config = read_config();
     if tool == "adb" {
         config.adb_path.clear();
@@ -486,7 +670,10 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{adb_platform_tools_version, is_newer_version};
+    use super::{
+        adb_download_for, adb_platform_tools_version, is_newer_version, scrcpy_asset_pattern_for,
+        ArchiveKind,
+    };
 
     #[test]
     fn compares_tool_versions_numerically() {
@@ -503,5 +690,40 @@ mod tests {
             adb_platform_tools_version(output).as_deref(),
             Some("37.0.0")
         );
+    }
+
+    #[test]
+    fn selects_adb_archives_for_all_supported_platforms() {
+        for (os, suffix) in [
+            ("windows", "windows.zip"),
+            ("macos", "darwin.zip"),
+            ("linux", "linux.zip"),
+        ] {
+            let (url, kind) = adb_download_for(os).expect("desktop platform should support adb");
+            assert!(url.ends_with(suffix));
+            assert_eq!(kind, ArchiveKind::Zip);
+        }
+        assert!(adb_download_for("freebsd").is_err());
+    }
+
+    #[test]
+    fn selects_scrcpy_archives_for_supported_desktop_targets() {
+        assert_eq!(
+            scrcpy_asset_pattern_for("windows", "x86_64"),
+            Ok(("scrcpy-win64-".to_string(), ArchiveKind::Zip))
+        );
+        assert_eq!(
+            scrcpy_asset_pattern_for("linux", "x86_64"),
+            Ok(("scrcpy-linux-x86_64-".to_string(), ArchiveKind::TarGz))
+        );
+        assert_eq!(
+            scrcpy_asset_pattern_for("macos", "x86_64"),
+            Ok(("scrcpy-macos-x86_64-".to_string(), ArchiveKind::TarGz))
+        );
+        assert_eq!(
+            scrcpy_asset_pattern_for("macos", "aarch64"),
+            Ok(("scrcpy-macos-aarch64-".to_string(), ArchiveKind::TarGz))
+        );
+        assert!(scrcpy_asset_pattern_for("linux", "aarch64").is_err());
     }
 }
