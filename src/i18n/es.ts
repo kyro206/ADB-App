@@ -1,6 +1,6 @@
 export const es: Record<string, string> = {
   'app.name': 'ADB Manager',
-  'app.version': '0.1.0',
+  'app.version': '1.0.0',
 
   'nav.home': 'Inicio',
   'nav.display': 'Pantalla',

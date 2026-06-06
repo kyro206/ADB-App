@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ADB Manager",
-  "version": "0.1.0",
-  "identifier": "com.sleepy.adb.app",
+  "productName": "ADB App",
+  "version": "1.0.0",
+  "identifier": "com.sleepy.adb-app",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "ADB Manager",
+        "title": "ADB App",
         "width": 1180,
         "height": 760,
         "minWidth": 920,

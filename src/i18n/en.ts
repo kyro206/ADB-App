@@ -1,6 +1,6 @@
 export const en = {
-  'app.name': 'ADB Manager',
-  'app.version': '0.1.0',
+  'app.name': 'ADB App',
+  'app.version': '1.0.0',
 
   // Navigation
   'nav.home': 'Overview',

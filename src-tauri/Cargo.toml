@@ -1,7 +1,7 @@
 [package]
 name = "adb-app"
-version = "0.1.0"
-description = "ADB Manager - Tauri App"
+version = "1.0.0"
+description = "ADB App is a visual manager for the Android Debug Bridge (ADB)"
 authors = ["you"]
 edition = "2021"
 

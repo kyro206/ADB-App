@@ -116,7 +116,7 @@ fn package_set(output: &str) -> HashSet<String> {
 fn aapt2_path() -> Option<PathBuf> {
     let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
     let managed = PathBuf::from(home)
-        .join(".adbmanager")
+        .join(".adbapp")
         .join("tools")
         .join("aapt2")
         .join("managed")
@@ -132,7 +132,7 @@ fn app_summary_cache_path(package_name: &str, apk_path: &str) -> PathBuf {
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
         .unwrap_or_else(std::env::temp_dir);
-    root.join("ADB Manager")
+    root.join("ADB App")
         .join("app-icons")
         .join(format!("{:x}.json", hasher.finish()))
 }
@@ -142,7 +142,7 @@ fn application_cache_dir() -> PathBuf {
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
         .unwrap_or_else(std::env::temp_dir);
-    root.join("ADB Manager").join("app-icons")
+    root.join("ADB App").join("app-icons")
 }
 
 fn install_working_dir() -> Result<PathBuf, String> {
@@ -151,7 +151,7 @@ fn install_working_dir() -> Result<PathBuf, String> {
         .map_err(|error| error.to_string())?
         .as_millis();
     let path = std::env::temp_dir()
-        .join("adb-manager-installs")
+        .join("adb-app-installs")
         .join(nonce.to_string());
     fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     Ok(path)
@@ -183,7 +183,7 @@ fn bundletool_jar() -> Result<PathBuf, String> {
         .or_else(|| std::env::var_os("HOME"))
         .ok_or_else(|| "No se pudo localizar la carpeta del usuario".to_string())?;
     let directory = PathBuf::from(home)
-        .join(".adbmanager")
+        .join(".adbapp")
         .join("tools")
         .join("bundletool");
     let jar = directory.join("bundletool-all.jar");
@@ -193,7 +193,7 @@ fn bundletool_jar() -> Result<PathBuf, String> {
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     let escaped_directory = directory.to_string_lossy().replace('\'', "''");
     let script = format!(
-        "$ErrorActionPreference='Stop';$target='{escaped_directory}';$release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-Manager'}} 'https://api.github.com/repos/google/bundletool/releases/latest';$asset=$release.assets|Where-Object{{$_.name -like 'bundletool-all-*.jar'}}|Select-Object -First 1;if(-not $asset){{throw 'No se encontró bundletool'}};Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile (Join-Path $target 'bundletool-all.jar')"
+        "$ErrorActionPreference='Stop';$target='{escaped_directory}';$release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-App'}} 'https://api.github.com/repos/google/bundletool/releases/latest';$asset=$release.assets|Where-Object{{$_.name -like 'bundletool-all-*.jar'}}|Select-Object -First 1;if(-not $asset){{throw 'No se encontró bundletool'}};Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile (Join-Path $target 'bundletool-all.jar')"
     );
     run_local_command(
         Path::new("powershell.exe"),
@@ -1000,7 +1000,7 @@ pub async fn enrich_app_summary(
     }
     let aapt2 = aapt2_path().ok_or_else(|| "AAPT2 no está disponible".to_string())?;
     let safe_name = package_name.replace(|character: char| !character.is_ascii_alphanumeric(), "_");
-    let local_apk = std::env::temp_dir().join(format!("adb-manager-{safe_name}.apk"));
+    let local_apk = std::env::temp_dir().join(format!("adb-app-{safe_name}.apk"));
     let local_value = local_apk.to_string_lossy().to_string();
     let pull = adb::run_adb_for_serial(&serial, &["pull", &apk_path, &local_value]).await?;
     if !pull.ok() {

@@ -38,7 +38,7 @@ fn app_data_dir() -> PathBuf {
         .map(PathBuf::from)
         .or_else(|| env::var_os("HOME").map(PathBuf::from))
         .unwrap_or_else(env::temp_dir)
-        .join("ADB Manager")
+        .join("ADB App")
 }
 
 fn config_path() -> PathBuf {
@@ -382,7 +382,7 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
 async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, String> {
     let release = client
         .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
-        .header(reqwest::header::USER_AGENT, "ADB-Manager")
+        .header(reqwest::header::USER_AGENT, "ADB-App")
         .send()
         .await
         .map_err(|error| error.to_string())?
@@ -449,10 +449,10 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
 
     let script = match tool {
         "adb" => format!(
-            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $zip=Join-Path $env:TEMP 'adb-manager-platform-tools.zip'; Invoke-WebRequest -UseBasicParsing 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip' -OutFile $zip; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Expand-Archive $zip $target -Force; Remove-Item $zip -Force"
+            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $zip=Join-Path $env:TEMP 'adb-app-platform-tools.zip'; Invoke-WebRequest -UseBasicParsing 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip' -OutFile $zip; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Expand-Archive $zip $target -Force; Remove-Item $zip -Force"
         ),
         "scrcpy" => format!(
-            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-Manager'}} 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'; $asset=$release.assets|Where-Object{{$_.name -like 'scrcpy-win64-*.zip'}}|Select-Object -First 1; if(-not $asset){{throw 'No compatible scrcpy release found'}}; $zip=Join-Path $env:TEMP 'adb-manager-scrcpy.zip'; Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $zip; $temp=Join-Path $env:TEMP 'adb-manager-scrcpy-extract'; if(Test-Path $temp){{Remove-Item $temp -Recurse -Force}}; Expand-Archive $zip $temp -Force; $root=Get-ChildItem $temp -Directory|Select-Object -First 1; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Copy-Item (Join-Path $root.FullName '*') $target -Recurse -Force; Remove-Item $zip -Force; Remove-Item $temp -Recurse -Force"
+            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-App'}} 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'; $asset=$release.assets|Where-Object{{$_.name -like 'scrcpy-win64-*.zip'}}|Select-Object -First 1; if(-not $asset){{throw 'No compatible scrcpy release found'}}; $zip=Join-Path $env:TEMP 'adb-app-scrcpy.zip'; Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $zip; $temp=Join-Path $env:TEMP 'adb-app-scrcpy-extract'; if(Test-Path $temp){{Remove-Item $temp -Recurse -Force}}; Expand-Archive $zip $temp -Force; $root=Get-ChildItem $temp -Directory|Select-Object -First 1; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Copy-Item (Join-Path $root.FullName '*') $target -Recurse -Force; Remove-Item $zip -Force; Remove-Item $temp -Recurse -Force"
         ),
         _ => return Err(format!("Unknown tool: {tool}")),
     };
