@@ -19,3 +19,21 @@ pub async fn capture_screenshot(serial: String) -> Result<String, String> {
 
     Ok(STANDARD.encode(&bytes))
 }
+
+/// Save a previously captured base64 PNG to a path chosen by the user.
+#[tauri::command]
+pub async fn save_screenshot(path: String, png_base64: String) -> Result<String, String> {
+    let bytes = STANDARD
+        .decode(png_base64)
+        .map_err(|error| format!("Invalid screenshot data: {error}"))?;
+
+    if bytes.len() < 8 || &bytes[0..4] != b"\x89PNG" {
+        return Err("Invalid screenshot data received".to_string());
+    }
+
+    tokio::fs::write(&path, bytes)
+        .await
+        .map_err(|error| format!("Could not save screenshot: {error}"))?;
+
+    Ok(path)
+}

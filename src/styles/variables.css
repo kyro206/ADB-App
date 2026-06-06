@@ -35,8 +35,7 @@
   --transition-slow: 350ms ease;
 
   /* Sidebar */
-  --sidebar-width: 220px;
-  --sidebar-collapsed-width: 64px;
+  --sidebar-width: 112px;
   --topbar-height: 56px;
 
   /* Accent colors */
@@ -126,4 +125,36 @@
   --scrollbar-track: #eff3f9;
   --scrollbar-thumb: #cdd4df;
   --scrollbar-thumb-hover: #b0bac9;
+}
+
+/* Material Web consumes these system tokens inside each component shadow root. */
+[data-theme] {
+  color-scheme: dark;
+  --md-ref-typeface-brand: var(--font-family);
+  --md-ref-typeface-plain: var(--font-family);
+  --md-sys-color-primary: var(--primary);
+  --md-sys-color-on-primary: var(--on-primary);
+  --md-sys-color-primary-container: var(--primary-container);
+  --md-sys-color-on-primary-container: var(--on-primary-container);
+  --md-sys-color-secondary: var(--primary);
+  --md-sys-color-on-secondary: var(--on-primary);
+  --md-sys-color-secondary-container: var(--primary-container);
+  --md-sys-color-on-secondary-container: var(--on-primary-container);
+  --md-sys-color-surface: var(--surface);
+  --md-sys-color-surface-container-lowest: var(--surface-container-lowest);
+  --md-sys-color-surface-container-low: var(--surface-container-low);
+  --md-sys-color-surface-container: var(--surface-container);
+  --md-sys-color-surface-container-high: var(--surface-container-high);
+  --md-sys-color-surface-container-highest: var(--surface-container-highest);
+  --md-sys-color-on-surface: var(--on-surface);
+  --md-sys-color-on-surface-variant: var(--on-surface-variant);
+  --md-sys-color-outline: var(--outline);
+  --md-sys-color-outline-variant: var(--outline-variant);
+  --md-sys-color-error: var(--error);
+  --md-sys-color-on-error: var(--surface);
+  --md-sys-color-scrim: #000;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
 }

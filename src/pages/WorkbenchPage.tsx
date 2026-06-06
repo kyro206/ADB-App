@@ -822,29 +822,31 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       </>}
     </aside>
 
-    {installOpen && <div className="install-overlay" role="dialog" aria-modal="true" aria-label="Instalar aplicaciones">
-      <section className="install-dialog">
-        <header className="install-header"><div><span>APLICACIONES</span><h2>Instalar aplicaciones</h2><p>Selecciona paquetes APK o bundles para instalarlos en el dispositivo conectado.</p></div><button aria-label="Cerrar" disabled={installingApps} onClick={() => setInstallOpen(false)}>×</button></header>
-        <div className="install-scroll">
-          <section className="install-section">
-            <div className="install-section-title"><div><span>1</span><h3>Archivos seleccionados</h3></div><button className="primary" disabled={installingApps} onClick={chooseInstallFiles}>Elegir archivos</button></div>
-            {!installFiles.length ? <div className="install-empty">Todavía no has seleccionado ningún archivo para instalar.</div> : <div className="install-file-list">{installFiles.map(file => <div key={file}><span className="install-file-icon">APK</span><p><strong>{file.split(/[\\/]/).pop()}</strong><small>{file}</small></p><button disabled={installingApps} aria-label="Quitar archivo" onClick={() => setInstallFiles(current => current.filter(value => value !== file))}>×</button></div>)}</div>}
-          </section>
-          <section className="install-section">
-            <div className="install-section-title"><div><span>2</span><h3>Opciones de instalación</h3></div></div>
-            <div className="install-options">
-              <label><input type="checkbox" checked={installReplace} onChange={event => setInstallReplace(event.target.checked)} /><span><strong>Reemplazar si ya está instalada</strong><small>Conserva los datos existentes de la aplicación.</small></span></label>
-              <label><input type="checkbox" checked={installGrant} onChange={event => setInstallGrant(event.target.checked)} /><span><strong>Conceder permisos runtime</strong><small>Concede automáticamente los permisos solicitados.</small></span></label>
-              <label><input type="checkbox" checked={installTest} onChange={event => setInstallTest(event.target.checked)} /><span><strong>Permitir paquetes de prueba</strong><small>Admite APK marcadas como test-only.</small></span></label>
-              <label><input type="checkbox" checked={installBypass} onChange={event => setInstallBypass(event.target.checked)} /><span><strong>Omitir bloqueo de SDK antiguo</strong><small>Activa --bypass-low-target-sdk-block.</small></span></label>
-            </div>
-            <p className="install-note">Los formatos .aab y .apks se resuelven para el dispositivo mediante bundletool. Los archivos .apkm, .xapk y .zip se extraen e instalan usando sus APK internas.</p>
-          </section>
-          <section className="install-section install-result"><div className="install-section-title"><div><span>3</span><h3>Resultado de la instalación</h3></div></div><pre>{installResult || 'Selecciona los archivos y pulsa Instalar cuando quieras iniciar el proceso.'}</pre></section>
-        </div>
-        <footer className="install-footer"><button disabled={installingApps} onClick={() => setInstallOpen(false)}>Cerrar</button><button className="primary" disabled={!serial || !installFiles.length || installingApps} onClick={installSelectedApps}>{installingApps ? 'Instalando…' : `Instalar${installFiles.length ? ` (${installFiles.length})` : ''}`}</button></footer>
-      </section>
-    </div>}
+    {installOpen && <md-dialog className="install-material-dialog" open>
+      <div slot="headline">Instalar aplicaciones</div>
+      <div slot="content" className="install-material-content">
+        <p>Selecciona paquetes APK o bundles para instalarlos en el dispositivo conectado.</p>
+        <section>
+          <header><h3>Archivos seleccionados</h3><md-filled-button disabled={installingApps} onClick={chooseInstallFiles}>Elegir archivos</md-filled-button></header>
+          {!installFiles.length ? <p className="install-material-empty">Todavía no has seleccionado ningún archivo.</p> : <div className="install-material-files">{installFiles.map(file => <div key={file}><MaterialIcon name="android_package" /><p><strong>{file.split(/[\\/]/).pop()}</strong><small>{file}</small></p><md-icon-button disabled={installingApps} aria-label="Quitar archivo" onClick={() => setInstallFiles(current => current.filter(value => value !== file))}><MaterialIcon name="close" /></md-icon-button></div>)}</div>}
+        </section>
+        <md-divider />
+        <section>
+          <h3>Opciones de instalación</h3>
+          <div className="install-material-options">
+            {([
+              [installReplace, setInstallReplace, 'Reemplazar si ya está instalada', 'Conserva los datos existentes de la aplicación.'],
+              [installGrant, setInstallGrant, 'Conceder permisos runtime', 'Concede automáticamente los permisos solicitados.'],
+              [installTest, setInstallTest, 'Permitir paquetes de prueba', 'Admite APK marcadas como test-only.'],
+              [installBypass, setInstallBypass, 'Omitir bloqueo de SDK antiguo', 'Activa --bypass-low-target-sdk-block.'],
+            ] as const).map(([checked, setter, title, description]) => <label key={title}><md-checkbox checked={checked} onClick={() => setter(!checked)} /><span><strong>{title}</strong><small>{description}</small></span></label>)}
+          </div>
+        </section>
+        <md-divider />
+        <section><h3>Resultado de la instalación</h3><pre>{installResult || 'Selecciona los archivos y pulsa Instalar cuando quieras iniciar el proceso.'}</pre></section>
+      </div>
+      <div slot="actions"><md-text-button disabled={installingApps} onClick={() => setInstallOpen(false)}>Cerrar</md-text-button><md-filled-button disabled={!serial || !installFiles.length || installingApps} onClick={installSelectedApps}>{installingApps ? 'Instalando…' : `Instalar${installFiles.length ? ` (${installFiles.length})` : ''}`}</md-filled-button></div>
+    </md-dialog>}
   </div>;
 
   const selectFileEntry = (event: MouseEvent, file: FileEntry) => {

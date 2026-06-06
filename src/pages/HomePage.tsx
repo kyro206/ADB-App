@@ -1,91 +1,22 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { confirm } from '@tauri-apps/plugin-dialog';
-import { useDevices, DeviceDetails } from '../context/DeviceContext';
+import { confirm, save } from '@tauri-apps/plugin-dialog';
+import { useDevices, type DeviceDetails } from '../context/DeviceContext';
 import { useI18n } from '../i18n';
+import { MaterialIcon } from '../components/MaterialIcon';
 import './HomePage.css';
 
-function formatMemory(mb: number): string {
-  if (mb <= 0) return '-';
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
-  return `${mb} MB`;
+const formatMemory = (mb: number) => mb <= 0 ? '-' : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
+const formatStorage = (mb: number) => mb <= 0 ? '-' : mb >= 1024 * 1024 ? `${(mb / 1024 / 1024).toFixed(2)} TB` : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
+const primaryTitle = (details: DeviceDetails) => details.marketing_name !== '-' ? details.marketing_name : details.model !== '-' ? details.model : details.serial;
+const secondaryTitle = (details: DeviceDetails) => [details.manufacturer, details.soc, details.model].filter(value => value && value !== '-').join(' · ');
+
+function Surface({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <section className={`material-surface ${className}`}><md-elevation />{children}</section>;
 }
 
-function formatStorage(mb: number): string {
-  if (mb <= 0) return '-';
-  if (mb >= 1024 * 1024) return `${(mb / (1024 * 1024)).toFixed(2)} TB`;
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
-  return `${mb} MB`;
-}
-
-function getStateLabel(state: string, t: (key: string) => string): string {
-  const map: Record<string, string> = {
-    device: t('state.connected'),
-    connecting: t('state.connecting'),
-    unauthorized: t('state.unauthorized'),
-    offline: t('state.offline'),
-    recovery: t('state.recovery'),
-  };
-  return map[state] ?? t('state.unknown');
-}
-
-function getDeviceTypeLabel(type: string, t: (key: string) => string): string {
-  return t(`device.type.${type}`) || t('device.type.unknown');
-}
-
-function primaryTitle(details: DeviceDetails): string {
-  if (details.marketing_name && details.marketing_name !== '-') return details.marketing_name;
-  if (details.model && details.model !== '-') return details.model;
-  return details.serial;
-}
-
-function secondaryTitle(details: DeviceDetails): string {
-  const parts: string[] = [];
-  if (details.manufacturer && details.manufacturer !== '-') parts.push(details.manufacturer);
-  if (details.soc && details.soc !== '-') parts.push(details.soc);
-  if (details.model && details.model !== '-') parts.push(details.model);
-  return parts.length > 0 ? parts.join(' | ') : '';
-}
-
-interface FactCardProps {
-  label: string;
-  value: string;
-  wide?: boolean;
-}
-
-function FactCard({ label, value, wide }: FactCardProps) {
-  return (
-    <div className={`fact-card ${wide ? 'fact-card--wide' : ''}`}>
-      <span className="fact-card__label">{label}</span>
-      <span className="fact-card__value" title={value}>{value}</span>
-    </div>
-  );
-}
-
-interface MetricCardProps {
-  title: string;
-  value: string;
-  total: string;
-  percent: number;
-  color: string;
-}
-
-function MetricCard({ title, value, total, percent, color }: MetricCardProps) {
-  return (
-    <div className="metric-card">
-      <div className="metric-card__header">
-        <span className="metric-card__title">{title}</span>
-        <span className="metric-card__value">{value}</span>
-      </div>
-      <div className="metric-card__bar-track">
-        <div
-          className="metric-card__bar-fill"
-          style={{ width: `${Math.max(0, Math.min(100, percent))}%`, backgroundColor: color }}
-        />
-      </div>
-      <span className="metric-card__footer">Total: {total}</span>
-    </div>
-  );
+function Metric({ icon, title, value, total, progress }: { icon: string; title: string; value: string; total: string; progress: number }) {
+  return <Surface className="home-metric"><MaterialIcon name={icon} /><div><span>{title}</span><strong>{value}</strong><small>Total: {total}</small><md-linear-progress value={Math.max(0, Math.min(1, progress / 100))} /></div></Surface>;
 }
 
 export function HomePage() {
@@ -93,174 +24,88 @@ export function HomePage() {
   const { selectedDevice, deviceDetails, refreshDevices } = useDevices();
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
-  const [powerMenuOpen, setPowerMenuOpen] = useState(false);
+  const [savingScreenshot, setSavingScreenshot] = useState(false);
+  const [powerOpen, setPowerOpen] = useState(false);
   const [powerBusy, setPowerBusy] = useState(false);
   const [powerStatus, setPowerStatus] = useState('');
+  const dd = deviceDetails;
 
+  const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : t('common.noData');
   const captureScreenshot = useCallback(async () => {
     if (!selectedDevice || selectedDevice.state !== 'device') return;
     setCapturing(true);
-    try {
-      const base64: string = await invoke('capture_screenshot', { serial: selectedDevice.serial });
-      setScreenshot(`data:image/png;base64,${base64}`);
-    } catch (err) {
-      console.error('Screenshot failed:', err);
-    } finally {
-      setCapturing(false);
-    }
+    try { setScreenshot(`data:image/png;base64,${await invoke<string>('capture_screenshot', { serial: selectedDevice.serial })}`); }
+    finally { setCapturing(false); }
   }, [selectedDevice]);
-
+  const saveScreenshot = useCallback(async () => {
+    if (!screenshot || savingScreenshot) return;
+    const destination = await save({
+      title: t('home.saveCapture'),
+      defaultPath: `adb-captura-${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
+      filters: [{ name: 'Imagen PNG', extensions: ['png'] }],
+    });
+    if (!destination) return;
+    setSavingScreenshot(true);
+    try {
+      await invoke<string>('save_screenshot', { path: destination, pngBase64: screenshot.replace(/^data:image\/png;base64,/, '') });
+    } finally {
+      setSavingScreenshot(false);
+    }
+  }, [savingScreenshot, screenshot, t]);
   const performPowerAction = async (label: string, args: string[], exitHint = '') => {
     if (!selectedDevice || powerBusy) return;
-    if (exitHint) {
-      const accepted = await confirm(
-        `El dispositivo se reiniciará en ${label}.\n\nCómo salir:\n${exitHint}\n\n¿Seguro que quieres continuar?`,
-        { title: `Reiniciar en ${label}`, kind: 'warning', okLabel: 'Reiniciar', cancelLabel: 'Cancelar' },
-      );
-      if (!accepted) return;
-    } else if (label !== 'apagar pantalla') {
-      const accepted = await confirm(
-        `Se ejecutará "${label}" sobre el dispositivo ${selectedDevice.serial}.\n\n¿Quieres continuar?`,
-        { title: 'Confirmar acción de energía', kind: 'warning', okLabel: 'Continuar', cancelLabel: 'Cancelar' },
-      );
-      if (!accepted) return;
-    }
-    setPowerBusy(true);
-    setPowerMenuOpen(false);
-    setPowerStatus(`Enviando orden: ${label}...`);
-    try {
-      await invoke<string>('run_device_action', { serial: selectedDevice.serial, args });
-      setPowerStatus(`Orden enviada: ${label}`);
-      window.setTimeout(() => refreshDevices(), 4000);
-      window.setTimeout(() => refreshDevices(), 12000);
-    } catch (error) {
-      setPowerStatus(String(error));
-    } finally {
-      setPowerBusy(false);
-    }
+    if (label !== 'apagar pantalla' && !await confirm(`${label}${exitHint ? `\n\nCómo salir:\n${exitHint}` : ''}\n\n¿Quieres continuar?`, { title: 'Confirmar acción de energía', kind: 'warning', okLabel: 'Continuar', cancelLabel: 'Cancelar' })) return;
+    setPowerBusy(true); setPowerOpen(false); setPowerStatus(`Enviando orden: ${label}...`);
+    try { await invoke<string>('run_device_action', { serial: selectedDevice.serial, args }); setPowerStatus(`Orden enviada: ${label}`); window.setTimeout(refreshDevices, 4000); }
+    catch (error) { setPowerStatus(String(error)); }
+    finally { setPowerBusy(false); }
   };
 
-  const hasDevice = !!deviceDetails;
-  const dd = deviceDetails;
+  const facts = [
+    [t('home.field.state'), stateLabel], [t('home.field.deviceType'), dd ? t(`device.type.${dd.device_type}`) : '-'],
+    [t('home.field.model'), dd?.model || '-'], [t('home.field.manufacturer'), dd?.manufacturer || '-'],
+    [t('home.field.brand'), dd?.brand || '-'], [t('home.field.architecture'), dd?.architecture || '-'],
+    [t('home.field.product'), dd?.product_name || '-'], [t('home.field.codename'), dd?.codename || '-'],
+    [t('home.field.serial'), dd?.serial || '-'],
+  ];
 
-  return (
-    <div className="home-page">
-      <div className="home-page__summary">
-        {/* Hero */}
-        <div className="hero-card">
-          <div className="hero-card__text">
-            <h2 className="hero-card__title">
-              {hasDevice ? primaryTitle(dd!) : t('app.name')}
-            </h2>
-            <p className="hero-card__subtitle">
-              {hasDevice ? secondaryTitle(dd!) : t('home.summary.empty')}
-            </p>
-            <div className="hero-card__chips">
-              <span className="chip">
-                {hasDevice ? getStateLabel(dd!.state, t) : t('common.noData')}
-              </span>
-              <span className="chip">
-                {hasDevice
-                  ? dd!.api_level !== '-'
-                    ? `Android ${dd!.android_version} / API ${dd!.api_level}`
-                    : `Android ${dd!.android_version}`
-                  : t('common.noData')
-                }
-              </span>
-            </div>
-          </div>
-          <div className="hero-card__power">
-            <button className="hero-power-button" disabled={!selectedDevice || powerBusy} onClick={() => setPowerMenuOpen(current => !current)} title="Opciones de energía">⏻</button>
-            {powerMenuOpen && <div className="power-menu">
-              <header><div><b>Opciones de energía</b><span>{selectedDevice?.model || selectedDevice?.serial}</span></div><button onClick={() => setPowerMenuOpen(false)}>×</button></header>
-              <div className="power-menu__quick">
-                <button onClick={() => performPowerAction('apagar pantalla', ['shell', 'input', 'keyevent', 'KEYCODE_SLEEP'])}><b>◐</b><span>Apagar pantalla</span></button>
-                <button onClick={() => performPowerAction('reiniciar Android', ['reboot'])}><b>↻</b><span>Reiniciar</span></button>
-                <button className="danger" onClick={() => performPowerAction('apagar dispositivo', ['shell', 'reboot', '-p'])}><b>⏻</b><span>Apagar</span></button>
-              </div>
-              <p>Modos de arranque avanzados</p>
-              <div className="power-menu__advanced">
-                <button onClick={() => performPowerAction('Recovery', ['reboot', 'recovery'], 'Selecciona "Reboot system now" en el menú Recovery para volver a Android.')}><span><b>Recovery</b><small>Recuperación y mantenimiento</small></span><i>›</i></button>
-                <button onClick={() => performPowerAction('Bootloader', ['reboot', 'bootloader'], 'Conecta el dispositivo al PC y ejecuta "fastboot reboot", o elige Start con los botones físicos.')}><span><b>Bootloader</b><small>Gestor de arranque</small></span><i>›</i></button>
-                <button onClick={() => performPowerAction('Fastbootd', ['reboot', 'fastboot'], 'Selecciona "Reboot system now" o ejecuta "fastboot reboot" desde el PC.')}><span><b>Fastbootd</b><small>Fastboot en espacio de usuario</small></span><i>›</i></button>
-                <button onClick={() => performPowerAction('modo descarga', ['reboot', 'download'], 'Normalmente debes mantener Power y Volumen abajo varios segundos. La combinación exacta depende del fabricante.')}><span><b>Modo descarga</b><small>Flasheo específico del fabricante</small></span><i>›</i></button>
-              </div>
-            </div>}
-          </div>
-          {powerStatus && <span className="hero-power-status">{powerStatus}</span>}
+  return <main className="home-material">
+    <div className="home-material__content">
+      <Surface className="home-hero">
+        <div><span className="home-overline">DISPOSITIVO ACTUAL</span><h2>{dd ? primaryTitle(dd) : t('app.name')}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
+          <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
         </div>
+        <div className="home-hero__actions"><md-filled-button disabled={!selectedDevice || powerBusy} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /> Opciones de energía</md-filled-button></div>
+        {powerStatus && <small className="home-power-status">{powerStatus}</small>}
+      </Surface>
 
-        {/* Facts Grid */}
-        <div className="facts-grid">
-          <FactCard label={t('home.field.state')} value={hasDevice ? getStateLabel(dd!.state, t) : '-'} />
-          <FactCard label={t('home.field.deviceType')} value={hasDevice ? getDeviceTypeLabel(dd!.device_type, t) : '-'} />
-          <FactCard label={t('home.field.battery')} value={hasDevice && dd!.battery_level_percent >= 0 ? `${dd!.battery_level_percent}%` : '-'} />
-          <FactCard label={t('home.field.model')} value={dd?.model ?? '-'} />
-          <FactCard label={t('home.field.manufacturer')} value={dd?.manufacturer ?? '-'} />
-          <FactCard label={t('home.field.brand')} value={dd?.brand ?? '-'} />
-          <FactCard label={t('home.field.architecture')} value={dd?.architecture ?? '-'} />
-          <FactCard label={t('home.field.product')} value={dd?.product_name ?? '-'} />
-          <FactCard label={t('home.field.codename')} value={dd?.codename ?? '-'} />
-          <FactCard label={t('home.field.serial')} value={dd?.serial ?? '-'} wide />
-        </div>
-
-        {/* Metrics */}
-        <div className="metrics-grid">
-          <MetricCard
-            title={t('home.field.battery')}
-            value={dd?.battery_level_percent != null && dd.battery_level_percent >= 0 ? `${dd.battery_level_percent}%` : '-'}
-            total="100%"
-            percent={dd?.battery_level_percent ?? 0}
-            color="rgb(40, 205, 98)"
-          />
-          <MetricCard
-            title={t('home.ram.inUse')}
-            value={dd ? formatMemory(dd.used_ram_mb) : '-'}
-            total={dd ? formatMemory(dd.total_ram_mb) : '-'}
-            percent={dd && dd.total_ram_mb > 0 ? Math.round((dd.used_ram_mb * 100) / dd.total_ram_mb) : 0}
-            color="rgb(40, 205, 98)"
-          />
-          <MetricCard
-            title={t('home.storage.inUse')}
-            value={dd ? formatStorage(dd.used_storage_mb) : '-'}
-            total={dd ? formatStorage(dd.total_storage_mb) : '-'}
-            percent={dd && dd.total_storage_mb > 0 ? Math.round((dd.used_storage_mb * 100) / dd.total_storage_mb) : 0}
-            color="rgb(255, 69, 78)"
-          />
-        </div>
+      <div className="home-metrics">
+        <Metric icon="battery_android_full" title={t('home.field.battery')} value={dd?.battery_level_percent != null && dd.battery_level_percent >= 0 ? `${dd.battery_level_percent}%` : '-'} total="100%" progress={dd?.battery_level_percent || 0} />
+        <Metric icon="memory" title={t('home.ram.inUse')} value={dd ? formatMemory(dd.used_ram_mb) : '-'} total={dd ? formatMemory(dd.total_ram_mb) : '-'} progress={dd?.total_ram_mb ? dd.used_ram_mb * 100 / dd.total_ram_mb : 0} />
+        <Metric icon="hard_drive" title={t('home.storage.inUse')} value={dd ? formatStorage(dd.used_storage_mb) : '-'} total={dd ? formatStorage(dd.total_storage_mb) : '-'} progress={dd?.total_storage_mb ? dd.used_storage_mb * 100 / dd.total_storage_mb : 0} />
       </div>
 
-      {/* Screenshot Panel */}
-      <div className="home-page__capture">
-        <div className="capture-actions">
-          <button
-            className="capture-btn capture-btn--primary"
-            onClick={captureScreenshot}
-            disabled={capturing || !selectedDevice || selectedDevice.state !== 'device'}
-            title={t('home.capture')}
-          >
-            📷
-          </button>
-          <button
-            className="capture-btn"
-            disabled={!screenshot}
-            title={t('home.saveCapture')}
-          >
-            💾
-          </button>
-        </div>
-        <div className="screenshot-preview">
-          {screenshot ? (
-            <img src={screenshot} alt="Device screenshot" className="screenshot-preview__image" />
-          ) : (
-            <div className="screenshot-preview__empty">
-              <span className="screenshot-preview__empty-icon">📱</span>
-              <span className="screenshot-preview__empty-title">{t('home.preview.empty.title')}</span>
-              <span className="screenshot-preview__empty-subtitle">{t('home.preview.empty.subtitle')}</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <Surface className="home-facts"><header><MaterialIcon name="info" /><h3>Información del dispositivo</h3></header><div>{facts.map(([label, value]) => <article key={label}><span>{label}</span><strong title={value}>{value}</strong></article>)}</div></Surface>
     </div>
-  );
+
+    <Surface className="home-preview">
+      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-outlined-button disabled={!screenshot || savingScreenshot} onClick={saveScreenshot}><MaterialIcon name="save" /> {savingScreenshot ? 'Guardando...' : t('home.saveCapture')}</md-outlined-button><md-filled-button disabled={capturing || !selectedDevice || selectedDevice.state !== 'device'} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /> {capturing ? 'Capturando...' : t('home.capture')}</md-filled-button></div></header>
+      <div className="home-preview__body">{screenshot ? <img src={screenshot} alt="Captura del dispositivo" /> : <div><MaterialIcon name="smartphone" /><strong>{t('home.preview.empty.title')}</strong><span>{t('home.preview.empty.subtitle')}</span></div>}</div>
+    </Surface>
+
+    {powerOpen && <md-dialog className="power-material-dialog" open>
+      <div slot="headline">Opciones de energía</div>
+      <div slot="content" className="power-material-list">
+        <md-tonal-button onClick={() => performPowerAction('apagar pantalla', ['shell', 'input', 'keyevent', 'KEYCODE_SLEEP'])}><MaterialIcon name="screen_lock_portrait" /> Apagar pantalla</md-tonal-button>
+        <md-tonal-button onClick={() => performPowerAction('reiniciar Android', ['reboot'])}><MaterialIcon name="restart_alt" /> Reiniciar</md-tonal-button>
+        <md-tonal-button onClick={() => performPowerAction('apagar dispositivo', ['shell', 'reboot', '-p'])}><MaterialIcon name="power_settings_new" /> Apagar</md-tonal-button>
+        <md-divider />
+        <md-outlined-button onClick={() => performPowerAction('Recovery', ['reboot', 'recovery'], 'Selecciona Reboot system now.')}>Recovery</md-outlined-button>
+        <md-outlined-button onClick={() => performPowerAction('Bootloader', ['reboot', 'bootloader'], 'Ejecuta fastboot reboot o selecciona Start.')}>Bootloader</md-outlined-button>
+        <md-outlined-button onClick={() => performPowerAction('Fastbootd', ['reboot', 'fastboot'], 'Ejecuta fastboot reboot.')}>Fastbootd</md-outlined-button>
+        <md-outlined-button onClick={() => performPowerAction('modo descarga', ['reboot', 'download'], 'La forma de salir depende del fabricante.')}>Modo descarga</md-outlined-button>
+      </div>
+      <div slot="actions"><md-text-button onClick={() => setPowerOpen(false)}>Cerrar</md-text-button></div>
+    </md-dialog>}
+  </main>;
 }

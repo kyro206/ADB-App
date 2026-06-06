@@ -6,6 +6,7 @@ import { DeviceProvider } from "./context/DeviceContext";
 import { I18nProvider } from "./i18n";
 import "./styles/global.css";
 import "@fontsource/material-symbols-rounded";
+import "@material/web/all.js";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

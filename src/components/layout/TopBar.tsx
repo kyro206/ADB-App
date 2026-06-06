@@ -75,19 +75,34 @@ export function TopBar() {
     <div className="topbar__drag-zone" data-tauri-drag-region />
     {platform !== 'macos' && windowControls}
 
-    {wirelessOpen && <div className="wireless-panel">
-      <div className="wireless-panel__header"><div><span>ADB INALÁMBRICO</span><h2>Conectar dispositivo</h2><p>Elige el método que muestra Android en Depuración inalámbrica.</p></div><button onClick={() => setWirelessOpen(false)}><MaterialIcon name="close" /></button></div>
-      <div className="wireless-panel__tabs">
-        <button className={wirelessMode === 'connect' ? 'active' : ''} onClick={() => setWirelessMode('connect')}><b><MaterialIcon name="wifi" /></b><span>Ya emparejado</span><small>Conectar por IP y puerto</small></button>
-        <button className={wirelessMode === 'pair' ? 'active' : ''} onClick={() => setWirelessMode('pair')}><b><MaterialIcon name="pin" /></b><span>Código</span><small>Emparejar con código</small></button>
-        <button className={wirelessMode === 'qr' ? 'active' : ''} onClick={() => setWirelessMode('qr')}><b><MaterialIcon name="qr_code_2" /></b><span>Código QR</span><small>Escanear y emparejar</small></button>
+    {wirelessOpen && <md-dialog className="wireless-dialog" open>
+      <div slot="headline">Conectar dispositivo</div>
+      <div slot="content" className="wireless-dialog__content">
+        <p>Elige el método que muestra Android en Depuración inalámbrica.</p>
+        <md-tabs>
+          <md-primary-tab active={wirelessMode === 'connect'} onClick={() => setWirelessMode('connect')}>Conectar</md-primary-tab>
+          <md-primary-tab active={wirelessMode === 'pair'} onClick={() => setWirelessMode('pair')}>Código</md-primary-tab>
+          <md-primary-tab active={wirelessMode === 'qr'} onClick={() => setWirelessMode('qr')}>QR</md-primary-tab>
+        </md-tabs>
+        {wirelessMode === 'connect' && <section className="wireless-dialog__form">
+          <p>Introduce la dirección que aparece en “Dirección IP y puerto”.</p>
+          <md-outlined-text-field label="Dirección IP y puerto" value={connectEndpoint} onInput={(event: any) => setConnectEndpoint(event.currentTarget.value)} />
+          <md-filled-button disabled={!connectEndpoint.trim() || wirelessBusy} onClick={() => runWireless('connect_wireless_device', { endpoint: connectEndpoint }, 'Conectando...', 'Conexión establecida')}>Conectar</md-filled-button>
+        </section>}
+        {wirelessMode === 'pair' && <section className="wireless-dialog__form">
+          <p>Abre “Emparejar dispositivo con código de emparejamiento” en Android.</p>
+          <md-outlined-text-field label="IP y puerto de emparejamiento" value={pairEndpoint} onInput={(event: any) => setPairEndpoint(event.currentTarget.value)} />
+          <md-outlined-text-field label="Código de emparejamiento" value={pairCode} onInput={(event: any) => setPairCode(event.currentTarget.value)} />
+          <md-filled-button disabled={!pairEndpoint.trim() || !pairCode.trim() || wirelessBusy} onClick={() => runWireless('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, 'Emparejando...', 'Dispositivo emparejado')}>Emparejar</md-filled-button>
+        </section>}
+        {wirelessMode === 'qr' && <section className="wireless-dialog__qr">
+          <div className="wireless-dialog__qr-preview">{qrPayload ? <img src={qrPayload.qr_data_url} alt="Código QR para emparejar ADB" /> : <MaterialIcon name="qr_code_2" />}</div>
+          <p>Escanea el código desde Depuración inalámbrica. No necesitas introducir datos técnicos.</p>
+          <div><md-outlined-button disabled={wirelessBusy} onClick={generateQr}>{qrPayload ? 'Generar otro QR' : 'Generar QR'}</md-outlined-button><md-filled-button disabled={!qrPayload || wirelessBusy} onClick={pairQr}>Ya lo he escaneado</md-filled-button></div>
+        </section>}
+        <div className="wireless-dialog__status">{wirelessBusy ? <md-circular-progress indeterminate /> : <MaterialIcon name="check_circle" filled />}<span>{wirelessStatus}</span></div>
       </div>
-      <div className="wireless-panel__content">
-        {wirelessMode === 'connect' && <section className="wireless-method"><div className="wireless-method__intro"><b>Conectar un dispositivo ya emparejado</b><span>Introduce la dirección que aparece en Dirección IP y puerto.</span></div><label>Dirección IP y puerto<input value={connectEndpoint} onChange={event => setConnectEndpoint(event.target.value)} placeholder="192.168.1.38:44757" /></label><button className="primary" disabled={!connectEndpoint.trim() || wirelessBusy} onClick={() => runWireless('connect_wireless_device', { endpoint: connectEndpoint }, 'Conectando...', 'Conexión establecida')}>Conectar</button></section>}
-        {wirelessMode === 'pair' && <section className="wireless-method"><div className="wireless-method__intro"><b>Emparejar con código</b><span>En Android abre Emparejar dispositivo con código de emparejamiento.</span></div><label>IP y puerto de emparejamiento<input value={pairEndpoint} onChange={event => setPairEndpoint(event.target.value)} placeholder="192.168.1.38:37845" /></label><label>Código de emparejamiento<input value={pairCode} onChange={event => setPairCode(event.target.value)} placeholder="123456" inputMode="numeric" /></label><button className="primary" disabled={!pairEndpoint.trim() || !pairCode.trim() || wirelessBusy} onClick={() => runWireless('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, 'Emparejando...', 'Dispositivo emparejado')}>Emparejar</button></section>}
-        {wirelessMode === 'qr' && <section className="wireless-method wireless-qr"><div className="wireless-method__intro"><b>Emparejar con QR</b><span>Escanea el código desde Depuración inalámbrica. No necesitas introducir datos técnicos.</span></div><div className="wireless-qr__preview">{qrPayload ? <img src={qrPayload.qr_data_url} alt="Código QR para emparejar ADB" /> : <span><MaterialIcon name="qr_code_2" /><small>Genera un QR para comenzar</small></span>}</div><div className="wireless-qr__actions"><button disabled={wirelessBusy} onClick={generateQr}>{qrPayload ? 'Generar otro QR' : 'Generar QR'}</button><button className="primary" disabled={!qrPayload || wirelessBusy} onClick={pairQr}>Ya lo he escaneado</button></div></section>}
-      </div>
-      <div className={`wireless-panel__status ${wirelessBusy ? 'busy' : ''}`}><MaterialIcon name={wirelessBusy ? 'progress_activity' : 'check_circle'} /><p>{wirelessStatus}</p></div>
-    </div>}
+      <div slot="actions"><md-text-button onClick={() => setWirelessOpen(false)}>Cerrar</md-text-button></div>
+    </md-dialog>}
   </header>;
 }

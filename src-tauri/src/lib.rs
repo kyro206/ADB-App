@@ -17,6 +17,7 @@ pub fn run() {
             devices::list_devices,
             devices::get_device_details,
             screenshot::capture_screenshot,
+            screenshot::save_screenshot,
             operations::run_device_action,
             operations::connect_wireless_device,
             operations::pair_wireless_device,

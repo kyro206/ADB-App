@@ -11,6 +11,11 @@
   padding: 0;
 }
 
+/* Material dialogs inherit their inner native dialog margin from the host. */
+md-dialog {
+  margin: auto;
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;
@@ -75,6 +80,8 @@ body {
 
 /* Button base */
 button {
+  position: relative;
+  overflow: hidden;
   cursor: pointer;
   border: none;
   background: none;
@@ -84,14 +91,29 @@ button {
   transition: all var(--transition-fast);
 }
 
+button > md-ripple {
+  --md-ripple-hover-color: var(--on-surface);
+  --md-ripple-pressed-color: var(--primary);
+  --md-ripple-hover-opacity: 0.08;
+  --md-ripple-pressed-opacity: 0.12;
+}
+
+button[data-material-web="true"]:hover:not(:disabled) {
+  filter: none;
+  box-shadow: none;
+}
+
+button.primary > md-ripple,
+.mirror-launch > md-ripple {
+  --md-ripple-hover-color: var(--on-primary);
+  --md-ripple-pressed-color: var(--on-primary);
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
 
 /* Input base */
 input, select, textarea {
