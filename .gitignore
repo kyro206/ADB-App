@@ -11,9 +11,7 @@ yarn/
 env
 
 # VSCode workspace settings file
-vscode/settings.json
-vscode/launch.json
-vscode/tasks.json
+.vscode
 
 # Lock files
 package-lock.json
