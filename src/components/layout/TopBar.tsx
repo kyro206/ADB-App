@@ -107,16 +107,18 @@ export function TopBar() {
         </button>
       </div>
 
-      {wirelessOpen && <div className="wireless-panel">
-        <div className="wireless-panel__header">
+      {wirelessOpen && <div className="full-overlay" role="dialog" aria-modal="true" aria-label="Conectar dispositivo">
+        <section className="wireless-dialog">
+        <header className="wireless-panel__header">
           <div><span>ADB INALÁMBRICO</span><h2>Conectar dispositivo</h2><p>Elige el método que muestra Android en Depuración inalámbrica.</p></div>
-          <button onClick={() => setWirelessOpen(false)}>×</button>
-        </div>
-        <div className="wireless-panel__tabs">
+          <button aria-label="Cerrar" disabled={wirelessBusy} onClick={() => setWirelessOpen(false)}>×</button>
+        </header>
+        <div className="wireless-dialog__scroll">
+        <nav className="wireless-panel__tabs" aria-label="Método de conexión">
           <button className={wirelessMode === 'connect' ? 'active' : ''} onClick={() => setWirelessMode('connect')}><b>⌁</b><span>Ya emparejado</span><small>Conectar por IP y puerto</small></button>
           <button className={wirelessMode === 'pair' ? 'active' : ''} onClick={() => setWirelessMode('pair')}><b>#</b><span>Código</span><small>Emparejar con código</small></button>
           <button className={wirelessMode === 'qr' ? 'active' : ''} onClick={() => setWirelessMode('qr')}><b>▦</b><span>Código QR</span><small>Escanear y emparejar</small></button>
-        </div>
+        </nav>
 
         <div className="wireless-panel__content">
           {wirelessMode === 'connect' && <section className="wireless-method">
@@ -138,7 +140,11 @@ export function TopBar() {
             <div className="wireless-qr__actions"><button disabled={wirelessBusy} onClick={generateQr}>{qrPayload ? 'Generar otro QR' : 'Generar QR'}</button><button className="primary" disabled={!qrPayload || wirelessBusy} onClick={pairQr}>Ya lo he escaneado</button></div>
           </section>}
         </div>
-        <div className={`wireless-panel__status ${wirelessBusy ? 'busy' : ''}`}><span>{wirelessBusy ? '●' : '✓'}</span><p>{wirelessStatus}</p></div>
+        </div>
+        <footer className="wireless-dialog__footer">
+          <div className={`wireless-panel__status ${wirelessBusy ? 'busy' : ''}`}><span>{wirelessBusy ? '●' : '✓'}</span><p>{wirelessStatus}</p></div>
+        </footer>
+        </section>
       </div>}
     </header>
   );

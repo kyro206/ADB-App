@@ -821,7 +821,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       </>}
     </aside>
 
-    {installOpen && <div className="install-overlay" role="dialog" aria-modal="true" aria-label="Instalar aplicaciones">
+    {installOpen && <div className="full-overlay" role="dialog" aria-modal="true" aria-label="Instalar aplicaciones">
       <section className="install-dialog">
         <header className="install-header"><div><span>APLICACIONES</span><h2>Instalar aplicaciones</h2><p>Selecciona paquetes APK o bundles para instalarlos en el dispositivo conectado.</p></div><button aria-label="Cerrar" disabled={installingApps} onClick={() => setInstallOpen(false)}>×</button></header>
         <div className="install-scroll">
@@ -841,7 +841,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
           </section>
           <section className="install-section install-result"><div className="install-section-title"><div><span>3</span><h3>Resultado de la instalación</h3></div></div><pre>{installResult || 'Selecciona los archivos y pulsa Instalar cuando quieras iniciar el proceso.'}</pre></section>
         </div>
-        <footer className="install-footer"><button disabled={installingApps} onClick={() => setInstallOpen(false)}>Cerrar</button><button className="primary" disabled={!serial || !installFiles.length || installingApps} onClick={installSelectedApps}>{installingApps ? 'Instalando…' : `Instalar${installFiles.length ? ` (${installFiles.length})` : ''}`}</button></footer>
+        <footer className="install-footer"><button className="primary" disabled={!serial || !installFiles.length || installingApps} onClick={installSelectedApps}>{installingApps ? 'Instalando…' : `Instalar${installFiles.length ? ` (${installFiles.length})` : ''}`}</button></footer>
       </section>
     </div>}
   </div>;

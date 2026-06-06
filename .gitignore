@@ -15,8 +15,7 @@ env
 
 # Lock files
 package-lock.json
-yarn.lock
-bun.lock
+*.lock
 
 # Rust compiled folders
 target/

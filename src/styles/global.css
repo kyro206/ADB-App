@@ -109,3 +109,21 @@ input:focus, select:focus, textarea:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Shared full-window modal backdrop */
+.full-overlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 5, 8, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+@media (max-width: 700px) {
+  .full-overlay {
+    padding: 0;
+  }
+}

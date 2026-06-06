@@ -38,7 +38,7 @@ fn app_data_dir() -> PathBuf {
         .map(PathBuf::from)
         .or_else(|| env::var_os("HOME").map(PathBuf::from))
         .unwrap_or_else(env::temp_dir)
-        .join("ADB App")
+        .join("ADB Manager")
 }
 
 fn config_path() -> PathBuf {
@@ -247,7 +247,11 @@ fn version_for(tool: &str, path: &Path) -> String {
         .map(|result| {
             let stdout = String::from_utf8_lossy(&result.stdout);
             let stderr = String::from_utf8_lossy(&result.stderr);
-            format!("{stdout}\n{stderr}")
+            let combined = format!("{stdout}\n{stderr}");
+            if tool == "adb" {
+                return adb_platform_tools_version(&combined).unwrap_or_else(|| "-".to_string());
+            }
+            combined
                 .lines()
                 .find(|line| !line.trim().is_empty())
                 .unwrap_or("-")
@@ -255,6 +259,14 @@ fn version_for(tool: &str, path: &Path) -> String {
                 .to_string()
         })
         .unwrap_or_else(|| "-".to_string())
+}
+
+fn adb_platform_tools_version(output: &str) -> Option<String> {
+    Regex::new(r"(?m)^\s*Version\s+(\d+\.\d+\.\d+)(?:-\d+)?\s*$")
+        .ok()?
+        .captures(output)?
+        .get(1)
+        .map(|value| value.as_str().to_string())
 }
 
 fn java_major_version(path: &Path) -> i32 {
@@ -382,7 +394,7 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
 async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, String> {
     let release = client
         .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
-        .header(reqwest::header::USER_AGENT, "ADB-App")
+        .header(reqwest::header::USER_AGENT, "ADB-Manager")
         .send()
         .await
         .map_err(|error| error.to_string())?
@@ -449,10 +461,10 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
 
     let script = match tool {
         "adb" => format!(
-            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $zip=Join-Path $env:TEMP 'adb-app-platform-tools.zip'; Invoke-WebRequest -UseBasicParsing 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip' -OutFile $zip; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Expand-Archive $zip $target -Force; Remove-Item $zip -Force"
+            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $zip=Join-Path $env:TEMP 'adb-manager-platform-tools.zip'; Invoke-WebRequest -UseBasicParsing 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip' -OutFile $zip; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Expand-Archive $zip $target -Force; Remove-Item $zip -Force"
         ),
         "scrcpy" => format!(
-            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-App'}} 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'; $asset=$release.assets|Where-Object{{$_.name -like 'scrcpy-win64-*.zip'}}|Select-Object -First 1; if(-not $asset){{throw 'No compatible scrcpy release found'}}; $zip=Join-Path $env:TEMP 'adb-app-scrcpy.zip'; Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $zip; $temp=Join-Path $env:TEMP 'adb-app-scrcpy-extract'; if(Test-Path $temp){{Remove-Item $temp -Recurse -Force}}; Expand-Archive $zip $temp -Force; $root=Get-ChildItem $temp -Directory|Select-Object -First 1; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Copy-Item (Join-Path $root.FullName '*') $target -Recurse -Force; Remove-Item $zip -Force; Remove-Item $temp -Recurse -Force"
+            "$ErrorActionPreference='Stop'; $target='{escaped_target}'; $release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-Manager'}} 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'; $asset=$release.assets|Where-Object{{$_.name -like 'scrcpy-win64-*.zip'}}|Select-Object -First 1; if(-not $asset){{throw 'No compatible scrcpy release found'}}; $zip=Join-Path $env:TEMP 'adb-manager-scrcpy.zip'; Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $zip; $temp=Join-Path $env:TEMP 'adb-manager-scrcpy-extract'; if(Test-Path $temp){{Remove-Item $temp -Recurse -Force}}; Expand-Archive $zip $temp -Force; $root=Get-ChildItem $temp -Directory|Select-Object -First 1; if(Test-Path $target){{Remove-Item $target -Recurse -Force}}; New-Item -ItemType Directory -Path $target -Force|Out-Null; Copy-Item (Join-Path $root.FullName '*') $target -Recurse -Force; Remove-Item $zip -Force; Remove-Item $temp -Recurse -Force"
         ),
         _ => return Err(format!("Unknown tool: {tool}")),
     };
@@ -474,13 +486,22 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_newer_version;
+    use super::{adb_platform_tools_version, is_newer_version};
 
     #[test]
     fn compares_tool_versions_numerically() {
-        assert!(is_newer_version("37.0.1", "Version 37.0.0-14910828"));
+        assert!(is_newer_version("37.0.1", "37.0.0"));
         assert!(is_newer_version("4.1", "scrcpy 4.0"));
         assert!(!is_newer_version("4.0", "scrcpy 4.0"));
-        assert!(!is_newer_version("36.0.2", "Version 37.0.0-14910828"));
+        assert!(!is_newer_version("36.0.2", "37.0.0"));
+    }
+
+    #[test]
+    fn extracts_platform_tools_version_instead_of_adb_protocol_version() {
+        let output = "Android Debug Bridge version 1.0.41\nVersion 37.0.0-14910828\nInstalled as C:\\Terminal\\adb\\adb.exe";
+        assert_eq!(
+            adb_platform_tools_version(output).as_deref(),
+            Some("37.0.0")
+        );
     }
 }

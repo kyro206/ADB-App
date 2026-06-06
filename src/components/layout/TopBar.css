@@ -145,3 +145,170 @@
 .wireless-panel__content{padding:12px}.wireless-method{display:flex;flex-direction:column;gap:11px;padding:15px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg)}.wireless-method__intro{padding-bottom:9px;border-bottom:1px solid var(--border)}.wireless-method__intro b,.wireless-method__intro span{display:block}.wireless-method__intro b{font-size:13px}.wireless-method__intro span{margin-top:2px;color:var(--text-secondary);font-size:10px}.wireless-method label{display:flex;flex-direction:column;gap:5px;color:var(--text-secondary);font-size:10px;font-weight:700}.wireless-method input{height:39px;font-size:12px}.wireless-method>button{align-self:flex-start;min-width:130px;padding:9px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-weight:700}
 .wireless-qr{display:grid;grid-template-columns:minmax(0,1fr) 210px;align-items:start}.wireless-qr .wireless-method__intro{grid-column:1/-1}.wireless-qr__preview{display:grid;place-items:center;min-height:210px;padding:10px;background:#fff;border-radius:var(--radius-md)}.wireless-qr__preview img{width:100%;height:auto}.wireless-qr__preview>span{display:flex;flex-direction:column;align-items:center;gap:7px;color:#666;text-align:center}.wireless-qr__preview b{font-size:45px}.wireless-qr__preview small{font-size:10px}.wireless-qr__actions{display:flex;height:100%;flex-direction:column;justify-content:flex-end;gap:8px}.wireless-qr__actions button{padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-weight:700}.wireless-panel__status{display:flex;align-items:center;gap:8px;margin:0 12px 12px;padding:9px 11px;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);font-size:10px}.wireless-panel__status span{color:var(--color-green)}.wireless-panel__status.busy span{color:var(--action-bg);animation:wireless-pulse 1s ease-in-out infinite}@keyframes wireless-pulse{50%{opacity:.25}}
 @media(max-width:900px){.topbar__brand .topbar__version,.topbar__device-label{display:none}.topbar{gap:8px;padding:0 10px}.topbar__tcpip{width:36px;padding:0}.topbar__tcpip b{display:none}.topbar__tcpip span{font-size:0}.topbar__tcpip span:after{content:'IP';font-size:10px;font-weight:800}.wireless-panel{right:8px;width:calc(100vw - 16px)}}@media(max-width:600px){.topbar__title{display:none}.wireless-panel__tabs{grid-template-columns:1fr}.wireless-qr{grid-template-columns:1fr}.wireless-qr__preview{min-height:auto}.wireless-qr__actions{flex-direction:row}.wireless-qr__actions button{flex:1}}
+
+.wireless-dialog {
+  display: flex;
+  width: min(900px, 100%);
+  max-height: min(760px, 96vh);
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.wireless-dialog .wireless-panel__header {
+  gap: 20px;
+  padding: 22px 24px;
+}
+
+.wireless-dialog .wireless-panel__header h2 {
+  margin: 2px 0 4px;
+  font-size: 25px;
+}
+
+.wireless-dialog .wireless-panel__header p {
+  font-size: 12px;
+}
+
+.wireless-dialog .wireless-panel__header > button {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  font-size: 21px;
+}
+
+.wireless-dialog__scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.wireless-dialog .wireless-panel__tabs {
+  gap: 10px;
+  padding: 0;
+  margin-bottom: 12px;
+}
+
+.wireless-dialog .wireless-panel__tabs button {
+  grid-template-columns: 42px 1fr;
+  column-gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+}
+
+.wireless-dialog .wireless-panel__tabs button:hover {
+  border-color: var(--action-bg);
+  background: var(--selection-bg);
+}
+
+.wireless-dialog .wireless-panel__tabs b {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  font-size: 20px;
+}
+
+.wireless-dialog .wireless-panel__tabs span {
+  font-size: 12px;
+}
+
+.wireless-dialog .wireless-panel__tabs small {
+  font-size: 10px;
+}
+
+.wireless-dialog .wireless-panel__content {
+  min-height: 250px;
+  padding: 0;
+}
+
+.wireless-dialog .wireless-method {
+  min-height: 250px;
+  gap: 15px;
+  padding: 20px;
+}
+
+.wireless-dialog .wireless-method__intro {
+  padding-bottom: 13px;
+}
+
+.wireless-dialog .wireless-method__intro b {
+  font-size: 15px;
+}
+
+.wireless-dialog .wireless-method__intro span,
+.wireless-dialog .wireless-method label {
+  font-size: 11px;
+}
+
+.wireless-dialog .wireless-method input {
+  height: 43px;
+  font-size: 13px;
+}
+
+.wireless-dialog .wireless-method > button {
+  min-width: 160px;
+  padding: 11px 16px;
+}
+
+.wireless-dialog .wireless-qr {
+  grid-template-columns: minmax(0, 1fr) 240px;
+}
+
+.wireless-dialog .wireless-qr__preview {
+  min-height: 240px;
+  padding: 12px;
+}
+
+.wireless-dialog__footer {
+  padding: 14px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.wireless-dialog .wireless-panel__status {
+  min-width: 0;
+  margin: 0;
+  background: var(--surface-secondary);
+}
+
+.wireless-dialog .wireless-panel__status p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .wireless-dialog {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .wireless-dialog .wireless-panel__header {
+    padding: 17px;
+  }
+
+  .wireless-dialog__scroll {
+    padding: 10px;
+  }
+
+  .wireless-dialog .wireless-panel__tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .wireless-dialog .wireless-panel__tabs button {
+    padding: 10px;
+  }
+
+  .wireless-dialog .wireless-qr {
+    grid-template-columns: 1fr;
+  }
+
+  .wireless-dialog__footer {
+    padding: 10px;
+  }
+}
