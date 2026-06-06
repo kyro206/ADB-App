@@ -4,8 +4,8 @@
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   height: 100%;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: var(--surface-container-low);
+  border-right: 1px solid var(--outline-variant);
   padding: var(--space-sm) var(--space-sm);
   transition: width var(--transition-slow), min-width var(--transition-slow);
   overflow: hidden;
@@ -20,7 +20,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-top: var(--space-sm);
@@ -40,11 +40,12 @@
   align-items: center;
   gap: var(--space-md);
   width: 100%;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
+  min-height: 48px;
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
   transition: all var(--transition-fast);
   position: relative;
@@ -57,14 +58,13 @@
 }
 
 .sidebar__tab--active {
-  background: var(--action-bg);
-  color: var(--action-fg);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
 }
 
 .sidebar__tab--active:hover {
-  background: var(--action-bg);
-  color: var(--action-fg);
-  filter: brightness(1.1);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
 }
 
 .sidebar__tab-icon {

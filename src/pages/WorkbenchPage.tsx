@@ -5,6 +5,7 @@ import { useDevices } from '../context/DeviceContext';
 import { useI18n } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { type TabId } from '../components/layout/Sidebar';
+import { MaterialIcon } from '../components/MaterialIcon';
 import './WorkbenchPage.css';
 
 type WorkTab = Exclude<TabId, 'home'>;
@@ -603,7 +604,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       </div>
       <div className="display-behavior">
         <section className={`display-theme-card ${displayDarkMode ? 'active' : ''}`}>
-          <div className="display-theme-icon" aria-hidden="true">{displayDarkMode ? '☾' : '☀'}</div>
+          <div className="display-theme-icon" aria-hidden="true"><MaterialIcon name={displayDarkMode ? 'dark_mode' : 'light_mode'} filled /></div>
           <div className="display-theme-copy">
             <span>APARIENCIA DEL DISPOSITIVO</span>
             <strong>Modo oscuro</strong>
@@ -653,7 +654,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const control = <div className="control-page">
     <div className="control-settings">
       <section className="control-card">
-        <div className="control-card-title"><div><span className="control-kicker">DISPOSITIVO</span><h3>Brillo y volumen</h3></div><span className="control-card-icon">◐</span></div>
+        <div className="control-card-title"><div><span className="control-kicker">DISPOSITIVO</span><h3>Brillo y volumen</h3></div><span className="control-card-icon"><MaterialIcon name="tune" /></span></div>
         <label className="control-slider">
           <span><b>Brillo</b><strong>{controlBrightness} / 255</strong></span>
           <input type="range" min="0" max="255" value={controlBrightness} onChange={event => setControlBrightness(Number(event.target.value))} onMouseUp={event => run(['shell', 'settings', 'put', 'system', 'screen_brightness', event.currentTarget.value])} />
@@ -668,16 +669,16 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       <section className="control-card">
         <div className="control-card-title"><div><span className="control-kicker">PANTALLA</span><h3>Rotación</h3></div><label className="control-toggle"><span>Automática</span><input type="checkbox" checked={rotationAuto} onChange={async event => { setRotationAuto(event.target.checked); await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', event.target.checked ? '1' : '0']); }} /></label></div>
         <div className="rotation-grid">
-          {[['▯', 'Vertical', 0], ['▭', 'Horizontal', 1], ['▯', 'Vertical inversa', 2], ['▭', 'Horizontal inversa', 3]].map(([icon, label, value]) => <button key={String(value)} className={!rotationAuto && rotation === value ? 'active' : ''} onClick={() => setDeviceRotation(Number(value))}><b className={`rotation-icon rotation-${value}`}>{icon}</b><span>{label}</span></button>)}
+          {[['stay_current_portrait', 'Vertical', 0], ['stay_current_landscape', 'Horizontal', 1], ['stay_current_portrait', 'Vertical inversa', 2], ['stay_current_landscape', 'Horizontal inversa', 3]].map(([icon, label, value]) => <button key={String(value)} className={!rotationAuto && rotation === value ? 'active' : ''} onClick={() => setDeviceRotation(Number(value))}><b className={`rotation-icon rotation-${value}`}><MaterialIcon name={String(icon)} /></b><span>{label}</span></button>)}
         </div>
       </section>
 
       <section className="control-card">
         <div className="control-card-title"><div><span className="control-kicker">AUDIO</span><h3>Modo de sonido</h3></div></div>
         <div className="sound-grid">
-          <button className={soundMode === 'NORMAL' ? 'active' : ''} onClick={() => setDeviceSoundMode('NORMAL')}><b>♪</b><span>Sonido</span></button>
-          <button className={soundMode === 'VIBRATE' ? 'active' : ''} onClick={() => setDeviceSoundMode('VIBRATE')}><b>≈</b><span>Vibración</span></button>
-          <button className={soundMode === 'SILENT' ? 'active' : ''} onClick={() => setDeviceSoundMode('SILENT')}><b>×</b><span>Silencio</span></button>
+          <button className={soundMode === 'NORMAL' ? 'active' : ''} onClick={() => setDeviceSoundMode('NORMAL')}><b><MaterialIcon name="volume_up" filled /></b><span>Sonido</span></button>
+          <button className={soundMode === 'VIBRATE' ? 'active' : ''} onClick={() => setDeviceSoundMode('VIBRATE')}><b><MaterialIcon name="vibration" filled /></b><span>Vibración</span></button>
+          <button className={soundMode === 'SILENT' ? 'active' : ''} onClick={() => setDeviceSoundMode('SILENT')}><b><MaterialIcon name="volume_off" filled /></b><span>Silencio</span></button>
         </div>
       </section>
 
@@ -689,35 +690,35 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     </div>
 
     <aside className="remote-panel">
-      <div className="remote-heading"><div><span className="control-kicker">ACCIONES RÁPIDAS</span><h3>Mando Android TV</h3></div><button className="remote-power" title="Encender o apagar" onClick={() => sendKey('KEYCODE_POWER')}>⏻</button></div>
+      <div className="remote-heading"><div><span className="control-kicker">ACCIONES RÁPIDAS</span><h3>Mando Android TV</h3></div><button className="remote-power" title="Encender o apagar" onClick={() => sendKey('KEYCODE_POWER')}><MaterialIcon name="power_settings_new" /></button></div>
       <div className="remote-body">
         <div className="remote-dpad" aria-label="Control direccional">
-          <button className="remote-up" title="Arriba" onClick={() => sendKey('KEYCODE_DPAD_UP')}>⌃</button>
-          <button className="remote-left" title="Izquierda" onClick={() => sendKey('KEYCODE_DPAD_LEFT')}>‹</button>
+          <button className="remote-up" title="Arriba" onClick={() => sendKey('KEYCODE_DPAD_UP')}><MaterialIcon name="keyboard_arrow_up" /></button>
+          <button className="remote-left" title="Izquierda" onClick={() => sendKey('KEYCODE_DPAD_LEFT')}><MaterialIcon name="keyboard_arrow_left" /></button>
           <button className="remote-ok" onClick={() => sendKey('KEYCODE_DPAD_CENTER')}><span>OK</span></button>
-          <button className="remote-right" title="Derecha" onClick={() => sendKey('KEYCODE_DPAD_RIGHT')}>›</button>
-          <button className="remote-down" title="Abajo" onClick={() => sendKey('KEYCODE_DPAD_DOWN')}>⌄</button>
+          <button className="remote-right" title="Derecha" onClick={() => sendKey('KEYCODE_DPAD_RIGHT')}><MaterialIcon name="keyboard_arrow_right" /></button>
+          <button className="remote-down" title="Abajo" onClick={() => sendKey('KEYCODE_DPAD_DOWN')}><MaterialIcon name="keyboard_arrow_down" /></button>
         </div>
 
         <div className="remote-main-actions">
-          <button onClick={() => sendKey('KEYCODE_BACK')}><b>←</b><span>Volver</span></button>
-          <button onClick={() => sendKey('KEYCODE_HOME')}><b>⌂</b><span>Inicio</span></button>
-          <button className="assistant" onClick={() => sendKey('KEYCODE_ASSIST')}><b>✦</b><span>Asistente</span></button>
+          <button onClick={() => sendKey('KEYCODE_BACK')}><b><MaterialIcon name="arrow_back" /></b><span>Volver</span></button>
+          <button onClick={() => sendKey('KEYCODE_HOME')}><b><MaterialIcon name="home" /></b><span>Inicio</span></button>
+          <button className="assistant" onClick={() => sendKey('KEYCODE_ASSIST')}><b><MaterialIcon name="assistant" filled /></b><span>Asistente</span></button>
         </div>
         <div className="remote-volume">
-          <button className="remote-mute" onClick={() => sendKey('KEYCODE_VOLUME_MUTE')}><b>×</b><span>Silenciar</span></button>
-          <div className="remote-volume-pill"><button title="Bajar volumen" onClick={() => applyMediaVolume(controlVolume - 1)}>−</button><span>{controlVolume}<small>VOL</small></span><button title="Subir volumen" onClick={() => applyMediaVolume(controlVolume + 1)}>+</button></div>
+          <button className="remote-mute" onClick={() => sendKey('KEYCODE_VOLUME_MUTE')}><b><MaterialIcon name="volume_off" /></b><span>Silenciar</span></button>
+          <div className="remote-volume-pill"><button title="Bajar volumen" onClick={() => applyMediaVolume(controlVolume - 1)}><MaterialIcon name="remove" /></button><span>{controlVolume}<small>VOL</small></span><button title="Subir volumen" onClick={() => applyMediaVolume(controlVolume + 1)}><MaterialIcon name="add" /></button></div>
         </div>
         <div className="remote-media">
-          <button onClick={() => sendKey('KEYCODE_APP_SWITCH')}><b>▦</b><span>Recientes</span></button>
-          <button onClick={() => sendKey('KEYCODE_MENU')}><b>☰</b><span>Menú</span></button>
-          <button onClick={() => sendKey('KEYCODE_MEDIA_PREVIOUS')}><b>Ⅰ◀</b><span>Anterior</span></button>
-          <button onClick={() => sendKey('KEYCODE_MEDIA_PLAY_PAUSE')}><b>▶</b><span>Play / Pausa</span></button>
-          <button onClick={() => sendKey('KEYCODE_MEDIA_NEXT')}><b>▶Ⅰ</b><span>Siguiente</span></button>
-          <button onClick={() => sendKey('KEYCODE_INFO')}><b>i</b><span>Info</span></button>
-          <button onClick={() => sendKey('KEYCODE_GUIDE')}><b>▤</b><span>Guía</span></button>
-          <button onClick={() => sendKey('KEYCODE_CHANNEL_DOWN')}><b>CH−</b><span>Canal</span></button>
-          <button onClick={() => sendKey('KEYCODE_CHANNEL_UP')}><b>CH+</b><span>Canal</span></button>
+          <button onClick={() => sendKey('KEYCODE_APP_SWITCH')}><b><MaterialIcon name="recent_actors" /></b><span>Recientes</span></button>
+          <button onClick={() => sendKey('KEYCODE_MENU')}><b><MaterialIcon name="menu" /></b><span>Menú</span></button>
+          <button onClick={() => sendKey('KEYCODE_MEDIA_PREVIOUS')}><b><MaterialIcon name="skip_previous" /></b><span>Anterior</span></button>
+          <button onClick={() => sendKey('KEYCODE_MEDIA_PLAY_PAUSE')}><b><MaterialIcon name="play_pause" /></b><span>Play / Pausa</span></button>
+          <button onClick={() => sendKey('KEYCODE_MEDIA_NEXT')}><b><MaterialIcon name="skip_next" /></b><span>Siguiente</span></button>
+          <button onClick={() => sendKey('KEYCODE_INFO')}><b><MaterialIcon name="info" /></b><span>Info</span></button>
+          <button onClick={() => sendKey('KEYCODE_GUIDE')}><b><MaterialIcon name="live_tv" /></b><span>Guía</span></button>
+          <button onClick={() => sendKey('KEYCODE_CHANNEL_DOWN')}><b><MaterialIcon name="keyboard_arrow_down" /></b><span>Canal -</span></button>
+          <button onClick={() => sendKey('KEYCODE_CHANNEL_UP')}><b><MaterialIcon name="keyboard_arrow_up" /></b><span>Canal +</span></button>
         </div>
       </div>
     </aside>

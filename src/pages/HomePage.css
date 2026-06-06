@@ -7,6 +7,8 @@
   overflow: hidden;
 }
 
+.hero-card,.fact-card,.metric-card,.screenshot-preview{background:var(--surface-container-low);border-color:var(--outline-variant);border-radius:var(--radius-xl)}.chip{color:var(--on-primary-container);background:var(--primary-container);border:0;border-radius:var(--radius-full)}.capture-btn{color:var(--on-surface);background:var(--surface-container-high);border:0;border-radius:var(--radius-full)}.capture-btn--primary{color:var(--on-primary);background:var(--primary)}.hero-power-button{color:var(--error);background:var(--surface-container-high);border-color:var(--outline-variant)}.power-menu{background:var(--surface-container-low);border-color:var(--outline-variant)}.power-menu__quick button,.power-menu__advanced button{background:var(--surface-container);border-color:transparent;border-radius:var(--radius-lg)}
+
 .home-page__summary {
   display: flex;
   flex-direction: column;

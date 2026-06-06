@@ -1,11 +1,11 @@
 /* ============================================================
-   ADB Manager — Design System Variables
+   ADB App - Design System Variables
    Mapping from Java AppTheme.java to CSS custom properties
    ============================================================ */
 
 :root {
   /* Typography */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family: 'Roboto', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 
   /* Spacing */
@@ -18,10 +18,10 @@
   --space-3xl: 48px;
 
   /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
   --radius-full: 9999px;
 
   /* Shadows */
@@ -60,6 +60,20 @@
   --selection-fg: #f4f4f5;
   --action-bg: #1f7aff;
   --action-fg: #ffffff;
+  --primary: #aac7ff;
+  --on-primary: #00315e;
+  --primary-container: #164678;
+  --on-primary-container: #d6e3ff;
+  --surface-container-lowest: #0b0e12;
+  --surface-container-low: #191c20;
+  --surface-container: #1d2024;
+  --surface-container-high: #282a2f;
+  --surface-container-highest: #33353a;
+  --on-surface: #e2e2e9;
+  --on-surface-variant: #c4c6d0;
+  --outline: #8e9099;
+  --outline-variant: #44474e;
+  --error: #ffb4ab;
   --disabled-border: #4a4a4c;
   --placeholder-bg: #2c2c2e;
   --placeholder-fg: #bcbcc0;
@@ -87,6 +101,20 @@
   --selection-fg: #1a202b;
   --action-bg: #356ff0;
   --action-fg: #ffffff;
+  --primary: #285f9d;
+  --on-primary: #ffffff;
+  --primary-container: #d6e3ff;
+  --on-primary-container: #001b3e;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f3f3fa;
+  --surface-container: #ededf4;
+  --surface-container-high: #e7e8ee;
+  --surface-container-highest: #e2e2e9;
+  --on-surface: #1a1c20;
+  --on-surface-variant: #44474e;
+  --outline: #74777f;
+  --outline-variant: #c4c6d0;
+  --error: #ba1a1a;
   --disabled-border: #c0c9d8;
   --placeholder-bg: #ebeff6;
   --placeholder-fg: #606976;

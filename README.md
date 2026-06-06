@@ -1,6 +1,6 @@
-# ADB Manager (Tauri prototype)
+# ADB App
 
-Functional Tauri 2 + React + TypeScript migration of the Java Swing ADB Manager.
+Aplicación de escritorio Tauri 2 + React + TypeScript para administrar dispositivos Android mediante ADB.
 
 ## Requirements
 
