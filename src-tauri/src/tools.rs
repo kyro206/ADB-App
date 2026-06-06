@@ -6,9 +6,11 @@ use std::process::Command;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ToolConfig {
     pub adb_path: String,
     pub scrcpy_path: String,
+    pub java_path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -24,6 +26,7 @@ pub struct ToolStatus {
 pub struct ToolsStatus {
     pub adb: ToolStatus,
     pub scrcpy: ToolStatus,
+    pub java: ToolStatus,
 }
 
 fn app_data_dir() -> PathBuf {
@@ -73,6 +76,7 @@ pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
     match tool {
         "adb" => config.adb_path = normalized,
         "scrcpy" => config.scrcpy_path = normalized,
+        "java" => config.java_path = normalized,
         _ => return Err(format!("Unknown tool: {tool}")),
     }
     fs::create_dir_all(app_data_dir()).map_err(|error| error.to_string())?;
@@ -86,10 +90,11 @@ pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
 
 fn custom_path(tool: &str) -> String {
     let config = read_config();
-    if tool == "adb" {
-        config.adb_path
-    } else {
-        config.scrcpy_path
+    match tool {
+        "adb" => config.adb_path,
+        "scrcpy" => config.scrcpy_path,
+        "java" => config.java_path,
+        _ => String::new(),
     }
 }
 
@@ -99,7 +104,14 @@ fn normalize_candidate(tool: &str, value: &str) -> Option<PathBuf> {
     }
     let candidate = PathBuf::from(value);
     let candidate = if candidate.is_dir() {
-        candidate.join(executable_name(tool))
+        let direct = candidate.join(executable_name(tool));
+        if direct.is_file() {
+            direct
+        } else if tool == "java" {
+            candidate.join("bin").join(executable_name(tool))
+        } else {
+            direct
+        }
     } else {
         candidate
     };
@@ -123,21 +135,107 @@ fn system_path(tool: &str) -> Option<PathBuf> {
         .filter(|path| path.is_file())
 }
 
+fn java_from_windows_registry() -> Option<PathBuf> {
+    if !cfg!(windows) {
+        return None;
+    }
+    let keys = [
+        r"HKLM\SOFTWARE\Eclipse Adoptium\JDK",
+        r"HKLM\SOFTWARE\Eclipse Adoptium\JRE",
+        r"HKLM\SOFTWARE\JavaSoft\JDK",
+        r"HKLM\SOFTWARE\JavaSoft\Java Runtime Environment",
+    ];
+    for key in keys {
+        let versions = Command::new("reg")
+            .args(["query", key])
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
+            .unwrap_or_default();
+        for version_key in versions
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("HKEY"))
+        {
+            for value_name in ["Path", "JavaHome"] {
+                let output = Command::new("reg")
+                    .args(["query", version_key, "/v", value_name])
+                    .output()
+                    .ok()
+                    .filter(|output| output.status.success())
+                    .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
+                    .unwrap_or_default();
+                if let Some(path) = output
+                    .lines()
+                    .find(|line| line.contains("REG_SZ"))
+                    .and_then(|line| line.split("REG_SZ").nth(1))
+                    .map(str::trim)
+                    .and_then(|path| normalize_candidate("java", path))
+                {
+                    return Some(path);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn java_from_common_directories() -> Option<PathBuf> {
+    if !cfg!(windows) {
+        return None;
+    }
+    let roots = [
+        PathBuf::from(r"C:\Program Files\Eclipse Adoptium"),
+        PathBuf::from(r"C:\Program Files\Java"),
+        PathBuf::from(r"C:\Program Files\Microsoft"),
+        PathBuf::from(r"C:\Program Files\Android\Android Studio\jbr"),
+    ];
+    for root in roots {
+        if let Some(path) = normalize_candidate("java", root.to_string_lossy().as_ref()) {
+            return Some(path);
+        }
+        let Ok(entries) = fs::read_dir(root) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            if let Some(path) = normalize_candidate("java", entry.path().to_string_lossy().as_ref())
+            {
+                return Some(path);
+            }
+        }
+    }
+    None
+}
+
+fn detected_java_path() -> Option<PathBuf> {
+    env::var("JAVA_HOME")
+        .ok()
+        .and_then(|path| normalize_candidate("java", &path))
+        .or_else(|| system_path("java"))
+        .or_else(java_from_windows_registry)
+        .or_else(java_from_common_directories)
+}
+
 pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
     normalize_candidate(tool, &custom_path(tool))
         .or_else(|| {
-            managed_executable(tool)
-                .is_file()
-                .then(|| managed_executable(tool))
+            (tool != "java" && managed_executable(tool).is_file()).then(|| managed_executable(tool))
         })
-        .or_else(|| system_path(tool))
+        .or_else(|| {
+            if tool == "java" {
+                detected_java_path()
+            } else {
+                system_path(tool)
+            }
+        })
 }
 
 fn version_for(tool: &str, path: &Path) -> String {
-    let argument = if tool == "adb" {
-        "version"
-    } else {
-        "--version"
+    let argument = match tool {
+        "adb" => "version",
+        "java" => "-version",
+        _ => "--version",
     };
     let output = Command::new(path).arg(argument).output();
     output
@@ -155,6 +253,36 @@ fn version_for(tool: &str, path: &Path) -> String {
         .unwrap_or_else(|| "-".to_string())
 }
 
+fn java_major_version(path: &Path) -> i32 {
+    let output = Command::new(path).arg("-version").output();
+    let text = output
+        .ok()
+        .map(|result| {
+            format!(
+                "{}{}",
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr)
+            )
+        })
+        .unwrap_or_default();
+    let Some(version) = text.split('"').nth(1) else {
+        return 0;
+    };
+    let mut parts = version.split('.');
+    let first = parts
+        .next()
+        .and_then(|value| value.parse::<i32>().ok())
+        .unwrap_or(0);
+    if first == 1 {
+        parts
+            .next()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0)
+    } else {
+        first
+    }
+}
+
 fn status_for(tool: &str) -> ToolStatus {
     let path = resolve_tool_path(tool);
     let custom = custom_path(tool);
@@ -164,7 +292,7 @@ fn status_for(tool: &str) -> ToolStatus {
             if !custom.is_empty() && normalize_candidate(tool, &custom).as_ref() == Some(candidate)
             {
                 "custom"
-            } else if candidate == &managed_executable(tool) {
+            } else if tool != "java" && candidate == &managed_executable(tool) {
                 "managed"
             } else {
                 "system"
@@ -174,7 +302,9 @@ fn status_for(tool: &str) -> ToolStatus {
         .to_string();
     ToolStatus {
         name: tool.to_string(),
-        available: path.is_some(),
+        available: path
+            .as_ref()
+            .is_some_and(|value| tool != "java" || java_major_version(value) >= 11),
         version: path
             .as_ref()
             .map(|value| version_for(tool, value))
@@ -190,6 +320,7 @@ pub fn tools_status() -> ToolsStatus {
     ToolsStatus {
         adb: status_for("adb"),
         scrcpy: status_for("scrcpy"),
+        java: status_for("java"),
     }
 }
 

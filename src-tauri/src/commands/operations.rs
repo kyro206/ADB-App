@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::adb;
@@ -198,68 +199,31 @@ fn bundletool_jar() -> Result<PathBuf, String> {
         .ok_or_else(|| "No se pudo descargar bundletool".to_string())
 }
 
-fn collect_named_files(directory: &Path, name: &str) -> Result<Vec<PathBuf>, String> {
-    fn visit(path: &Path, name: &str, result: &mut Vec<PathBuf>) -> Result<(), String> {
-        for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
-            let entry = entry.map_err(|error| error.to_string())?;
-            let path = entry.path();
-            if path.is_dir() {
-                visit(&path, name, result)?;
-            } else if path
-                .file_name()
-                .is_some_and(|value| value.to_string_lossy().eq_ignore_ascii_case(name))
-            {
-                result.push(path);
-            }
-        }
-        Ok(())
-    }
-    let mut result = Vec::new();
-    visit(directory, name, &mut result)?;
-    result.sort();
-    Ok(result)
-}
-
 fn modern_java_path() -> Result<PathBuf, String> {
-    let home = std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .ok_or_else(|| "No se pudo localizar la carpeta del usuario".to_string())?;
-    let managed = PathBuf::from(home)
-        .join(".adbmanager")
-        .join("tools")
-        .join("java")
-        .join("managed");
-    let executable_name = if cfg!(windows) { "java.exe" } else { "java" };
-    if managed.exists() {
-        if let Some(java) = collect_named_files(&managed, executable_name)?
-            .into_iter()
-            .next()
-        {
-            return Ok(java);
-        }
+    let java = tools::resolve_tool_path("java").ok_or_else(|| {
+        "Java no está configurado. Indica su ruta en Ajustes. Se recomienda instalar la última versión LTS de Temurin desde https://adoptium.net/es/temurin/releases".to_string()
+    })?;
+    let output = run_local_command(&java, &["-version".into()])?;
+    let version = Regex::new(r#"version "(\d+)(?:\.(\d+))?"#)
+        .ok()
+        .and_then(|regex| regex.captures(&output))
+        .and_then(|capture| {
+            let first = capture.get(1)?.as_str().parse::<i32>().ok()?;
+            let major = if first == 1 {
+                capture.get(2)?.as_str().parse::<i32>().ok()?
+            } else {
+                first
+            };
+            Some(major)
+        })
+        .unwrap_or(0);
+    if version < 11 {
+        Err(format!(
+            "Java {version} no es compatible con bundletool. Configura Java 11 o superior en Ajustes; se recomienda la última versión LTS de Temurin."
+        ))
+    } else {
+        Ok(java)
     }
-    if !cfg!(windows) {
-        return Ok(PathBuf::from("java"));
-    }
-    fs::create_dir_all(&managed).map_err(|error| error.to_string())?;
-    let escaped_target = managed.to_string_lossy().replace('\'', "''");
-    let script = format!(
-        "$ErrorActionPreference='Stop';$target='{escaped_target}';$zip=Join-Path $env:TEMP 'adb-manager-jre.zip';$extract=Join-Path $env:TEMP 'adb-manager-jre-extract';Invoke-WebRequest -UseBasicParsing 'https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse' -OutFile $zip;if(Test-Path $extract){{Remove-Item $extract -Recurse -Force}};Expand-Archive $zip $extract -Force;$root=Get-ChildItem $extract -Directory|Select-Object -First 1;Copy-Item (Join-Path $root.FullName '*') $target -Recurse -Force;Remove-Item $zip -Force;Remove-Item $extract -Recurse -Force"
-    );
-    run_local_command(
-        Path::new("powershell.exe"),
-        &[
-            "-NoProfile".into(),
-            "-ExecutionPolicy".into(),
-            "Bypass".into(),
-            "-Command".into(),
-            script,
-        ],
-    )?;
-    collect_named_files(&managed, executable_name)?
-        .into_iter()
-        .next()
-        .ok_or_else(|| "No se pudo instalar el runtime Java gestionado".to_string())
 }
 
 fn collect_apks(directory: &Path) -> Result<Vec<PathBuf>, String> {
@@ -1107,6 +1071,40 @@ pub async fn list_directory(serial: String, path: String) -> Result<Vec<FileEntr
         })
         .collect();
     Ok(entries)
+}
+
+#[tauri::command]
+pub async fn pull_file(
+    serial: String,
+    remote_path: String,
+    local_path: String,
+) -> Result<String, String> {
+    let result = adb::run_adb_for_serial(&serial, &["pull", &remote_path, &local_path]).await?;
+    if result.ok() {
+        Ok(result.output.trim().to_string())
+    } else {
+        Err(result.output.trim().to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_file_thumbnail(serial: String, path: String) -> Result<String, String> {
+    let (exit_code, bytes) =
+        adb::run_adb_binary_for_serial(&serial, &["exec-out", "cat", &path]).await?;
+    if exit_code != 0 {
+        return Err("No se pudo obtener la miniatura".to_string());
+    }
+    let extension = Path::new(&path)
+        .extension()
+        .map(|value| value.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    let mime = match extension.as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        _ => "image/png",
+    };
+    Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)))
 }
 
 #[tauri::command]

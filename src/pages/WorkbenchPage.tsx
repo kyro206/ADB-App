@@ -13,7 +13,7 @@ type AppDetailsInfo = AppSummary & { version_name: string; version_code: string;
 type AppFilter = 'user' | 'all' | 'system' | 'disabled';
 type FileEntry = { name: string; permissions: string; size: number; modified: string; is_directory: boolean; is_link: boolean };
 type ToolStatus = { name: string; available: boolean; version: string; path: string; source: string };
-type ToolsStatus = { adb: ToolStatus; scrcpy: ToolStatus };
+type ToolsStatus = { adb: ToolStatus; scrcpy: ToolStatus; java: ToolStatus };
 type MediaVolumeState = { level: number; maximum: number };
 type MirrorMode = 'display' | 'virtual' | 'camera';
 type SoundMode = 'NORMAL' | 'VIBRATE' | 'SILENT';
@@ -80,6 +80,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [tools, setTools] = useState<ToolsStatus | null>(null);
   const [adbPath, setAdbPath] = useState('');
   const [scrcpyPath, setScrcpyPath] = useState('');
+  const [javaPath, setJavaPath] = useState('');
   const [displayWidth, setDisplayWidth] = useState(0);
   const [displayHeight, setDisplayHeight] = useState(0);
   const [displayDensity, setDisplayDensity] = useState(0);
@@ -297,16 +298,18 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setTools(value);
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
+      setJavaPath(value.java.path);
     } catch (error) { setStatus(String(error)); }
   };
 
-  const saveToolPath = async (tool: 'adb' | 'scrcpy', pathValue: string) => {
+  const saveToolPath = async (tool: 'adb' | 'scrcpy' | 'java', pathValue: string) => {
     setBusy(true);
     try {
       const value = await invoke<ToolsStatus>('set_tool_path', { tool, path: pathValue });
       setTools(value);
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
+      setJavaPath(value.java.path);
       setStatus(`Ruta de ${tool} guardada`);
       if (tool === 'adb') await refreshDevices();
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
@@ -320,6 +323,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setTools(value);
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
+      setJavaPath(value.java.path);
       setStatus(`${tool} instalado o actualizado correctamente`);
       if (tool === 'adb') await refreshDevices();
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
@@ -713,6 +717,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     <Panel title="Conexión inalámbrica"><form className="form-row" onSubmit={e => { e.preventDefault(); host(['connect', String(new FormData(e.currentTarget).get('endpoint'))]); }}><input name="endpoint" placeholder="192.168.1.10:5555" /><button>Conectar</button></form><form className="form-row" onSubmit={e => { e.preventDefault(); const d = new FormData(e.currentTarget); host(['pair', String(d.get('endpoint')), String(d.get('code'))]); }}><input name="endpoint" placeholder="IP:puerto" /><input name="code" placeholder="Código" /><button>Emparejar</button></form></Panel>
     <Panel title="ADB"><div className="tool-status"><strong>{tools?.adb.available ? 'Disponible' : 'No instalado'}</strong><span>Origen: {tools?.adb.source || '-'}</span><span>Versión: {tools?.adb.version || '-'}</span></div><div className="form-stack"><input value={adbPath} onChange={event => setAdbPath(event.target.value)} placeholder="Ruta a adb.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('adb', adbPath)}>Guardar ruta</button><button onClick={() => saveToolPath('adb', '')}>Detección automática</button><button className="primary" onClick={() => installTool('adb')}>{tools?.adb.available ? 'Actualizar ADB' : 'Instalar ADB'}</button></div></div><pre>{toolInfo || 'Consultando ADB...'}</pre></Panel>
     <Panel title="scrcpy"><div className="tool-status"><strong>{tools?.scrcpy.available ? 'Disponible' : 'No instalado'}</strong><span>Origen: {tools?.scrcpy.source || '-'}</span><span>Versión: {tools?.scrcpy.version || '-'}</span></div><div className="form-stack"><input value={scrcpyPath} onChange={event => setScrcpyPath(event.target.value)} placeholder="Ruta a scrcpy.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('scrcpy', scrcpyPath)}>Guardar ruta</button><button onClick={() => saveToolPath('scrcpy', '')}>Detección automática</button><button className="primary" onClick={() => installTool('scrcpy')}>{tools?.scrcpy.available ? 'Actualizar scrcpy' : 'Instalar scrcpy'}</button></div></div></Panel>
+    <Panel title="Java para AAB y APKS"><div className="tool-status"><strong>{tools?.java.available ? 'Compatible' : tools?.java.path ? 'Versión no compatible' : 'No detectado'}</strong><span>Origen: {tools?.java.source || '-'}</span><span>Versión: {tools?.java.version || '-'}</span></div><div className="form-stack"><p className="muted">Necesario para procesar archivos .aab y .apks con bundletool. Indica la ruta a java.exe, a la carpeta bin o al directorio de Java.</p><input value={javaPath} onChange={event => setJavaPath(event.target.value)} placeholder="Ruta a java.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('java', javaPath)}>Guardar ruta</button><button onClick={() => saveToolPath('java', '')}>Detección automática</button><a className="settings-link-button" href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">Descargar Temurin LTS</a></div><p className="settings-recommendation">Se recomienda instalar la última versión LTS de Eclipse Temurin. Java 11 o superior es obligatorio para bundletool.</p></div></Panel>
     <Panel title="Caché de aplicaciones"><p className="muted">Solo almacena localmente los nombres e iconos obtenidos de las aplicaciones.</p><div className="button-row settings-cache-actions"><button className="danger" onClick={clearApplicationCache}>Borrar caché de nombres e iconos</button></div></Panel>
     <Panel title="Herramientas de red"><button onClick={() => host(['mdns', 'services'])}>Descubrir dispositivos Wi-Fi</button></Panel>
   </div>;

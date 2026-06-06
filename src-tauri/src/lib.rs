@@ -12,6 +12,7 @@ use commands::screenshot;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             devices::list_devices,
             devices::get_device_details,
@@ -29,6 +30,8 @@ pub fn run() {
             operations::get_app_details,
             operations::clear_application_cache,
             operations::list_directory,
+            operations::pull_file,
+            operations::get_file_thumbnail,
             operations::launch_scrcpy,
             operations::list_scrcpy_cameras,
             operations::get_adb_info,
