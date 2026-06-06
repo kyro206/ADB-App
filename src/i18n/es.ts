@@ -1,5 +1,5 @@
 export const es: Record<string, string> = {
-  'app.name': 'ADB Manager',
+  'app.name': 'ADB App',
   'app.version': '1.0.0',
 
   'nav.home': 'Inicio',
