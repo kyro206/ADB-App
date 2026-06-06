@@ -75,7 +75,7 @@ export function HomePage() {
         <div><span className="home-overline">DISPOSITIVO ACTUAL</span><h2>{dd ? primaryTitle(dd) : t('app.name')}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
           <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
         </div>
-        <div className="home-hero__actions"><md-filled-button disabled={!selectedDevice || powerBusy} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /> Opciones de energía</md-filled-button></div>
+        <div className="home-hero__actions"><md-filled-button disabled={!selectedDevice || powerBusy} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-button></div>
         {powerStatus && <small className="home-power-status">{powerStatus}</small>}
       </Surface>
 
@@ -89,7 +89,7 @@ export function HomePage() {
     </div>
 
     <Surface className="home-preview">
-      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-outlined-button disabled={!screenshot || savingScreenshot} onClick={saveScreenshot}><MaterialIcon name="save" /> {savingScreenshot ? 'Guardando...' : t('home.saveCapture')}</md-outlined-button><md-filled-button disabled={capturing || !selectedDevice || selectedDevice.state !== 'device'} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /> {capturing ? 'Capturando...' : t('home.capture')}</md-filled-button></div></header>
+      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-outlined-button disabled={!screenshot || savingScreenshot} onClick={saveScreenshot}><MaterialIcon name="save" /></md-outlined-button><md-filled-button disabled={capturing || !selectedDevice || selectedDevice.state !== 'device'} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-button></div></header>
       <div className="home-preview__body">{screenshot ? <img src={screenshot} alt="Captura del dispositivo" /> : <div><MaterialIcon name="smartphone" /><strong>{t('home.preview.empty.title')}</strong><span>{t('home.preview.empty.subtitle')}</span></div>}</div>
     </Surface>
 

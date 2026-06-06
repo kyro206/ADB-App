@@ -27,7 +27,6 @@ export const en = {
   'common.error': 'Error',
 
   // Home
-  'home.capture': 'Capture screenshot',
   'home.saveCapture': 'Save screenshot',
   'home.field.state': 'State',
   'home.field.deviceType': 'Type',

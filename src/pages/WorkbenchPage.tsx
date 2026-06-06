@@ -654,7 +654,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const control = <div className="control-page">
     <div className="control-settings">
       <section className="control-card">
-        <div className="control-card-title"><div><span className="control-kicker">DISPOSITIVO</span><h3>Brillo y volumen</h3></div><span className="control-card-icon"><MaterialIcon name="tune" /></span></div>
+        <div className="control-card-title"><div><span className="control-kicker">DISPOSITIVO</span><h3>Brillo y volumen</h3></div></div>
         <label className="control-slider">
           <span><b>Brillo</b><strong>{controlBrightness} / 255</strong></span>
           <input type="range" min="0" max="255" value={controlBrightness} onChange={event => setControlBrightness(Number(event.target.value))} onMouseUp={event => run(['shell', 'settings', 'put', 'system', 'screen_brightness', event.currentTarget.value])} />

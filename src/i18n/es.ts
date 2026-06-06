@@ -23,7 +23,6 @@ export const es: Record<string, string> = {
   'common.loading': 'Cargando...',
   'common.error': 'Error',
 
-  'home.capture': 'Capturar pantalla',
   'home.saveCapture': 'Guardar captura',
   'home.field.state': 'Estado',
   'home.field.deviceType': 'Tipo',
