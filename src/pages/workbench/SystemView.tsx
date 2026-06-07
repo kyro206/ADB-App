@@ -36,21 +36,10 @@ export function SystemView(props: SystemViewProps) {
   const { connected, state, loading, selectedUser, newUser, selectedKeyboard } = props;
   if (!connected) return <div className="system-material-empty"><span className="system-material-empty__icon"><MaterialIcon name="settings_suggest" /></span><h2>Conecta un dispositivo</h2><p>La administración del sistema estará disponible cuando ADB detecte un dispositivo.</p></div>;
 
-  const currentUser = state?.users.find(user => user.id === state.current_user_id);
   const selectedUserIsCurrent = selectedUser === String(state?.current_user_id);
   const selectedKeyboardInfo = state?.keyboards.find(keyboard => keyboard.id === selectedKeyboard);
 
   return <div className="system-material-page">
-    <section className="system-material-overview">
-      <div className="system-material-overview__title"><span className="system-material-icon prominent"><MaterialIcon name="tune" /></span><div><span>ADMINISTRACIÓN DEL DISPOSITIVO</span><h2>Preferencias del sistema</h2><p>Gestiona perfiles, navegación, idiomas y métodos de entrada.</p></div></div>
-      <div className="system-material-overview__stats">
-        <div><MaterialIcon name="person" /><span>Usuario actual</span><strong>{currentUser?.name || `ID ${state?.current_user_id ?? '-'}`}</strong></div>
-        <div><MaterialIcon name="keyboard" /><span>Teclados activos</span><strong>{state?.keyboards.filter(keyboard => keyboard.enabled).length ?? 0}</strong></div>
-        <div><MaterialIcon name="swipe" /><span>Navegación</span><strong>{state?.gestural_navigation ? 'Gestos' : 'Botones'}</strong></div>
-      </div>
-      <md-icon-button aria-label="Actualizar sistema" title="Actualizar sistema" disabled={loading || undefined} onClick={props.onRefresh}><MaterialIcon name="refresh" className={loading ? 'system-material-spin' : ''} /></md-icon-button>
-    </section>
-
     <div className="system-material-layout">
       <section className="system-material-card system-material-users">
         <header className="system-material-card__header"><span className="system-material-icon"><MaterialIcon name="group" /></span><div><h3>Usuarios</h3><p>Cambia de perfil o crea un espacio independiente.</p></div><span className="system-material-count">{state?.users.length || 0}</span></header>
