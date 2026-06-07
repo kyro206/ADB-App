@@ -32,14 +32,14 @@ const optionDefinitions: Array<[keyof InstallOptions, string, string]> = [
 
 export function InstallationDialog({ open, files, installing, result, options, canInstall, onClose, onChooseFiles, onRemoveFile, onOptionChange, onInstall }: InstallationDialogProps) {
   const actions = <>
-    <md-text-button disabled={installing} onClick={onClose}>Cerrar</md-text-button>
-    <md-filled-button disabled={!canInstall || installing} onClick={onInstall}>{installing ? 'Instalando…' : `Instalar${files.length ? ` (${files.length})` : ''}`}</md-filled-button>
+    <md-text-button disabled={installing || undefined} onClick={onClose}>Cerrar</md-text-button>
+    <md-filled-button disabled={!canInstall || installing || undefined} onClick={onInstall}>{installing ? 'Instalando…' : `Instalar${files.length ? ` (${files.length})` : ''}`}</md-filled-button>
   </>;
 
   return <AppModal open={open} onClose={onClose} width="large" title="Instalar aplicaciones" subtitle="Selecciona paquetes APK o bundles para instalarlos en el dispositivo conectado." actions={actions}>
     <section className="install-dialog-section">
-      <header><h3>Archivos seleccionados</h3><md-filled-button disabled={installing} onClick={onChooseFiles}>Elegir archivos</md-filled-button></header>
-      {!files.length ? <p className="install-dialog-empty">Todavía no has seleccionado ningún archivo.</p> : <div className="install-dialog-files">{files.map(file => <div key={file}><MaterialIcon name="android_package" /><p><strong>{file.split(/[\\/]/).pop()}</strong><small>{file}</small></p><md-icon-button disabled={installing} aria-label="Quitar archivo" onClick={() => onRemoveFile(file)}><MaterialIcon name="close" /></md-icon-button></div>)}</div>}
+      <header><h3>Archivos seleccionados</h3><md-filled-button disabled={installing || undefined} onClick={onChooseFiles}>Elegir archivos</md-filled-button></header>
+      {!files.length ? <p className="install-dialog-empty">Todavía no has seleccionado ningún archivo.</p> : <div className="install-dialog-files">{files.map(file => <div key={file}><MaterialIcon name="android_package" /><p><strong>{file.split(/[\\/]/).pop()}</strong><small>{file}</small></p><md-icon-button disabled={installing || undefined} aria-label="Quitar archivo" onClick={() => onRemoveFile(file)}><MaterialIcon name="close" /></md-icon-button></div>)}</div>}
     </section>
     <md-divider />
     <section className="install-dialog-section">

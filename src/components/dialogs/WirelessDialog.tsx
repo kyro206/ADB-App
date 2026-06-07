@@ -40,17 +40,17 @@ export function WirelessDialog({ open, onClose }: { open: boolean; onClose: () =
     {mode === 'connect' && <section className="wireless-form">
       <p>Introduce la dirección IP y el puerto mostrados por Android.</p>
       <md-outlined-text-field label="Dirección IP y puerto" value={connectEndpoint} onInput={(event: any) => setConnectEndpoint(event.currentTarget.value)} />
-      <md-filled-button disabled={!connectEndpoint.trim() || busy} onClick={() => run('connect_wireless_device', { endpoint: connectEndpoint }, 'Conectando...', 'Conexión establecida')}>Conectar</md-filled-button>
+      <md-filled-button disabled={!connectEndpoint.trim() || busy || undefined} onClick={() => run('connect_wireless_device', { endpoint: connectEndpoint }, 'Conectando...', 'Conexión establecida')}>Conectar</md-filled-button>
     </section>}
     {mode === 'pair' && <section className="wireless-form">
       <p>Abre “Emparejar dispositivo con código de emparejamiento” en Android.</p>
       <md-outlined-text-field label="IP y puerto de emparejamiento" value={pairEndpoint} onInput={(event: any) => setPairEndpoint(event.currentTarget.value)} />
       <md-outlined-text-field label="Código de emparejamiento" value={pairCode} onInput={(event: any) => setPairCode(event.currentTarget.value)} />
-      <md-filled-button disabled={!pairEndpoint.trim() || !pairCode.trim()} onClick={() => run('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, 'Emparejando...', 'Dispositivo emparejado')}>Emparejar</md-filled-button>
+      <md-filled-button disabled={!pairEndpoint.trim() || !pairCode.trim() || busy || undefined} onClick={() => run('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, 'Emparejando...', 'Dispositivo emparejado')}>Emparejar</md-filled-button>
     </section>}
     {mode === 'qr' && <section className="wireless-qr">
       <div className="wireless-qr__preview">{qrPayload ? <img src={qrPayload.qr_data_url} alt="Código QR para emparejar ADB" /> : <MaterialIcon name="qr_code_2" />}</div>
-      <div><p>Escanea el código desde Depuración inalámbrica. No necesitas introducir datos técnicos.</p><div className="wireless-qr__actions"><md-outlined-button onClick={generateQr}>{qrPayload ? 'Generar otro QR' : 'Generar QR'}</md-outlined-button><md-filled-button onClick={() => qrPayload && run('pair_wireless_qr', { serviceName: qrPayload.service_name, password: qrPayload.password }, 'Esperando al dispositivo...', 'Dispositivo emparejado')}>Emparejar</md-filled-button></div></div>
+      <div><p>Escanea el código desde Depuración inalámbrica. No necesitas introducir datos técnicos.</p><div className="wireless-qr__actions"><md-outlined-button disabled={busy || undefined} onClick={generateQr}>{qrPayload ? 'Generar otro QR' : 'Generar QR'}</md-outlined-button><md-filled-button disabled={!qrPayload || busy || undefined} onClick={() => qrPayload && run('pair_wireless_qr', { serviceName: qrPayload.service_name, password: qrPayload.password }, 'Esperando al dispositivo...', 'Dispositivo emparejado')}>Emparejar</md-filled-button></div></div>
     </section>}
     <div className="wireless-status">{busy ? <md-circular-progress indeterminate /> : <MaterialIcon name="check_circle" filled />}<span>{status}</span></div>
   </AppModal>;

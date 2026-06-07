@@ -63,11 +63,11 @@ export function HomePage() {
   };
 
   const facts = [
-    [t('home.field.state'), stateLabel], [t('home.field.deviceType'), dd ? t(`device.type.${dd.device_type}`) : '-'],
-    [t('home.field.model'), dd?.model || '-'], [t('home.field.manufacturer'), dd?.manufacturer || '-'],
-    [t('home.field.brand'), dd?.brand || '-'], [t('home.field.architecture'), dd?.architecture || '-'],
-    [t('home.field.product'), dd?.product_name || '-'], [t('home.field.codename'), dd?.codename || '-'],
-    [t('home.field.serial'), dd?.serial || '-'],
+    ['check_circle', t('home.field.state'), stateLabel], ['devices', t('home.field.deviceType'), dd ? t(`device.type.${dd.device_type}`) : '-'],
+    ['tablet_android', t('home.field.model'), dd?.model || '-'], ['factory', t('home.field.manufacturer'), dd?.manufacturer || '-'],
+    ['verified', t('home.field.brand'), dd?.brand || '-'], ['developer_board', t('home.field.architecture'), dd?.architecture || '-'],
+    ['inventory_2', t('home.field.product'), dd?.product_name || '-'], ['tag', t('home.field.codename'), dd?.codename || '-'],
+    ['fingerprint', t('home.field.serial'), dd?.serial || '-'],
   ];
 
   return <main className="home-material">
@@ -76,7 +76,7 @@ export function HomePage() {
         <div><span className="home-overline">DISPOSITIVO ACTUAL</span><h2>{dd ? primaryTitle(dd) : t('app.name')}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
           <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
         </div>
-        <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label="Opciones de energía" title="Opciones de energía" disabled={!selectedDevice || powerBusy} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
+        <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label="Opciones de energía" title="Opciones de energía" disabled={!selectedDevice || powerBusy || undefined} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
         {powerStatus && <small className="home-power-status">{powerStatus}</small>}
       </Surface>
 
@@ -86,11 +86,11 @@ export function HomePage() {
         <Metric icon="hard_drive" title={t('home.storage.inUse')} value={dd ? formatStorage(dd.used_storage_mb) : '-'} total={dd ? formatStorage(dd.total_storage_mb) : '-'} progress={dd?.total_storage_mb ? dd.used_storage_mb * 100 / dd.total_storage_mb : 0} />
       </div>
 
-      <section className="home-facts"><div>{facts.map(([label, value]) => <article key={label}><span>{label}</span><strong title={value}>{value}</strong></article>)}</div></section>
+      <section className="home-facts"><div>{facts.map(([icon, label, value]) => <article key={label}><MaterialIcon name={icon} /><span>{label}</span><strong title={value}>{value}</strong></article>)}</div></section>
     </div>
 
     <Surface className="home-preview">
-      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-icon-button aria-label={t('home.saveCapture')} title={t('home.saveCapture')} disabled={!screenshot || savingScreenshot} onClick={saveScreenshot}><MaterialIcon name="save" /></md-icon-button><md-filled-icon-button aria-label={t('home.capture')} title={t('home.capture')} disabled={capturing || !selectedDevice || selectedDevice.state !== 'device'} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-icon-button></div></header>
+      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-icon-button aria-label={t('home.saveCapture')} title={t('home.saveCapture')} disabled={!screenshot || savingScreenshot || undefined} onClick={saveScreenshot}><MaterialIcon name="save" /></md-icon-button><md-filled-icon-button aria-label={t('home.capture')} title={t('home.capture')} disabled={capturing || !selectedDevice || selectedDevice.state !== 'device' || undefined} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-icon-button></div></header>
       <div className="home-preview__body">{screenshot ? <img src={screenshot} alt="Captura del dispositivo" /> : <div><MaterialIcon name="smartphone" /><strong>{t('home.preview.empty.title')}</strong><span>{t('home.preview.empty.subtitle')}</span></div>}</div>
     </Surface>
 

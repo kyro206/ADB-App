@@ -1,5 +1,7 @@
 mod adb;
+mod app_paths;
 mod commands;
+mod dependencies;
 mod models;
 mod parsers;
 mod tools;
@@ -11,6 +13,10 @@ use commands::screenshot;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            app_paths::initialize(&app.handle())?;
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![

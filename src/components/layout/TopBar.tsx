@@ -55,10 +55,19 @@ export function TopBar() {
       <div className="topbar__drag-zone" data-tauri-drag-region />
       <div className="topbar__device-section" onDoubleClick={event => event.stopPropagation()}>
         <button className="topbar__tcpip" disabled={!selectedDevice || selectedDevice.state !== 'device' || selectedDevice.serial.includes(':') || tcpipBusy} onClick={connectUsbOverTcpip} title="Pasar la conexión USB actual a Wi-Fi"><MaterialIcon name="usb" /><MaterialIcon name="arrow_forward" /><MaterialIcon name="wifi" /></button>
-        <select className="topbar__device-selector" value={selectedDevice?.serial ?? ''} onChange={event => selectDevice(event.target.value)} disabled={loading || devices.length === 0}>
-          {devices.length === 0 && <option value="">{loading ? t('common.loading') : t('common.noData')}</option>}
-          {devices.map(device => <option key={device.serial} value={device.serial}>{device.model || device.serial} - {device.state}</option>)}
-        </select>
+        <md-outlined-select
+          className="topbar__device-selector"
+          aria-label="Dispositivo seleccionado"
+          value={selectedDevice?.serial ?? ''}
+          disabled={loading || devices.length === 0 || undefined}
+          onChange={(event: any) => selectDevice(event.currentTarget.value)}
+          onDoubleClick={(event: MouseEvent) => event.stopPropagation()}
+        >
+          {devices.length === 0 && <md-select-option className="topbar__device-option" value="" selected><div slot="headline">{loading ? t('common.loading') : t('common.noData')}</div></md-select-option>}
+          {devices.map(device => <md-select-option key={device.serial} value={device.serial} selected={selectedDevice?.serial === device.serial || undefined}>
+            <div slot="headline">{device.model || device.serial} · {device.state}</div>
+          </md-select-option>)}
+        </md-outlined-select>
         <button className={`topbar__wireless ${wirelessOpen ? 'active' : ''}`} onClick={() => setWirelessOpen(true)} title="Conectar o emparejar dispositivo"><MaterialIcon name="add" /></button>
         <button className="topbar__action-btn" onClick={() => refreshDevices()} disabled={loading} title={t('main.refresh')}><MaterialIcon name="refresh" className={loading ? 'topbar__refresh-icon--spinning' : ''} /></button>
       </div>

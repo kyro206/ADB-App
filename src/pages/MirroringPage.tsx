@@ -182,14 +182,14 @@ export function MirroringPage(props: MirroringPageProps) {
         <section className="mirror-material-card mirror-material-advanced">
           <header><MaterialIcon name="terminal" /><div><h3>Argumentos avanzados</h3><p>Ejecuta scrcpy con parámetros personalizados.</p></div></header>
           <Field label="Argumentos adicionales" value={advancedArgs} onValue={setAdvancedArgs} placeholder="--video-bit-rate=8M" />
-          <md-outlined-button disabled={!props.serial} onClick={() => props.onDirectLaunch(advancedArgs)}><span slot="icon"><MaterialIcon name="terminal" /></span>Ejecutar directamente</md-outlined-button>
+          <md-outlined-button disabled={!props.serial || undefined} onClick={() => props.onDirectLaunch(advancedArgs)}><span slot="icon"><MaterialIcon name="terminal" /></span>Ejecutar directamente</md-outlined-button>
         </section>
       </aside>
     </div>
 
     <footer className="mirror-material-footer">
       <span><MaterialIcon name="info" />{cameraMode ? 'La cámara requiere Android 12 o superior y no permite control.' : 'El audio del dispositivo requiere Android 11 o superior.'}</span>
-      <md-filled-button disabled={!props.serial || !scrcpyReady} onClick={props.onLaunch}><span slot="icon"><MaterialIcon name="cast" /></span>Abrir vista con scrcpy</md-filled-button>
+      <md-filled-button disabled={!props.serial || !scrcpyReady || undefined} onClick={props.onLaunch}><span slot="icon"><MaterialIcon name="cast" /></span>Abrir vista con scrcpy</md-filled-button>
     </footer>
   </div>;
 }

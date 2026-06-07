@@ -113,64 +113,17 @@ fn package_set(output: &str) -> HashSet<String> {
         .collect()
 }
 
-fn aapt2_path() -> Option<PathBuf> {
-    let executable = if cfg!(windows) { "aapt2.exe" } else { "aapt2" };
-    let mut candidates = Vec::new();
-    if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
-        let home = PathBuf::from(home);
-        candidates.push(home.join(".adbapp").join("tools").join("aapt2").join("managed").join(executable));
-        candidates.push(home.join(".adbmanager").join("tools").join("aapt2").join("managed").join(executable));
-        candidates.extend([
-            home.join("Android").join("Sdk"),
-            home.join("Android").join("sdk"),
-            home.join("Library").join("Android").join("sdk"),
-        ].into_iter().flat_map(|root| aapt2_build_tools_candidates(&root, executable)));
-    }
-    for variable in ["ANDROID_HOME", "ANDROID_SDK_ROOT"] {
-        if let Some(root) = std::env::var_os(variable) {
-            candidates.extend(aapt2_build_tools_candidates(&PathBuf::from(root), executable));
-        }
-    }
-    if let Some(adb_path) = tools::resolve_tool_path("adb") {
-        if let Some(sdk_root) = adb_path.parent().and_then(Path::parent) {
-            candidates.extend(aapt2_build_tools_candidates(sdk_root, executable));
-        }
-    }
-    let lookup = if cfg!(windows) { "where" } else { "which" };
-    if let Ok(output) = Command::new(lookup).arg(executable).output() {
-        candidates.extend(String::from_utf8_lossy(&output.stdout).lines().map(str::trim).filter(|line| !line.is_empty()).map(PathBuf::from));
-    }
-    candidates.into_iter().find(|path| path.is_file())
-}
-
-fn aapt2_build_tools_candidates(sdk_root: &Path, executable: &str) -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir(sdk_root.join("build-tools")) else {
-        return Vec::new();
-    };
-    let mut candidates = entries.flatten().map(|entry| entry.path().join(executable)).filter(|path| path.is_file()).collect::<Vec<_>>();
-    candidates.sort_by(|left, right| right.cmp(left));
-    candidates
-}
-
 fn app_summary_cache_path(package_name: &str, apk_path: &str) -> PathBuf {
     let mut hasher = DefaultHasher::new();
     package_name.hash(&mut hasher);
     apk_path.hash(&mut hasher);
-    let root = std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
-        .unwrap_or_else(std::env::temp_dir);
-    root.join("ADB App")
+    crate::app_paths::cache_dir()
         .join("app-icons")
         .join(format!("{:x}.json", hasher.finish()))
 }
 
 fn application_cache_dir() -> PathBuf {
-    let root = std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
-        .unwrap_or_else(std::env::temp_dir);
-    root.join("ADB App").join("app-icons")
+    crate::app_paths::cache_dir().join("app-icons")
 }
 
 fn install_working_dir() -> Result<PathBuf, String> {
@@ -178,8 +131,8 @@ fn install_working_dir() -> Result<PathBuf, String> {
         .duration_since(UNIX_EPOCH)
         .map_err(|error| error.to_string())?
         .as_millis();
-    let path = std::env::temp_dir()
-        .join("adb-app-installs")
+    let path = crate::app_paths::cache_dir()
+        .join("installs")
         .join(nonce.to_string());
     fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     Ok(path)
@@ -207,35 +160,7 @@ fn run_local_command(program: &Path, args: &[String]) -> Result<String, String> 
 }
 
 fn bundletool_jar() -> Result<PathBuf, String> {
-    let home = std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .ok_or_else(|| "No se pudo localizar la carpeta del usuario".to_string())?;
-    let directory = PathBuf::from(home)
-        .join(".adbapp")
-        .join("tools")
-        .join("bundletool");
-    let jar = directory.join("bundletool-all.jar");
-    if jar.is_file() {
-        return Ok(jar);
-    }
-    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    let escaped_directory = directory.to_string_lossy().replace('\'', "''");
-    let script = format!(
-        "$ErrorActionPreference='Stop';$target='{escaped_directory}';$release=Invoke-RestMethod -Headers @{{'User-Agent'='ADB-App'}} 'https://api.github.com/repos/google/bundletool/releases/latest';$asset=$release.assets|Where-Object{{$_.name -like 'bundletool-all-*.jar'}}|Select-Object -First 1;if(-not $asset){{throw 'No se encontró bundletool'}};Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile (Join-Path $target 'bundletool-all.jar')"
-    );
-    run_local_command(
-        Path::new("powershell.exe"),
-        &[
-            "-NoProfile".into(),
-            "-ExecutionPolicy".into(),
-            "Bypass".into(),
-            "-Command".into(),
-            script,
-        ],
-    )?;
-    jar.is_file()
-        .then_some(jar)
-        .ok_or_else(|| "No se pudo descargar bundletool".to_string())
+    crate::dependencies::ensure_bundletool()
 }
 
 fn modern_java_path() -> Result<PathBuf, String> {
@@ -1026,9 +951,11 @@ pub async fn enrich_app_summary(
             }
         }
     }
-    let aapt2 = aapt2_path().ok_or_else(|| "AAPT2 no está disponible".to_string())?;
+    let aapt2 = tools::resolve_tool_path("aapt2").ok_or_else(|| {
+        "AAPT2 no está disponible. Instálalo o configura su ruta desde Ajustes.".to_string()
+    })?;
     let safe_name = package_name.replace(|character: char| !character.is_ascii_alphanumeric(), "_");
-    let local_apk = std::env::temp_dir().join(format!("adb-app-{safe_name}.apk"));
+    let local_apk = crate::app_paths::cache_dir().join(format!("adb-app-{safe_name}.apk"));
     let local_value = local_apk.to_string_lossy().to_string();
     let pull = adb::run_adb_for_serial(&serial, &["pull", &apk_path, &local_value]).await?;
     if !pull.ok() {

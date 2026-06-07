@@ -26,37 +26,33 @@
 }
 
 .topbar__device-selector {
-  width: clamp(190px, 25vw, 300px);
-  height: 30px;
-  padding: 0 34px 0 13px;
-  background-color: var(--surface-container-high);
-  border: 0;
-  border-radius: var(--radius-full);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color var(--transition-fast);
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-
-.topbar__device-selector:hover {
-  border-color: var(--action-bg);
-}
-
-.topbar__device-selector:focus {
-  border-color: var(--action-bg);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(31, 122, 255, 0.15);
-}
-
-.topbar__device-selector:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  width: clamp(170px, 22vw, 260px);
+  height: 28px;
+  min-height:28px;
+  overflow:visible;
+  --md-outlined-select-text-field-container-shape:14px;
+  --md-outlined-select-text-field-outline-color:transparent;
+  --md-outlined-select-text-field-hover-outline-color:var(--outline);
+  --md-outlined-select-text-field-focus-outline-color:var(--primary);
+  --md-outlined-select-text-field-focus-outline-width:1px;
+  --md-outlined-select-text-field-input-text-size:11px;
+  --md-outlined-select-text-field-input-text-line-height:14px;
+  --md-outlined-select-text-field-input-text-weight:600;
+  --md-outlined-select-text-field-trailing-icon-size:18px;
+  --md-outlined-select-text-field-trailing-space:7px;
+  --md-outlined-select-text-field-leading-space:10px;
+  --md-menu-container-color:var(--surface-container-high);
+  --md-menu-container-shape:12px;
+  --md-menu-top-space:4px;
+  --md-menu-bottom-space:4px;
+  --md-menu-item-one-line-container-height:40px;
+  --md-menu-item-top-space:6px;
+  --md-menu-item-bottom-space:6px;
+  --md-menu-item-leading-space:12px;
+  --md-menu-item-trailing-space:12px;
+  --md-menu-item-label-text-size:12px;
+  --md-menu-item-label-text-line-height:16px;
+  zoom:.78;
 }
 
 .topbar__action-btn:disabled {

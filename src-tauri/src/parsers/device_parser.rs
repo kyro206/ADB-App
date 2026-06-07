@@ -103,11 +103,32 @@ pub fn parse_battery_level(output: &str) -> i32 {
         .min(100.0) as i32
 }
 
-/// Parse memory info from `/proc/meminfo`.
+/// Parse Android's `dumpsys meminfo` summary, falling back to `/proc/meminfo`.
 pub fn parse_memory(output: &str) -> (i64, i64) {
-    let total_re = Regex::new(r"(?m)^MemTotal:\s+(\d+)\s+kB$").unwrap();
-    let available_re = Regex::new(r"(?m)^MemAvailable:\s+(\d+)\s+kB$").unwrap();
-    let free_re = Regex::new(r"(?m)^MemFree:\s+(\d+)\s+kB$").unwrap();
+    let dumpsys_total_re = Regex::new(r"(?im)^\s*Total RAM:\s*([\d,]+)K\b").unwrap();
+    let dumpsys_used_re = Regex::new(r"(?im)^\s*Used RAM:\s*([\d,]+)K\b").unwrap();
+    let parse_dumpsys_kb = |regex: &Regex| {
+        regex
+            .captures(output)
+            .and_then(|captures| captures.get(1))
+            .and_then(|value| value.as_str().replace(',', "").parse::<i64>().ok())
+    };
+
+    if let (Some(total_kb), Some(used_kb)) = (
+        parse_dumpsys_kb(&dumpsys_total_re),
+        parse_dumpsys_kb(&dumpsys_used_re),
+    ) {
+        if total_kb > 0 && used_kb >= 0 {
+            return (
+                (total_kb as f64 / 1024.0).round() as i64,
+                (used_kb.min(total_kb) as f64 / 1024.0).round() as i64,
+            );
+        }
+    }
+
+    let total_re = Regex::new(r"(?im)^MemTotal:\s+(\d+)\s+kB\s*$").unwrap();
+    let available_re = Regex::new(r"(?im)^MemAvailable:\s+(\d+)\s+kB\s*$").unwrap();
+    let free_re = Regex::new(r"(?im)^MemFree:\s+(\d+)\s+kB\s*$").unwrap();
 
     let total_kb: i64 = total_re
         .captures(output)
@@ -517,5 +538,29 @@ fn safe_value(value: &str) -> String {
         "-".to_string()
     } else {
         value.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_memory;
+
+    #[test]
+    fn parses_android_memory_summary_as_displayed_by_dumpsys() {
+        let output = r#"
+Total RAM: 7,654,321K (status normal)
+ Free RAM: 2,100,000K (1,000,000K cached pss + 800,000K cached kernel + 300,000K free)
+ Used RAM: 5,123,456K (4,000,000K used pss + 1,123,456K kernel)
+"#;
+
+        assert_eq!(parse_memory(output), (7475, 5003));
+    }
+
+    #[test]
+    fn parses_proc_meminfo_with_windows_line_endings() {
+        let output =
+            "MemTotal:        8192000 kB\r\nMemFree:         1000000 kB\r\nMemAvailable:    3072000 kB\r\n";
+
+        assert_eq!(parse_memory(output), (8000, 5000));
     }
 }

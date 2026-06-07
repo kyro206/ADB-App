@@ -74,7 +74,9 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
 
     // Run all info queries
     let getprop = run_or_empty(&serial, &["shell", "getprop"]).await;
-    let meminfo = run_or_empty(&serial, &["shell", "cat", "/proc/meminfo"]).await;
+    let dumpsys_meminfo = run_or_empty(&serial, &["shell", "dumpsys", "meminfo"]).await;
+    let proc_meminfo = run_or_empty(&serial, &["shell", "cat", "/proc/meminfo"]).await;
+    let meminfo = format!("{dumpsys_meminfo}\n{proc_meminfo}");
     let battery = run_or_empty(&serial, &["shell", "dumpsys", "battery"]).await;
     let storage = run_or_empty(&serial, &["shell", "df", "-k", "/data"]).await;
     let features = run_or_empty(&serial, &["shell", "pm", "list", "features"]).await;
