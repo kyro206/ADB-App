@@ -9,6 +9,7 @@ import { InstallationDialog } from '../components/dialogs/InstallationDialog';
 import { DisplayPage } from './DisplayPage';
 import { MirroringPage } from './MirroringPage';
 import { SettingsView } from './workbench/SettingsView';
+import { SystemView } from './workbench/SystemView';
 import { WorkbenchShell } from './workbench/WorkbenchShell';
 import { appTone, formatBytes, words } from './workbench/utils';
 import type { AppDetailsInfo, AppFilter, AppPermissionInfo, AppSummary, FileEntry, FileSortKey, FileView, MediaVolumeState, MirrorMode, SoundMode, SystemState, ToolsStatus, WorkTab } from './workbench/types';
@@ -845,57 +846,25 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     <footer className="file-status-bar"><span><MaterialIcon name="folder" />{filteredFiles.length} elementos</span><span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? `${selectedFileEntries.length} seleccionados` : 'Sin selección'}</span></footer>
   </div>;
 
-  const selectedKeyboardInfo = systemState?.keyboards.find(keyboard => keyboard.id === selectedKeyboard);
-  const system = <div className="system-page">
-    <section className="system-intro">
-      <div><span className="system-kicker">ADMINISTRACIÓN DEL DISPOSITIVO</span><h2>Sistema</h2><p>Gestiona perfiles, preferencias de navegación y métodos de entrada.</p></div>
-      <button disabled={systemLoading || !serial} onClick={refreshSystemState}>{systemLoading ? 'Actualizando...' : 'Actualizar sistema'}</button>
-    </section>
-
-    {!serial && <section className="system-empty"><b>Conecta un dispositivo</b><span>La administración del sistema estará disponible cuando ADB detecte un dispositivo.</span></section>}
-
-    {serial && <div className="system-layout">
-      <section className="system-card system-users-card">
-        <header><span className="system-card-icon">U</span><div><h3>Usuarios</h3><p>Crea perfiles independientes o cambia la sesión activa.</p></div><strong>{systemState?.users.length || 0}</strong></header>
-        <div className="system-current-user"><span>Usuario actual</span><b>{systemState?.users.find(user => user.id === systemState.current_user_id)?.name || `ID ${systemState?.current_user_id ?? '-'}`}</b></div>
-        <div className="system-user-grid">
-          {systemState?.users.map(user => <button key={user.id} className={selectedSystemUser === String(user.id) ? 'selected' : ''} onClick={() => setSelectedSystemUser(String(user.id))}>
-            <span>{user.name.slice(0, 1).toUpperCase()}</span><div><b>{user.name}</b><small>ID {user.id}{user.id === systemState.current_user_id ? ' · actual' : user.is_running ? ' · activo' : ''}</small></div>{user.id === systemState.current_user_id && <em>En uso</em>}
-          </button>)}
-        </div>
-        <div className="system-user-create"><input value={newSystemUser} onChange={event => setNewSystemUser(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') createSystemUser(); }} placeholder="Nombre del nuevo usuario" /><button className="primary" disabled={!newSystemUser.trim() || systemLoading} onClick={createSystemUser}>Crear usuario</button></div>
-        <div className="system-card-actions">
-          <button disabled={!selectedSystemUser || selectedSystemUser === String(systemState?.current_user_id) || systemLoading} onClick={() => applySystemAction(['shell', 'am', 'switch-user', selectedSystemUser], `Cambiado al usuario ${selectedSystemUser}`)}>Cambiar a este usuario</button>
-          <button className="danger" disabled={!selectedSystemUser || selectedSystemUser === String(systemState?.current_user_id) || systemLoading} onClick={removeSystemUser}>Eliminar usuario</button>
-        </div>
-      </section>
-
-      <div className="system-side-column">
-        <section className="system-card system-setting-card">
-          <header><span className="system-card-icon">A</span><div><h3>Idiomas por aplicación</h3><p>Muestra todas las apps en el selector de idioma de Android.</p></div></header>
-          <div className="system-setting-row"><div><b>Mostrar todas las aplicaciones</b><span>{systemState?.app_languages_enabled ? 'El filtro del sistema está desactivado' : 'Solo aparecen aplicaciones compatibles'}</span></div><button className={`system-switch ${systemState?.app_languages_enabled ? 'checked' : ''}`} role="switch" aria-checked={systemState?.app_languages_enabled || false} disabled={!systemState || systemLoading} onClick={() => applySystemAction(['shell', 'settings', 'put', 'global', 'settings_app_locale_opt_in_enabled', systemState?.app_languages_enabled ? 'true' : 'false'], 'Lista de idiomas por aplicación actualizada')}><span /></button></div>
-        </section>
-        <section className="system-card system-setting-card">
-          <header><span className="system-card-icon">G</span><div><h3>Navegación por gestos</h3><p>Activa el overlay gestual del sistema Android.</p></div></header>
-          <div className="system-setting-row"><div><b>Usar navegación gestual</b><span>{systemState?.gestural_navigation ? 'Gestos activos' : 'Botones de navegación activos'}</span></div><button className={`system-switch ${systemState?.gestural_navigation ? 'checked' : ''}`} role="switch" aria-checked={systemState?.gestural_navigation || false} disabled={!systemState || systemLoading} onClick={() => applySystemAction(['shell', 'cmd', 'overlay', systemState?.gestural_navigation ? 'disable' : 'enable', 'com.android.internal.systemui.navbar.gestural'], 'Navegación del sistema actualizada')}><span /></button></div>
-        </section>
-      </div>
-
-      <section className="system-card system-keyboards-card">
-        <header><span className="system-card-icon">K</span><div><h3>Teclados y métodos de entrada</h3><p>Activa un teclado y establécelo como método predeterminado.</p></div><strong>{systemState?.keyboards.length || 0}</strong></header>
-        <div className="system-keyboard-list">
-          {systemState?.keyboards.map(keyboard => <button key={keyboard.id} className={selectedKeyboard === keyboard.id ? 'selected' : ''} onClick={() => setSelectedKeyboard(keyboard.id)}>
-            <span className="keyboard-mark">{keyboard.is_default ? 'D' : keyboard.enabled ? 'A' : '-'}</span><div><b>{keyboard.label || keyboard.id}</b><code>{keyboard.id}</code></div><em className={keyboard.is_default ? 'default' : keyboard.enabled ? 'enabled' : ''}>{keyboard.is_default ? 'Predeterminado' : keyboard.enabled ? 'Activado' : 'Desactivado'}</em>
-          </button>)}
-          {!systemState?.keyboards.length && <div className="system-inline-empty">No se encontraron métodos de entrada.</div>}
-        </div>
-        <div className="system-card-actions">
-          <button disabled={!selectedKeyboard || systemLoading} onClick={() => applySystemAction(['shell', 'ime', selectedKeyboardInfo?.enabled ? 'disable' : 'enable', selectedKeyboard], selectedKeyboardInfo?.enabled ? 'Teclado deshabilitado' : 'Teclado habilitado')}>{selectedKeyboardInfo?.enabled ? 'Deshabilitar' : 'Habilitar'}</button>
-          <button className="primary" disabled={!selectedKeyboard || selectedKeyboardInfo?.is_default || systemLoading} onClick={async () => { await applySystemAction(['shell', 'ime', 'enable', selectedKeyboard], 'Teclado habilitado'); await applySystemAction(['shell', 'settings', 'put', 'secure', 'default_input_method', selectedKeyboard], 'Teclado predeterminado actualizado'); }}>Establecer como predeterminado</button>
-        </div>
-      </section>
-    </div>}
-  </div>;
+  const materialSystem = <SystemView
+    connected={Boolean(serial)}
+    state={systemState}
+    loading={systemLoading}
+    selectedUser={selectedSystemUser}
+    newUser={newSystemUser}
+    selectedKeyboard={selectedKeyboard}
+    onSelectedUserChange={setSelectedSystemUser}
+    onNewUserChange={setNewSystemUser}
+    onSelectedKeyboardChange={setSelectedKeyboard}
+    onCreateUser={createSystemUser}
+    onRemoveUser={removeSystemUser}
+    onSwitchUser={() => applySystemAction(['shell', 'am', 'switch-user', selectedSystemUser], `Cambiado al usuario ${selectedSystemUser}`)}
+    onToggleAppLanguages={() => applySystemAction(['shell', 'settings', 'put', 'global', 'settings_app_locale_opt_in_enabled', systemState?.app_languages_enabled ? 'true' : 'false'], 'Lista de idiomas por aplicación actualizada')}
+    onToggleGestures={() => applySystemAction(['shell', 'cmd', 'overlay', systemState?.gestural_navigation ? 'disable' : 'enable', 'com.android.internal.systemui.navbar.gestural'], 'Navegación del sistema actualizada')}
+    onToggleKeyboard={keyboard => applySystemAction(['shell', 'ime', keyboard.enabled ? 'disable' : 'enable', keyboard.id], keyboard.enabled ? 'Teclado deshabilitado' : 'Teclado habilitado')}
+    onSetDefaultKeyboard={async keyboard => { await applySystemAction(['shell', 'ime', 'enable', keyboard.id], 'Teclado habilitado'); await applySystemAction(['shell', 'settings', 'put', 'secure', 'default_input_method', keyboard.id], 'Teclado predeterminado actualizado'); }}
+    onRefresh={refreshSystemState}
+  />;
 
   const mirroring = <MirroringPage
     serial={serial} tools={tools} mode={mirrorMode} setMode={setMirrorMode}
@@ -921,7 +890,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     control,
     apps: appsPage,
     files: filesPage,
-    system,
+    system: materialSystem,
     settings,
   };
   return <WorkbenchShell title={t(`nav.${tab}`)} busy={busy} status={status}>{pages[tab]}</WorkbenchShell>;
