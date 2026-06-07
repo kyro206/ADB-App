@@ -106,7 +106,7 @@ pub fn parse_battery_level(output: &str) -> i32 {
 /// Parse Android's `dumpsys meminfo` summary, falling back to `/proc/meminfo`.
 pub fn parse_memory(output: &str) -> (i64, i64) {
     let dumpsys_total_re = Regex::new(r"(?im)^\s*Total RAM:\s*([\d,]+)K\b").unwrap();
-    let dumpsys_used_re = Regex::new(r"(?im)^\s*Used RAM:\s*([\d,]+)K\b").unwrap();
+    let dumpsys_free_re = Regex::new(r"(?im)^\s*Free RAM:\s*([\d,]+)K\b").unwrap();
     let parse_dumpsys_kb = |regex: &Regex| {
         regex
             .captures(output)
@@ -114,14 +114,15 @@ pub fn parse_memory(output: &str) -> (i64, i64) {
             .and_then(|value| value.as_str().replace(',', "").parse::<i64>().ok())
     };
 
-    if let (Some(total_kb), Some(used_kb)) = (
+    if let (Some(total_kb), Some(free_kb)) = (
         parse_dumpsys_kb(&dumpsys_total_re),
-        parse_dumpsys_kb(&dumpsys_used_re),
+        parse_dumpsys_kb(&dumpsys_free_re),
     ) {
-        if total_kb > 0 && used_kb >= 0 {
+        if total_kb > 0 && free_kb >= 0 && free_kb <= total_kb {
+            let used_kb = total_kb - free_kb;
             return (
                 (total_kb as f64 / 1024.0).round() as i64,
-                (used_kb.min(total_kb) as f64 / 1024.0).round() as i64,
+                (used_kb as f64 / 1024.0).round() as i64,
             );
         }
     }
@@ -546,14 +547,26 @@ mod tests {
     use super::parse_memory;
 
     #[test]
-    fn parses_android_memory_summary_as_displayed_by_dumpsys() {
+    fn calculates_android_used_memory_from_total_and_free_ram() {
         let output = r#"
 Total RAM: 7,654,321K (status normal)
  Free RAM: 2,100,000K (1,000,000K cached pss + 800,000K cached kernel + 300,000K free)
  Used RAM: 5,123,456K (4,000,000K used pss + 1,123,456K kernel)
 "#;
 
-        assert_eq!(parse_memory(output), (7475, 5003));
+        assert_eq!(parse_memory(output), (7475, 5424));
+    }
+
+    #[test]
+    fn ignores_invalid_dumpsys_used_ram_larger_than_total() {
+        let output = r#"
+Total RAM: 11,156,420K (status normal)
+ Free RAM: 5,043,894K (3,230,690K cached pss + 1,522,824K cached kernel + 290,380K free)
+ Used RAM: 141,383,449K (5,597,905K used pss + 135,785,544K kernel)
+ Lost RAM: -133,561,032K
+"#;
+
+        assert_eq!(parse_memory(output), (10895, 5969));
     }
 
     #[test]

@@ -5,6 +5,7 @@ import { useDevices } from '../../context/DeviceContext';
 import { useI18n } from '../../i18n';
 import { WirelessDialog } from '../dialogs/WirelessDialog';
 import { MaterialIcon } from '../MaterialIcon';
+import { DeviceSelector } from './DeviceSelector';
 import './TopBar.css';
 
 type DesktopPlatform = 'windows' | 'macos' | 'linux';
@@ -55,19 +56,7 @@ export function TopBar() {
       <div className="topbar__drag-zone" data-tauri-drag-region />
       <div className="topbar__device-section" onDoubleClick={event => event.stopPropagation()}>
         <button className="topbar__tcpip" disabled={!selectedDevice || selectedDevice.state !== 'device' || selectedDevice.serial.includes(':') || tcpipBusy} onClick={connectUsbOverTcpip} title="Pasar la conexión USB actual a Wi-Fi"><MaterialIcon name="usb" /><MaterialIcon name="arrow_forward" /><MaterialIcon name="wifi" /></button>
-        <md-outlined-select
-          className="topbar__device-selector"
-          aria-label="Dispositivo seleccionado"
-          value={selectedDevice?.serial ?? ''}
-          disabled={loading || devices.length === 0 || undefined}
-          onChange={(event: any) => selectDevice(event.currentTarget.value)}
-          onDoubleClick={(event: MouseEvent) => event.stopPropagation()}
-        >
-          {devices.length === 0 && <md-select-option className="topbar__device-option" value="" selected><div slot="headline">{loading ? t('common.loading') : t('common.noData')}</div></md-select-option>}
-          {devices.map(device => <md-select-option key={device.serial} value={device.serial} selected={selectedDevice?.serial === device.serial || undefined}>
-            <div slot="headline">{device.model || device.serial} · {device.state}</div>
-          </md-select-option>)}
-        </md-outlined-select>
+        <DeviceSelector devices={devices} selectedDevice={selectedDevice} loading={loading} loadingLabel={t('common.loading')} emptyLabel={t('common.noData')} onSelect={selectDevice} />
         <button className={`topbar__wireless ${wirelessOpen ? 'active' : ''}`} onClick={() => setWirelessOpen(true)} title="Conectar o emparejar dispositivo"><MaterialIcon name="add" /></button>
         <button className="topbar__action-btn" onClick={() => refreshDevices()} disabled={loading} title={t('main.refresh')}><MaterialIcon name="refresh" className={loading ? 'topbar__refresh-icon--spinning' : ''} /></button>
       </div>

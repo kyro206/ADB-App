@@ -21,6 +21,9 @@ declare module 'react' {
       'md-primary-tab': any;
       'md-outlined-select': any;
       'md-select-option': any;
+      'md-menu': any;
+      'md-menu-item': any;
+      'md-ripple': any;
       'md-elevation': any;
       'md-divider': any;
       'md-circular-progress': any;

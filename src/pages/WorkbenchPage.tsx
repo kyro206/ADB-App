@@ -602,7 +602,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
           <span><b>Volumen multimedia</b><strong>{controlVolume} / {controlVolumeMax}</strong></span>
           <input type="range" min="0" max={controlVolumeMax} value={controlVolume} onChange={event => setControlVolume(Number(event.target.value))} onPointerUp={event => applyMediaVolume(Number(event.currentTarget.value))} onKeyUp={event => applyMediaVolume(Number(event.currentTarget.value))} />
         </label>
-        <p className="control-hint">Los cambios se aplican al soltar el control.</p>
       </section>
 
       <section className="control-card">
@@ -783,64 +782,67 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   };
   const fileType = (file: FileEntry) => file.is_link ? 'Enlace simbólico' : file.is_directory ? 'Carpeta' : 'Archivo';
   const fileSize = (file: FileEntry) => file.is_directory || file.is_link ? '-' : formatBytes(file.size);
-  const fileIcon = (file: FileEntry) => file.is_link ? '↗' : file.is_directory ? '▰' : '▤';
+  const fileIcon = (file: FileEntry) => file.is_link ? 'shortcut' : file.is_directory ? 'folder' : 'draft';
   const pathParts = path.split('/').filter(Boolean);
   const changeFileSort = (key: FileSortKey) => setFileSort(current => current.key === key
     ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
     : { key, direction: 'asc' });
-  const sortIndicator = (key: FileSortKey) => fileSort.key === key ? (fileSort.direction === 'asc' ? ' ↑' : ' ↓') : '';
+  const sortIcon = (key: FileSortKey) => fileSort.key === key ? (fileSort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more';
 
   const filesPage = <div className="file-explorer">
-    <section className="file-explorer-header">
-      <div><span className="file-kicker">DISPOSITIVO</span><h2>Explorador de archivos</h2><p>Administra archivos, carpetas, permisos y enlaces simbólicos.</p></div>
-      <div className="file-view-switch"><button className={fileView === 'list' ? 'active' : ''} title="Vista en lista" onClick={() => setFileView('list')}>☷</button><button className={fileView === 'grid' ? 'active' : ''} title="Vista en cuadrícula" onClick={() => setFileView('grid')}>▦</button></div>
-    </section>
-    <section className="file-command-bar">
+    <section className="file-material-toolbar">
       <div className="file-navigation">
-        <button title="Atrás" disabled={fileHistoryIndex <= 0} onClick={() => goFileHistory(fileHistoryIndex - 1)}>←</button>
-        <button title="Adelante" disabled={fileHistoryIndex >= fileHistory.length - 1} onClick={() => goFileHistory(fileHistoryIndex + 1)}>→</button>
-        <button title="Subir" disabled={path === '/'} onClick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}>↑</button>
-        <button title="Recargar" onClick={() => refreshFiles()}>↻</button>
+        <md-icon-button aria-label="Atrás" title="Atrás" disabled={fileHistoryIndex <= 0 || undefined} onClick={() => goFileHistory(fileHistoryIndex - 1)}><MaterialIcon name="arrow_back" /></md-icon-button>
+        <md-icon-button aria-label="Adelante" title="Adelante" disabled={fileHistoryIndex >= fileHistory.length - 1 || undefined} onClick={() => goFileHistory(fileHistoryIndex + 1)}><MaterialIcon name="arrow_forward" /></md-icon-button>
+        <md-icon-button aria-label="Subir" title="Subir" disabled={path === '/' || undefined} onClick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}><MaterialIcon name="arrow_upward" /></md-icon-button>
+        <md-icon-button aria-label="Recargar" title="Recargar" disabled={busy || undefined} onClick={() => refreshFiles()}><MaterialIcon name="refresh" /></md-icon-button>
       </div>
-      <div className="file-primary-actions">
-        <button onClick={createDeviceFolder}>＋ Nueva carpeta</button>
-        <button className="primary" onClick={uploadFiles}>↑ Enviar al dispositivo</button>
-        <button disabled={!selectedFileEntries.length} onClick={downloadSelectedFiles}>↓ Descargar al PC</button>
-      </div>
-      <div className="file-selection-actions">
-        <button disabled={selectedFileEntries.length !== 1} onClick={renameSelectedFile}>Renombrar</button>
-        <button disabled={selectedFileEntries.length !== 1} onClick={duplicateSelectedFile}>Duplicar</button>
-        <button disabled={!selectedFileEntries.length} onClick={changeSelectedPermissions}>Permisos</button>
-        <button className="danger" disabled={!selectedFileEntries.length} onClick={deleteSelectedFiles}>Eliminar</button>
-      </div>
-    </section>
-    <section className="file-location-bar">
       <div className={`file-address ${filePathEditing ? 'editing' : ''}`} onClick={() => setFilePathEditing(true)}>
         {filePathEditing
-          ? <input autoFocus value={path} aria-label="Ruta" onFocus={event => event.currentTarget.select()} onBlur={() => setFilePathEditing(false)} onChange={event => setPath(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { refreshFiles(path, true); setFilePathEditing(false); } if (event.key === 'Escape') setFilePathEditing(false); }} />
-          : <nav className="file-breadcrumbs"><button onClick={event => { event.stopPropagation(); refreshFiles('/', true); }}>/</button>{pathParts.map((part, index) => <button key={`${part}-${index}`} onClick={event => { event.stopPropagation(); refreshFiles(`/${pathParts.slice(0, index + 1).join('/')}`, true); }}>{part}</button>)}</nav>}
+          ? <md-outlined-text-field autoFocus value={path} aria-label="Ruta" onFocus={(event: any) => event.currentTarget.select()} onBlur={() => setFilePathEditing(false)} onInput={(event: any) => setPath(event.currentTarget.value)} onKeyDown={(event: any) => { if (event.key === 'Enter') { refreshFiles(path, true); setFilePathEditing(false); } if (event.key === 'Escape') setFilePathEditing(false); }} />
+          : <nav className="file-breadcrumbs"><MaterialIcon name="smartphone" /><button onClick={event => { event.stopPropagation(); refreshFiles('/', true); }}>Raíz</button>{pathParts.map((part, index) => <span key={`${part}-${index}`}><MaterialIcon name="chevron_right" /><button onClick={event => { event.stopPropagation(); refreshFiles(`/${pathParts.slice(0, index + 1).join('/')}`, true); }}>{part}</button></span>)}</nav>}
       </div>
-      <input className="file-filter" value={fileFilter} onChange={event => setFileFilter(event.target.value)} placeholder="Filtrar archivos…" />
+      <md-outlined-text-field className="file-filter" value={fileFilter} label="Buscar" type="search" onInput={(event: any) => setFileFilter(event.currentTarget.value)}><MaterialIcon slot="leading-icon" name="search" /></md-outlined-text-field>
+      <div className="file-view-switch">
+        <md-icon-button className={fileView === 'list' ? 'active' : ''} aria-label="Vista en lista" title="Vista en lista" onClick={() => setFileView('list')}><MaterialIcon name="view_list" /></md-icon-button>
+        <md-icon-button className={fileView === 'grid' ? 'active' : ''} aria-label="Vista en cuadrícula" title="Vista en cuadrícula" onClick={() => setFileView('grid')}><MaterialIcon name="grid_view" /></md-icon-button>
+      </div>
+    </section>
+    <section className="file-command-bar">
+      <div className="file-primary-actions">
+        <md-filled-tonal-button onClick={createDeviceFolder}><MaterialIcon slot="icon" name="create_new_folder" />Nueva carpeta</md-filled-tonal-button>
+        <md-filled-button onClick={uploadFiles}><MaterialIcon slot="icon" name="upload" />Enviar</md-filled-button>
+        <md-filled-tonal-button disabled={!selectedFileEntries.length || undefined} onClick={downloadSelectedFiles}><MaterialIcon slot="icon" name="download" />Descargar</md-filled-tonal-button>
+      </div>
+      <div className="file-selection-actions">
+        <span>{selectedFileEntries.length ? `${selectedFileEntries.length} seleccionados` : 'Selecciona archivos para ver acciones'}</span>
+        <md-icon-button aria-label="Renombrar" title="Renombrar" disabled={selectedFileEntries.length !== 1 || undefined} onClick={renameSelectedFile}><MaterialIcon name="edit" /></md-icon-button>
+        <md-icon-button aria-label="Duplicar" title="Duplicar" disabled={selectedFileEntries.length !== 1 || undefined} onClick={duplicateSelectedFile}><MaterialIcon name="content_copy" /></md-icon-button>
+        <md-icon-button aria-label="Permisos" title="Permisos" disabled={!selectedFileEntries.length || undefined} onClick={changeSelectedPermissions}><MaterialIcon name="admin_panel_settings" /></md-icon-button>
+        <md-icon-button className="danger" aria-label="Eliminar" title="Eliminar" disabled={!selectedFileEntries.length || undefined} onClick={deleteSelectedFiles}><MaterialIcon name="delete" /></md-icon-button>
+      </div>
     </section>
     <section className={`file-browser ${fileView}`}>
       {fileView === 'list' && <div className="file-list-table">
-        <div className="file-list-header"><button onClick={() => changeFileSort('name')}>Nombre{sortIndicator('name')}</button><button onClick={() => changeFileSort('type')}>Tipo{sortIndicator('type')}</button><button onClick={() => changeFileSort('size')}>Tamaño{sortIndicator('size')}</button><button onClick={() => changeFileSort('permissions')}>Permisos{sortIndicator('permissions')}</button><button onClick={() => changeFileSort('modified')}>Modificado{sortIndicator('modified')}</button></div>
+        <div className="file-list-header">{([['name', 'Nombre'], ['type', 'Tipo'], ['size', 'Tamaño'], ['permissions', 'Permisos'], ['modified', 'Modificado']] as [FileSortKey, string][]).map(([key, label]) => <button className={fileSort.key === key ? 'active' : ''} key={key} onClick={() => changeFileSort(key)}>{label}<MaterialIcon name={sortIcon(key)} /></button>)}</div>
         {filteredFiles.map(file => <button className={`file-list-row ${selectedFiles.includes(file.name) ? 'selected' : ''}`} key={file.name} onClick={event => selectFileEntry(event, file)} onDoubleClick={() => openFileEntry(file)}>
-          <span className={`file-name-cell ${file.is_link ? 'symbolic' : ''}`}>{!file.is_link && <b>{fileIcon(file)}</b>}<span><strong>{file.name}{file.is_link && <small title={file.link_target}> → {file.link_target}</small>}</strong></span></span>
+          <span className={`file-name-cell ${file.is_link ? 'symbolic' : ''}`}><b><MaterialIcon name={fileIcon(file)} /></b><span><strong>{file.name}{file.is_link && <small title={file.link_target}> → {file.link_target}</small>}</strong></span></span>
           <span>{fileType(file)}</span><span>{fileSize(file)}</span><code>{file.permissions}</code><span>{file.modified}</span>
+          <md-ripple />
         </button>)}
       </div>}
       {fileView === 'grid' && <div className="file-grid-view">
         {filteredFiles.map(file => <button className={`file-grid-card ${selectedFiles.includes(file.name) ? 'selected' : ''}`} key={file.name} onClick={event => selectFileEntry(event, file)} onDoubleClick={() => openFileEntry(file)}>
-          {file.is_link ? <span className="file-grid-symbolic"><strong>{file.name}</strong><small title={file.link_target}> → {file.link_target}</small></span> : <span className="file-grid-preview">{fileThumbnails[filePath(file)] ? <img src={fileThumbnails[filePath(file)]} alt="" /> : <b>{fileIcon(file)}</b>}</span>}
+          {file.is_link ? <span className="file-grid-symbolic"><MaterialIcon name="shortcut" /><strong>{file.name}</strong><small title={file.link_target}> → {file.link_target}</small></span> : <span className="file-grid-preview">{fileThumbnails[filePath(file)] ? <img src={fileThumbnails[filePath(file)]} alt="" /> : <MaterialIcon name={fileIcon(file)} />}</span>}
           {!file.is_link && <strong title={file.name}>{file.name}</strong>}
           <span>{fileType(file)} · {fileSize(file)}</span>
           <code>{file.permissions}</code>
+          <md-ripple />
         </button>)}
       </div>}
-      {!filteredFiles.length && <div className="file-empty"><b>Carpeta vacía</b><span>No hay elementos que coincidan con el filtro.</span></div>}
+      {!filteredFiles.length && <div className="file-empty"><MaterialIcon name="folder_off" /><b>Carpeta vacía</b><span>No hay elementos que coincidan con el filtro.</span></div>}
     </section>
-    <footer className="file-status-bar"><span>{filteredFiles.length} elementos</span><span>{selectedFileEntries.length ? `${selectedFileEntries.length} seleccionados` : 'Sin selección'}</span><span>{path}</span></footer>
+    <footer className="file-status-bar"><span><MaterialIcon name="folder" />{filteredFiles.length} elementos</span><span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? `${selectedFileEntries.length} seleccionados` : 'Sin selección'}</span></footer>
   </div>;
 
   const selectedKeyboardInfo = systemState?.keyboards.find(keyboard => keyboard.id === selectedKeyboard);
