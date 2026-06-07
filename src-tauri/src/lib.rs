@@ -4,6 +4,7 @@ mod commands;
 mod dependencies;
 mod models;
 mod parsers;
+mod process;
 mod tools;
 
 use commands::devices;

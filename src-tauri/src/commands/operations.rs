@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -139,7 +139,7 @@ fn install_working_dir() -> Result<PathBuf, String> {
 }
 
 fn run_local_command(program: &Path, args: &[String]) -> Result<String, String> {
-    let output = Command::new(program)
+    let output = crate::process::command(program)
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -309,7 +309,7 @@ fn resolved_icon_path(aapt2: &Path, apk_path: &Path, entry_name: &str) -> String
     if !entry_name.to_lowercase().ends_with(".xml") {
         return entry_name.to_string();
     }
-    let xml = Command::new(aapt2)
+    let xml = crate::process::command(aapt2)
         .args(["dump", "xmltree"])
         .args(["--file", entry_name])
         .arg(apk_path)
@@ -344,7 +344,7 @@ fn resolved_icon_path(aapt2: &Path, apk_path: &Path, entry_name: &str) -> String
     let Some(resource_id) = resource_id else {
         return entry_name.to_string();
     };
-    let resources = Command::new(aapt2)
+    let resources = crate::process::command(aapt2)
         .args(["dump", "resources"])
         .arg(apk_path)
         .output()
@@ -389,7 +389,7 @@ fn extract_icon_from_apk(apk_path: &Path, entry_name: &str) -> String {
     if entry_name.is_empty() {
         return String::new();
     }
-    let output = Command::new("tar")
+    let output = crate::process::command("tar")
         .arg("-xOf")
         .arg(apk_path)
         .arg(entry_name)
@@ -966,7 +966,7 @@ pub async fn enrich_app_summary(
         let local_apk = local_apk.clone();
         let package_name = package_name.clone();
         move || {
-            let output = Command::new(&aapt2)
+            let output = crate::process::command(&aapt2)
                 .args(["dump", "badging"])
                 .arg(&local_apk)
                 .output()
@@ -1309,7 +1309,7 @@ pub fn launch_scrcpy(serial: String, extra_args: Vec<String>) -> Result<String, 
                 .map_err(|error| format!("Could not create recording directory: {error}"))?;
         }
     }
-    let mut command = Command::new(executable);
+    let mut command = crate::process::command(executable);
     command
         .arg("--serial")
         .arg(&serial)
@@ -1329,7 +1329,7 @@ pub async fn list_scrcpy_cameras(serial: String) -> Result<Vec<String>, String> 
         let executable = tools::resolve_tool_path("scrcpy").ok_or_else(|| {
             "scrcpy is not installed. Configure or install it in Settings.".to_string()
         })?;
-        let output = Command::new(executable)
+        let output = crate::process::command(executable)
             .args(["--serial", &serial, "--list-cameras"])
             .output()
             .map_err(|error| format!("Could not query scrcpy cameras: {error}"))?;

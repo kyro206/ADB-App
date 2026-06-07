@@ -1,7 +1,6 @@
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
-use tokio::process::Command;
 use tokio::time::timeout;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -28,7 +27,7 @@ pub async fn run_adb(args: &[&str]) -> Result<AdbResult, String> {
 /// Run an ADB command with a specific adb path.
 pub async fn run_adb_with_path(adb_path: &str, args: &[&str]) -> Result<AdbResult, String> {
     let result = timeout(DEFAULT_TIMEOUT, async {
-        let mut cmd = Command::new(adb_path);
+        let mut cmd = crate::process::tokio_command(adb_path);
         cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
 
         let child = cmd
@@ -86,7 +85,7 @@ pub async fn run_adb_binary_with_path(
     args: &[&str],
 ) -> Result<(i32, Vec<u8>), String> {
     let result = timeout(DEFAULT_TIMEOUT, async {
-        let mut cmd = Command::new(adb_path);
+        let mut cmd = crate::process::tokio_command(adb_path);
         cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
 
         let mut child = cmd

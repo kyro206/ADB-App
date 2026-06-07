@@ -101,7 +101,6 @@ export function SettingsView(props: SettingsViewProps) {
       onSave={props.onSaveToolPath}
       onInstall={props.onInstallTool}
     >
-      <p className="settings-recommendation">ADB App descarga el binario oficial de Google Maven correspondiente a Windows, macOS o Linux.</p>
     </ToolPanel>
     <Panel title="Java para AAB y APKS">
       <div className="tool-status">
@@ -109,14 +108,13 @@ export function SettingsView(props: SettingsViewProps) {
         <span>Origen: {tools?.java.source || '-'}</span><span>Versión: {tools?.java.version || '-'}</span>
       </div>
       <div className="form-stack">
-        <p className="muted">Necesario para procesar archivos .aab y .apks con bundletool. Indica la ruta a java.exe, a la carpeta bin o al directorio de Java.</p>
+        <p className="muted">Necesario para procesar archivos .aab y .apks con bundletool. Se recomienda instalar la última versión LTS de Eclipse Temurin. Java 11 o superior es obligatorio para bundletool. Indica la ruta a java.exe, a la carpeta bin o al directorio de Java</p>
         <input value={props.javaPath} onChange={event => props.onJavaPathChange(event.target.value)} placeholder="Ruta a java.exe o su carpeta" />
         <div className="button-row">
           <button onClick={() => props.onSaveToolPath('java', props.javaPath)}>Guardar ruta</button>
           <button onClick={() => props.onSaveToolPath('java', '')}>Detección automática</button>
           <a className="settings-link-button" href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">Descargar Temurin LTS</a>
         </div>
-        <p className="settings-recommendation">Se recomienda instalar la última versión LTS de Eclipse Temurin. Java 11 o superior es obligatorio para bundletool.</p>
       </div>
     </Panel>
     <Panel title="Caché de aplicaciones">

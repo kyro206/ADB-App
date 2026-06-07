@@ -14,10 +14,15 @@ interface DeviceSelectorProps {
 export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel, emptyLabel, onSelect }: DeviceSelectorProps) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<any>(null);
+  const onSelectRef = useRef(onSelect);
   const [open, setOpen] = useState(false);
   const disabled = loading || devices.length === 0;
   const label = selectedDevice?.model || selectedDevice?.serial || (loading ? loadingLabel : emptyLabel);
   const connectionIcon = selectedDevice?.serial.includes(':') ? 'wifi' : 'smartphone';
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     const menu = menuRef.current;
@@ -26,11 +31,18 @@ export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel,
     menu.anchorElement = anchor;
     const opening = () => setOpen(true);
     const closed = () => setOpen(false);
+    const selected = (event: Event) => {
+      const detail = (event as CustomEvent<{ initiator?: HTMLElement }>).detail;
+      const serial = detail?.initiator?.dataset.deviceSerial;
+      if (serial) void onSelectRef.current(serial);
+    };
     menu.addEventListener('opening', opening);
     menu.addEventListener('closed', closed);
+    menu.addEventListener('close-menu', selected);
     return () => {
       menu.removeEventListener('opening', opening);
       menu.removeEventListener('closed', closed);
+      menu.removeEventListener('close-menu', selected);
     };
   }, []);
 
@@ -43,11 +55,6 @@ export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel,
     menu.style.width = `${anchor.getBoundingClientRect().width}px`;
     if (menu.open) menu.close();
     else menu.show();
-  };
-
-  const select = (serial: string) => {
-    onSelect(serial);
-    menuRef.current?.close();
   };
 
   return <div className="topbar-device-picker">
@@ -78,9 +85,9 @@ export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel,
       {devices.map(device => <md-menu-item
         key={device.serial}
         className="topbar-device-picker__option"
+        data-device-serial={device.serial}
         selected={selectedDevice?.serial === device.serial || undefined}
         typeaheadText={`${device.model} ${device.serial}`}
-        onClick={() => select(device.serial)}
       >
         <MaterialIcon slot="start" name={device.serial.includes(':') ? 'wifi' : 'smartphone'} />
         <div slot="headline">{device.model || device.serial}</div>

@@ -2,7 +2,6 @@ use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -125,7 +124,7 @@ fn normalize_candidate(tool: &str, value: &str) -> Option<PathBuf> {
 
 fn system_path(tool: &str) -> Option<PathBuf> {
     let lookup = if cfg!(windows) { "where" } else { "which" };
-    let output = Command::new(lookup)
+    let output = crate::process::command(lookup)
         .arg(executable_name(tool))
         .output()
         .ok()?;
@@ -151,7 +150,7 @@ fn java_from_windows_registry() -> Option<PathBuf> {
         r"HKLM\SOFTWARE\JavaSoft\Java Runtime Environment",
     ];
     for key in keys {
-        let versions = Command::new("reg")
+        let versions = crate::process::command("reg")
             .args(["query", key])
             .output()
             .ok()
@@ -164,7 +163,7 @@ fn java_from_windows_registry() -> Option<PathBuf> {
             .filter(|line| line.starts_with("HKEY"))
         {
             for value_name in ["Path", "JavaHome"] {
-                let output = Command::new("reg")
+                let output = crate::process::command("reg")
                     .args(["query", version_key, "/v", value_name])
                     .output()
                     .ok()
@@ -272,7 +271,7 @@ fn version_for(tool: &str, path: &Path) -> String {
         "aapt2" => "version",
         _ => "--version",
     };
-    let output = Command::new(path).arg(argument).output();
+    let output = crate::process::command(path).arg(argument).output();
     output
         .ok()
         .map(|result| {
@@ -301,7 +300,7 @@ fn adb_platform_tools_version(output: &str) -> Option<String> {
 }
 
 fn java_major_version(path: &Path) -> i32 {
-    let output = Command::new(path).arg("-version").output();
+    let output = crate::process::command(path).arg("-version").output();
     let text = output
         .ok()
         .map(|result| {
@@ -694,7 +693,7 @@ fn extract_archive(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Resul
     });
     fs::write(&archive_path, bytes).map_err(|error| error.to_string())?;
 
-    let status = Command::new("tar")
+    let status = crate::process::command("tar")
         .arg("-xzf")
         .arg(&archive_path)
         .arg("-C")
