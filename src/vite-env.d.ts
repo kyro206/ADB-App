@@ -4,8 +4,8 @@ import 'react';
 declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
-      'md-dialog': any;
       'md-filled-button': any;
+      'md-filled-tonal-button': any;
       'md-tonal-button': any;
       'md-outlined-button': any;
       'md-text-button': any;
@@ -16,8 +16,11 @@ declare module 'react' {
       'md-linear-progress': any;
       'md-outlined-text-field': any;
       'md-checkbox': any;
+      'md-switch': any;
       'md-tabs': any;
       'md-primary-tab': any;
+      'md-outlined-select': any;
+      'md-select-option': any;
       'md-elevation': any;
       'md-divider': any;
       'md-circular-progress': any;

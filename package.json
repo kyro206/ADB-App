@@ -10,6 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@fontsource-variable/google-sans-flex": "^5.2.3",
     "@fontsource/material-symbols-rounded": "^5.2.45",
     "@material/web": "^2.4.1",
     "@tauri-apps/api": "^2",

@@ -114,14 +114,42 @@ fn package_set(output: &str) -> HashSet<String> {
 }
 
 fn aapt2_path() -> Option<PathBuf> {
-    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
-    let managed = PathBuf::from(home)
-        .join(".adbapp")
-        .join("tools")
-        .join("aapt2")
-        .join("managed")
-        .join(if cfg!(windows) { "aapt2.exe" } else { "aapt2" });
-    managed.is_file().then_some(managed)
+    let executable = if cfg!(windows) { "aapt2.exe" } else { "aapt2" };
+    let mut candidates = Vec::new();
+    if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".adbapp").join("tools").join("aapt2").join("managed").join(executable));
+        candidates.push(home.join(".adbmanager").join("tools").join("aapt2").join("managed").join(executable));
+        candidates.extend([
+            home.join("Android").join("Sdk"),
+            home.join("Android").join("sdk"),
+            home.join("Library").join("Android").join("sdk"),
+        ].into_iter().flat_map(|root| aapt2_build_tools_candidates(&root, executable)));
+    }
+    for variable in ["ANDROID_HOME", "ANDROID_SDK_ROOT"] {
+        if let Some(root) = std::env::var_os(variable) {
+            candidates.extend(aapt2_build_tools_candidates(&PathBuf::from(root), executable));
+        }
+    }
+    if let Some(adb_path) = tools::resolve_tool_path("adb") {
+        if let Some(sdk_root) = adb_path.parent().and_then(Path::parent) {
+            candidates.extend(aapt2_build_tools_candidates(sdk_root, executable));
+        }
+    }
+    let lookup = if cfg!(windows) { "where" } else { "which" };
+    if let Ok(output) = Command::new(lookup).arg(executable).output() {
+        candidates.extend(String::from_utf8_lossy(&output.stdout).lines().map(str::trim).filter(|line| !line.is_empty()).map(PathBuf::from));
+    }
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+fn aapt2_build_tools_candidates(sdk_root: &Path, executable: &str) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(sdk_root.join("build-tools")) else {
+        return Vec::new();
+    };
+    let mut candidates = entries.flatten().map(|entry| entry.path().join(executable)).filter(|path| path.is_file()).collect::<Vec<_>>();
+    candidates.sort_by(|left, right| right.cmp(left));
+    candidates
 }
 
 fn app_summary_cache_path(package_name: &str, apk_path: &str) -> PathBuf {
@@ -358,8 +386,8 @@ fn resolved_icon_path(aapt2: &Path, apk_path: &Path, entry_name: &str) -> String
     }
     let xml = Command::new(aapt2)
         .args(["dump", "xmltree"])
-        .arg(apk_path)
         .args(["--file", entry_name])
+        .arg(apk_path)
         .output()
         .ok()
         .map(|value| String::from_utf8_lossy(&value.stdout).to_string())

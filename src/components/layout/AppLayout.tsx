@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sidebar, TabId } from './Sidebar';
 import { TopBar } from './TopBar';
 import { HomePage } from '../../pages/HomePage';
@@ -8,19 +8,38 @@ import './AppLayout.css';
 
 export function AppLayout() {
   const [activeTab, setActiveTab] = useState<TabId>('home');
+  const pageRef = useRef<HTMLDivElement>(null);
   const { refreshDevices } = useDevices();
 
   useEffect(() => {
     refreshDevices();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    pageRef.current?.animate(
+      [
+        { opacity: 0, transform: 'translateY(6px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ],
+      { duration: 180, easing: 'cubic-bezier(.2, 0, 0, 1)', fill: 'both' },
+    );
+  }, [activeTab]);
+
+  const changeTab = (tab: TabId) => {
+    if (tab === activeTab) return;
+    setActiveTab(tab);
+  };
+
   return (
     <div className="app-layout">
       <TopBar />
       <div className="app-layout__body">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <Sidebar activeTab={activeTab} onTabChange={changeTab} />
         <main className="app-layout__content">
-          {activeTab === 'home' ? <HomePage /> : <WorkbenchPage tab={activeTab} />}
+          <div ref={pageRef} className="app-layout__page">
+            {activeTab === 'home' ? <HomePage /> : <WorkbenchPage tab={activeTab} />}
+          </div>
         </main>
       </div>
     </div>

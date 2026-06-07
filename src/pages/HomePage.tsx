@@ -4,6 +4,7 @@ import { confirm, save } from '@tauri-apps/plugin-dialog';
 import { useDevices, type DeviceDetails } from '../context/DeviceContext';
 import { useI18n } from '../i18n';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { PowerDialog } from '../components/dialogs/PowerDialog';
 import './HomePage.css';
 
 const formatMemory = (mb: number) => mb <= 0 ? '-' : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
@@ -75,7 +76,7 @@ export function HomePage() {
         <div><span className="home-overline">DISPOSITIVO ACTUAL</span><h2>{dd ? primaryTitle(dd) : t('app.name')}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
           <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
         </div>
-        <div className="home-hero__actions"><md-filled-button disabled={!selectedDevice || powerBusy} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-button></div>
+        <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label="Opciones de energía" title="Opciones de energía" disabled={!selectedDevice || powerBusy} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
         {powerStatus && <small className="home-power-status">{powerStatus}</small>}
       </Surface>
 
@@ -85,27 +86,14 @@ export function HomePage() {
         <Metric icon="hard_drive" title={t('home.storage.inUse')} value={dd ? formatStorage(dd.used_storage_mb) : '-'} total={dd ? formatStorage(dd.total_storage_mb) : '-'} progress={dd?.total_storage_mb ? dd.used_storage_mb * 100 / dd.total_storage_mb : 0} />
       </div>
 
-      <Surface className="home-facts"><header><MaterialIcon name="info" /><h3>Información del dispositivo</h3></header><div>{facts.map(([label, value]) => <article key={label}><span>{label}</span><strong title={value}>{value}</strong></article>)}</div></Surface>
+      <section className="home-facts"><div>{facts.map(([label, value]) => <article key={label}><span>{label}</span><strong title={value}>{value}</strong></article>)}</div></section>
     </div>
 
     <Surface className="home-preview">
-      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-outlined-button disabled={!screenshot || savingScreenshot} onClick={saveScreenshot}><MaterialIcon name="save" /></md-outlined-button><md-filled-button disabled={capturing || !selectedDevice || selectedDevice.state !== 'device'} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-button></div></header>
+      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-icon-button aria-label={t('home.saveCapture')} title={t('home.saveCapture')} disabled={!screenshot || savingScreenshot} onClick={saveScreenshot}><MaterialIcon name="save" /></md-icon-button><md-filled-icon-button aria-label={t('home.capture')} title={t('home.capture')} disabled={capturing || !selectedDevice || selectedDevice.state !== 'device'} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-icon-button></div></header>
       <div className="home-preview__body">{screenshot ? <img src={screenshot} alt="Captura del dispositivo" /> : <div><MaterialIcon name="smartphone" /><strong>{t('home.preview.empty.title')}</strong><span>{t('home.preview.empty.subtitle')}</span></div>}</div>
     </Surface>
 
-    {powerOpen && <md-dialog className="power-material-dialog" open>
-      <div slot="headline">Opciones de energía</div>
-      <div slot="content" className="power-material-list">
-        <md-tonal-button onClick={() => performPowerAction('apagar pantalla', ['shell', 'input', 'keyevent', 'KEYCODE_SLEEP'])}><MaterialIcon name="screen_lock_portrait" /> Apagar pantalla</md-tonal-button>
-        <md-tonal-button onClick={() => performPowerAction('reiniciar Android', ['reboot'])}><MaterialIcon name="restart_alt" /> Reiniciar</md-tonal-button>
-        <md-tonal-button onClick={() => performPowerAction('apagar dispositivo', ['shell', 'reboot', '-p'])}><MaterialIcon name="power_settings_new" /> Apagar</md-tonal-button>
-        <md-divider />
-        <md-outlined-button onClick={() => performPowerAction('Recovery', ['reboot', 'recovery'], 'Selecciona Reboot system now.')}>Recovery</md-outlined-button>
-        <md-outlined-button onClick={() => performPowerAction('Bootloader', ['reboot', 'bootloader'], 'Ejecuta fastboot reboot o selecciona Start.')}>Bootloader</md-outlined-button>
-        <md-outlined-button onClick={() => performPowerAction('Fastbootd', ['reboot', 'fastboot'], 'Ejecuta fastboot reboot.')}>Fastbootd</md-outlined-button>
-        <md-outlined-button onClick={() => performPowerAction('modo descarga', ['reboot', 'download'], 'La forma de salir depende del fabricante.')}>Modo descarga</md-outlined-button>
-      </div>
-      <div slot="actions"><md-text-button onClick={() => setPowerOpen(false)}>Cerrar</md-text-button></div>
-    </md-dialog>}
+    <PowerDialog open={powerOpen} busy={powerBusy} onClose={() => setPowerOpen(false)} onAction={performPowerAction} />
   </main>;
 }

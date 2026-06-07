@@ -22,7 +22,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     home: t('nav.home'), display: t('nav.display'), mirroring: t('nav.mirroring'), control: t('nav.control'),
     apps: t('nav.apps'), files: t('nav.files'), system: t('nav.system'), settings: t('nav.settings'),
   };
-  const item = (tab: TabId) => <button key={tab} className={`sidebar__tab ${activeTab === tab ? 'sidebar__tab--active' : ''}`} onClick={() => onTabChange(tab)} title={labels[tab]}>
+  const item = (tab: TabId) => <button key={tab} data-no-material-ripple="true" className={`sidebar__tab ${activeTab === tab ? 'sidebar__tab--active' : ''}`} onClick={() => onTabChange(tab)} title={labels[tab]}>
     <span className="sidebar__tab-icon"><MaterialIcon name={TAB_ICONS[tab]} filled={activeTab === tab} /></span>
     <span className="sidebar__tab-label">{labels[tab]}</span>
   </button>;

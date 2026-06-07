@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import '@material/web/ripple/ripple.js';
 
 function enhanceButton(button: HTMLButtonElement) {
-  if (button.dataset.materialWeb === 'true' || button.classList.contains('topbar__window-control')) return;
+  if (button.dataset.materialWeb === 'true' || button.dataset.noMaterialRipple === 'true' || button.classList.contains('topbar__window-control')) return;
   const ripple = document.createElement('md-ripple');
   ripple.setAttribute('aria-hidden', 'true');
   button.prepend(ripple);

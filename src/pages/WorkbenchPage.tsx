@@ -4,60 +4,15 @@ import { confirm, open, save } from '@tauri-apps/plugin-dialog';
 import { useDevices } from '../context/DeviceContext';
 import { useI18n } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
-import { type TabId } from '../components/layout/Sidebar';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { InstallationDialog } from '../components/dialogs/InstallationDialog';
+import { DisplayPage } from './DisplayPage';
+import { MirroringPage } from './MirroringPage';
+import { SettingsView } from './workbench/SettingsView';
+import { WorkbenchShell } from './workbench/WorkbenchShell';
+import { appTone, formatBytes, words } from './workbench/utils';
+import type { AppDetailsInfo, AppFilter, AppPermissionInfo, AppSummary, FileEntry, FileSortKey, FileView, MediaVolumeState, MirrorMode, SoundMode, SystemState, ToolsStatus, WorkTab } from './workbench/types';
 import './WorkbenchPage.css';
-
-type WorkTab = Exclude<TabId, 'home'>;
-type AppSummary = { package_name: string; display_name: string; apk_path: string; system_app: boolean; disabled: boolean; icon_data_url: string };
-type AppPermissionInfo = { name: string; granted: boolean; runtime: boolean };
-type AppDetailsInfo = AppSummary & { version_name: string; version_code: string; target_sdk: string; min_sdk: string; installer: string; data_dir: string; code_size_bytes: number; data_size_bytes: number; cache_size_bytes: number; background_mode: string; permissions: AppPermissionInfo[] };
-type AppFilter = 'user' | 'all' | 'system' | 'disabled';
-type FileEntry = { name: string; permissions: string; size: number; modified: string; is_directory: boolean; is_link: boolean; link_target: string };
-type FileView = 'list' | 'grid';
-type FileSortKey = 'name' | 'type' | 'size' | 'permissions' | 'modified';
-type ToolStatus = { name: string; available: boolean; version: string; latest_version: string; update_checked: boolean; update_available: boolean; path: string; source: string };
-type ToolsStatus = { adb: ToolStatus; scrcpy: ToolStatus; java: ToolStatus };
-type MediaVolumeState = { level: number; maximum: number };
-type MirrorMode = 'display' | 'virtual' | 'camera';
-type SoundMode = 'NORMAL' | 'VIBRATE' | 'SILENT';
-type AndroidUser = { id: number; name: string; is_running: boolean };
-type KeyboardInputMethod = { id: string; label: string; enabled: boolean; is_default: boolean };
-type SystemState = { users: AndroidUser[]; current_user_id: number; gestural_navigation: boolean; app_languages_enabled: boolean; keyboards: KeyboardInputMethod[]; current_keyboard_id: string };
-
-const words = (value: string) =>
-  value.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(part => part.replace(/^"|"$/g, '')) ?? [];
-
-function gcd(left: number, right: number): number {
-  let a = Math.abs(left);
-  let b = Math.abs(right);
-  while (b) [a, b] = [b, a % b];
-  return a || 1;
-}
-
-function aspectRatio(width: number, height: number): string {
-  if (!width || !height) return '-';
-  const divisor = gcd(width, height);
-  return `${width / divisor}:${height / divisor}`;
-}
-
-function formatRate(rate: number): string {
-  return rate > 0 ? `${Number.isInteger(rate) ? rate : rate.toFixed(2)} Hz` : '-';
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 0) return '-';
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function appTone(packageName: string): string {
-  return `tone-${[...packageName].reduce((total, character) => total + character.charCodeAt(0), 0) % 6}`;
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="work-panel"><h3>{title}</h3>{children}</section>;
-}
 
 export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const { selectedDevice, deviceDetails, refreshDevices } = useDevices();
@@ -244,21 +199,26 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     if (!serial || !appsNeedingMetadata.length || metadataLoading) return;
     setMetadataLoading(true);
     setStatus(`Cargando nombres e iconos de ${appsNeedingMetadata.length} aplicaciones pendientes...`);
+    let loaded = 0;
+    let failed = 0;
     try {
       for (let start = 0; start < appsNeedingMetadata.length; start += 3) {
         const batch = appsNeedingMetadata.slice(start, start + 3);
-        const summaries = await Promise.all(batch.map(app => invoke<AppSummary>('enrich_app_summary', {
+        const results = await Promise.allSettled(batch.map(app => invoke<AppSummary>('enrich_app_summary', {
           serial, packageName: app.package_name, apkPath: app.apk_path, systemApp: app.system_app, disabled: app.disabled,
-        }).catch(() => app)));
+        })));
+        const summaries = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
+        loaded += summaries.length;
+        failed += results.length - summaries.length;
         setApps(current => current.map(app => summaries.find(summary => summary.package_name === app.package_name) || app));
         setAppDetails(current => {
           if (!current) return current;
           const summary = summaries.find(item => item.package_name === current.package_name);
           return summary ? { ...current, display_name: summary.display_name, icon_data_url: summary.icon_data_url } : current;
         });
-        setStatus(`Nombres e iconos cargados: ${Math.min(start + batch.length, appsNeedingMetadata.length)} / ${appsNeedingMetadata.length}`);
+        setStatus(`Nombres e iconos procesados: ${Math.min(start + batch.length, appsNeedingMetadata.length)} / ${appsNeedingMetadata.length}`);
       }
-      setStatus('Nombres e iconos guardados en caché');
+      setStatus(failed ? `Metadatos cargados: ${loaded}. No se pudieron cargar: ${failed}.` : `${loaded} nombres e iconos guardados en caché`);
     } finally { setMetadataLoading(false); }
   };
 
@@ -591,44 +551,13 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     }
   };
 
-  const display = <div className="display-page">
-    <section className="display-overview">
-      <div className="display-facts">
-        <div className="display-fact wide"><span>Tipo de dispositivo</span><strong>{deviceDetails ? t(`device.type.${deviceDetails.device_type}`) : '-'}</strong></div>
-        <div className="display-fact"><span>Resolución actual</span><strong>{deviceDetails ? `${deviceDetails.current_width} x ${deviceDetails.current_height} px` : '-'}</strong></div>
-        <div className="display-fact"><span>Resolución física</span><strong>{deviceDetails ? `${deviceDetails.physical_width} x ${deviceDetails.physical_height} px` : '-'}</strong></div>
-        <div className="display-fact"><span>Densidad actual</span><strong>{deviceDetails?.current_density ? `${deviceDetails.current_density} dpi` : '-'}</strong></div>
-        <div className="display-fact"><span>Densidad física</span><strong>{deviceDetails?.physical_density ? `${deviceDetails.physical_density} dpi` : '-'}</strong></div>
-        <div className="display-fact"><span>Hz actuales</span><strong>{formatRate(deviceDetails?.refresh_rate_hz || 0)}</strong></div>
-        <div className="display-fact"><span>Hz soportados</span><strong>{deviceDetails?.supported_refresh_rates_hz?.length ? deviceDetails.supported_refresh_rates_hz.map(formatRate).join(', ') : '-'}</strong></div>
-      </div>
-      <div className="display-behavior">
-        <section className={`display-theme-card ${displayDarkMode ? 'active' : ''}`}>
-          <div className="display-theme-icon" aria-hidden="true"><MaterialIcon name={displayDarkMode ? 'dark_mode' : 'light_mode'} filled /></div>
-          <div className="display-theme-copy">
-            <span>APARIENCIA DEL DISPOSITIVO</span>
-            <strong>Modo oscuro</strong>
-            <small>{darkModeLoading ? 'Aplicando cambio…' : displayDarkMode ? 'Activado' : 'Desactivado'}</small>
-          </div>
-          <button className={`display-theme-switch ${displayDarkMode ? 'checked' : ''}`} type="button" role="switch" aria-checked={displayDarkMode} aria-label="Cambiar modo oscuro del dispositivo" disabled={!deviceDetails || darkModeLoading} onClick={toggleDeviceDarkMode}><span /></button>
-        </section>
-        <div className="display-fact"><span>Ancho mínimo</span><strong>{deviceDetails?.smallest_width_dp ? `${deviceDetails.smallest_width_dp} dp` : '-'}</strong></div>
-        <div className="display-fact"><span>Tiempo de apagado</span><strong>{deviceDetails ? `${Math.round(deviceDetails.screen_off_timeout_ms / 1000)} s` : '-'}</strong></div>
-      </div>
-    </section>
-    <section className="display-manual">
-      <h3>Valores manuales</h3>
-      <div className="suggestion-bar"><strong>Sugerencias rápidas:</strong>{displaySuggestions.map(item => <button key={`${item.width}-${item.height}`} onClick={() => { setDisplayWidth(item.width); setDisplayHeight(item.height); setDisplayDensity(item.density); }}>{item.width} x {item.height} · {item.density} dpi</button>)}</div>
-      <div className="display-form">
-        <label>Ancho<input type="number" min="320" value={displayWidth || ''} onChange={event => setDisplayWidth(Number(event.target.value))} /></label>
-        <label>Alto<input type="number" min="320" value={displayHeight || ''} onChange={event => setDisplayHeight(Number(event.target.value))} /></label>
-        <label>DPI<input type="number" min="120" value={displayDensity || ''} onChange={event => setDisplayDensity(Number(event.target.value))} /></label>
-        <label>Timeout (s)<input type="number" min="1" value={displayTimeout || ''} onChange={event => setDisplayTimeout(Number(event.target.value))} /></label>
-        <div className="display-actions"><button onClick={resetDisplay}>Restablecer</button><button className="primary" disabled={!displayWidth || !displayHeight || !displayDensity || !displayTimeout} onClick={applyDisplay}>Aplicar</button></div>
-      </div>
-      <div className="aspect-row"><span>Aspect ratio original: <strong>{aspectRatio(deviceDetails?.physical_width || 0, deviceDetails?.physical_height || 0)}</strong></span><span>Aspect ratio introducido: <strong>{aspectRatio(displayWidth, displayHeight)}</strong></span></div>
-    </section>
-  </div>;
+  const display = <DisplayPage
+    details={deviceDetails} deviceType={deviceDetails ? t(`device.type.${deviceDetails.device_type}`) : '-'}
+    width={displayWidth} setWidth={setDisplayWidth} height={displayHeight} setHeight={setDisplayHeight}
+    density={displayDensity} setDensity={setDisplayDensity} timeout={displayTimeout} setTimeout={setDisplayTimeout}
+    darkMode={displayDarkMode} darkModeLoading={darkModeLoading} suggestions={displaySuggestions}
+    onToggleDarkMode={toggleDeviceDarkMode} onReset={resetDisplay} onApply={applyDisplay}
+  />;
 
   const sendKey = (code: string) => run(['shell', 'input', 'keyevent', code]);
   const applyMediaVolume = async (value: number) => {
@@ -822,31 +751,19 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       </>}
     </aside>
 
-    {installOpen && <md-dialog className="install-material-dialog" open>
-      <div slot="headline">Instalar aplicaciones</div>
-      <div slot="content" className="install-material-content">
-        <p>Selecciona paquetes APK o bundles para instalarlos en el dispositivo conectado.</p>
-        <section>
-          <header><h3>Archivos seleccionados</h3><md-filled-button disabled={installingApps} onClick={chooseInstallFiles}>Elegir archivos</md-filled-button></header>
-          {!installFiles.length ? <p className="install-material-empty">Todavía no has seleccionado ningún archivo.</p> : <div className="install-material-files">{installFiles.map(file => <div key={file}><MaterialIcon name="android_package" /><p><strong>{file.split(/[\\/]/).pop()}</strong><small>{file}</small></p><md-icon-button disabled={installingApps} aria-label="Quitar archivo" onClick={() => setInstallFiles(current => current.filter(value => value !== file))}><MaterialIcon name="close" /></md-icon-button></div>)}</div>}
-        </section>
-        <md-divider />
-        <section>
-          <h3>Opciones de instalación</h3>
-          <div className="install-material-options">
-            {([
-              [installReplace, setInstallReplace, 'Reemplazar si ya está instalada', 'Conserva los datos existentes de la aplicación.'],
-              [installGrant, setInstallGrant, 'Conceder permisos runtime', 'Concede automáticamente los permisos solicitados.'],
-              [installTest, setInstallTest, 'Permitir paquetes de prueba', 'Admite APK marcadas como test-only.'],
-              [installBypass, setInstallBypass, 'Omitir bloqueo de SDK antiguo', 'Activa --bypass-low-target-sdk-block.'],
-            ] as const).map(([checked, setter, title, description]) => <label key={title}><md-checkbox checked={checked} onClick={() => setter(!checked)} /><span><strong>{title}</strong><small>{description}</small></span></label>)}
-          </div>
-        </section>
-        <md-divider />
-        <section><h3>Resultado de la instalación</h3><pre>{installResult || 'Selecciona los archivos y pulsa Instalar cuando quieras iniciar el proceso.'}</pre></section>
-      </div>
-      <div slot="actions"><md-text-button disabled={installingApps} onClick={() => setInstallOpen(false)}>Cerrar</md-text-button><md-filled-button disabled={!serial || !installFiles.length || installingApps} onClick={installSelectedApps}>{installingApps ? 'Instalando…' : `Instalar${installFiles.length ? ` (${installFiles.length})` : ''}`}</md-filled-button></div>
-    </md-dialog>}
+    <InstallationDialog
+      open={installOpen}
+      files={installFiles}
+      installing={installingApps}
+      result={installResult}
+      options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }}
+      canInstall={Boolean(serial && installFiles.length)}
+      onClose={() => setInstallOpen(false)}
+      onChooseFiles={chooseInstallFiles}
+      onRemoveFile={file => setInstallFiles(current => current.filter(value => value !== file))}
+      onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)}
+      onInstall={installSelectedApps}
+    />
   </div>;
 
   const selectFileEntry = (event: MouseEvent, file: FileEntry) => {
@@ -968,50 +885,32 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     </div>}
   </div>;
 
-  const mirroring = <div className="mirror-page">
-    <div className="mirror-intro"><div><h2>Mirroring <em>scrcpy</em></h2><p>Muestra la pantalla principal, crea una pantalla virtual o transmite una cámara del dispositivo.</p></div><span className={tools?.scrcpy.available ? 'mirror-ready' : 'mirror-missing'}>{tools?.scrcpy.available ? `scrcpy ${tools.scrcpy.version}` : 'scrcpy no instalado'}</span></div>
-    <div className="mirror-mode-tabs">
-      <button className={mirrorMode === 'display' ? 'active' : ''} onClick={() => setMirrorMode('display')}><b>▯</b><strong>Pantalla principal</strong><span>Duplica la pantalla actual</span></button>
-      <button className={mirrorMode === 'virtual' ? 'active' : ''} onClick={() => setMirrorMode('virtual')}><b>▣</b><strong>Pantalla virtual</strong><span>Crea una pantalla nueva</span></button>
-      <button className={mirrorMode === 'camera' ? 'active' : ''} onClick={() => setMirrorMode('camera')}><b>●</b><strong>Cámara</strong><span>Muestra una cámara</span></button>
-    </div>
-    <div className="mirror-quick">
-      <label><input type="checkbox" checked={mirrorFullscreen} onChange={event => setMirrorFullscreen(event.target.checked)} /> Pantalla completa</label>
-      <label className={mirrorMode === 'camera' ? 'disabled' : ''}><input type="checkbox" checked={mirrorTurnScreenOff} disabled={mirrorMode === 'camera'} onChange={event => setMirrorTurnScreenOff(event.target.checked)} /> Apagar pantalla del dispositivo</label>
-      <span>{mirrorMode === 'camera' ? 'La cámara requiere Android 12 o superior y no admite control.' : 'El audio del dispositivo requiere Android 11 o superior.'}</span>
-    </div>
-    <div className="mirror-options">
-      <section className="mirror-card">
-        <h3>Imagen</h3>
-        <div className="mirror-fields">
-          {mirrorMode !== 'camera' && <label>Tamaño máximo (px)<input type="number" min="0" value={mirrorMaxSize} onChange={event => setMirrorMaxSize(event.target.value)} placeholder="Sin límite" /></label>}
-          <label>FPS máximos<input type="number" min="1" step="0.01" value={mirrorMaxFps} onChange={event => setMirrorMaxFps(event.target.value)} placeholder="Sin límite" /></label>
-        </div>
-        {mirrorMode === 'virtual' && <div className="mirror-subsection"><h4>Pantalla virtual</h4><div className="mirror-fields"><label>Ancho virtual<input type="number" value={virtualWidth} onChange={event => setVirtualWidth(event.target.value)} placeholder="Automático" /></label><label>Alto virtual<input type="number" value={virtualHeight} onChange={event => setVirtualHeight(event.target.value)} placeholder="Automático" /></label><label>DPI virtual<input type="number" value={virtualDpi} onChange={event => setVirtualDpi(event.target.value)} placeholder="Automático" /></label></div><label className="mirror-check"><input type="checkbox" checked={virtualResizable} onChange={event => setVirtualResizable(event.target.checked)} /> Permitir redimensionar ventana</label></div>}
-        {mirrorMode === 'camera' && <div className="mirror-subsection"><div className="mirror-section-title"><h4>Cámara</h4><button onClick={refreshMirrorData}>Actualizar cámaras</button></div><label>Cámara / ID<select value={cameraId} onChange={event => setCameraId(event.target.value)}><option value="">Selección automática</option>{cameras.map(camera => <option key={camera} value={camera}>{camera}</option>)}</select></label><div className="mirror-fields"><label>Ancho cámara<input type="number" value={cameraWidth} onChange={event => setCameraWidth(event.target.value)} placeholder="Automático" /></label><label>Alto cámara<input type="number" value={cameraHeight} onChange={event => setCameraHeight(event.target.value)} placeholder="Automático" /></label></div></div>}
-        <div className="mirror-subsection"><label className="mirror-check"><input type="checkbox" checked={mirrorRecord} onChange={event => setMirrorRecord(event.target.checked)} /> Grabar la vista</label><input value={mirrorRecordPath} disabled={!mirrorRecord} onChange={event => setMirrorRecordPath(event.target.value)} placeholder="Ruta de grabación, por ejemplo C:\Videos\captura.mkv" /></div>
-      </section>
-      <section className="mirror-card">
-        <h3>Entrada y sonido</h3>
-        {mirrorMode !== 'camera' && <label className="mirror-check"><input type="checkbox" checked={mirrorReadOnly} onChange={event => setMirrorReadOnly(event.target.checked)} /> Solo ver, sin control</label>}
-        <label>Audio<select value={mirrorAudio} onChange={event => setMirrorAudio(event.target.value)}><option value="default">Por defecto</option><option value="none">Sin audio</option><option value="output">Salida del dispositivo</option><option value="mic">Micrófono</option></select></label>
-        <label className={mirrorReadOnly || mirrorMode === 'camera' ? 'disabled' : ''}>Teclado<select disabled={mirrorReadOnly || mirrorMode === 'camera'} value={mirrorKeyboard} onChange={event => setMirrorKeyboard(event.target.value)}><option value="default">Por defecto</option><option value="sdk">SDK</option><option value="uhid">UHID</option><option value="aoa">AOA</option><option value="disabled">Deshabilitado</option></select></label>
-        <label className={mirrorReadOnly || mirrorMode === 'camera' ? 'disabled' : ''}>Ratón<select disabled={mirrorReadOnly || mirrorMode === 'camera'} value={mirrorMouse} onChange={event => setMirrorMouse(event.target.value)}><option value="default">Por defecto</option><option value="sdk">SDK</option><option value="uhid">UHID</option><option value="aoa">AOA</option><option value="disabled">Deshabilitado</option></select></label>
-        {mirrorMode !== 'camera' && <div className="mirror-subsection"><label className="mirror-check"><input type="checkbox" checked={mirrorStartApp} onChange={event => setMirrorStartApp(event.target.checked)} /> Abrir una app al iniciar</label><select disabled={!mirrorStartApp} value={mirrorApp} onChange={event => setMirrorApp(event.target.value)}><option value="">Selecciona una app</option>{mirrorApps.map(app => <option key={app.package_name} value={app.package_name}>{app.package_name}</option>)}</select></div>}
-        <div className="mirror-advanced"><span>Argumentos adicionales</span><form className="form-row" onSubmit={event => { event.preventDefault(); scrcpy(words(String(new FormData(event.currentTarget).get('args')))); }}><input name="args" placeholder="--video-bit-rate=8M ..." /><button>Ejecutar directo</button></form></div>
-      </section>
-    </div>
-    <button className="mirror-launch" disabled={!serial || !tools?.scrcpy.available} onClick={launchMirror}>Abrir vista con scrcpy</button>
-  </div>;
+  const mirroring = <MirroringPage
+    serial={serial} tools={tools} mode={mirrorMode} setMode={setMirrorMode}
+    fullscreen={mirrorFullscreen} setFullscreen={setMirrorFullscreen}
+    turnScreenOff={mirrorTurnScreenOff} setTurnScreenOff={setMirrorTurnScreenOff}
+    readOnly={mirrorReadOnly} setReadOnly={setMirrorReadOnly}
+    maxSize={mirrorMaxSize} setMaxSize={setMirrorMaxSize} maxFps={mirrorMaxFps} setMaxFps={setMirrorMaxFps}
+    audio={mirrorAudio} setAudio={setMirrorAudio} keyboard={mirrorKeyboard} setKeyboard={setMirrorKeyboard} mouse={mirrorMouse} setMouse={setMirrorMouse}
+    record={mirrorRecord} setRecord={setMirrorRecord} recordPath={mirrorRecordPath} setRecordPath={setMirrorRecordPath}
+    startApp={mirrorStartApp} setStartApp={setMirrorStartApp} app={mirrorApp} setApp={setMirrorApp} apps={mirrorApps}
+    virtualWidth={virtualWidth} setVirtualWidth={setVirtualWidth} virtualHeight={virtualHeight} setVirtualHeight={setVirtualHeight}
+    virtualDpi={virtualDpi} setVirtualDpi={setVirtualDpi} virtualResizable={virtualResizable} setVirtualResizable={setVirtualResizable}
+    cameraId={cameraId} setCameraId={setCameraId} cameraWidth={cameraWidth} setCameraWidth={setCameraWidth}
+    cameraHeight={cameraHeight} setCameraHeight={setCameraHeight} cameras={cameras}
+    onRefreshData={refreshMirrorData} onLaunch={launchMirror} onDirectLaunch={args => scrcpy(words(args))}
+  />;
 
-  const settings = <div className="work-grid">
-    <Panel title="Apariencia"><div className="button-row"><button className={theme === 'light' ? 'primary' : ''} onClick={() => setTheme('light')}>Claro</button><button className={theme === 'dark' ? 'primary' : ''} onClick={() => setTheme('dark')}>Oscuro</button></div><label className="settings-select">Idioma<select value={language} onChange={event => setLanguage(event.target.value as 'es' | 'en')}><option value="es">Español</option><option value="en">English</option></select></label></Panel>
-    <Panel title="ADB"><div className="tool-status"><strong>{!tools?.adb.available ? 'No instalado' : tools.adb.update_available ? 'Actualización disponible' : toolUpdatesChecking ? 'Comprobando actualización...' : tools.adb.update_checked ? 'Actualizado' : 'No se pudo comprobar'}</strong><span>Origen: {tools?.adb.source || '-'}</span><span>Versión instalada: {tools?.adb.version || '-'}</span>{tools?.adb.latest_version && <span>Última versión: {tools.adb.latest_version}</span>}</div><div className="form-stack"><input value={adbPath} onChange={event => setAdbPath(event.target.value)} placeholder="Ruta al ejecutable adb o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('adb', adbPath)}>Guardar ruta</button><button onClick={() => saveToolPath('adb', '')}>Detección automática</button>{!tools?.adb.available && <button className="primary" onClick={() => installTool('adb')}>Instalar ADB</button>}{tools?.adb.update_available && <button className="primary" onClick={() => installTool('adb')}>Actualizar ADB</button>}</div></div></Panel>
-    <Panel title="scrcpy"><div className="tool-status"><strong>{!tools?.scrcpy.available ? 'No instalado' : tools.scrcpy.update_available ? 'Actualización disponible' : toolUpdatesChecking ? 'Comprobando actualización...' : tools.scrcpy.update_checked ? 'Actualizado' : 'No se pudo comprobar'}</strong><span>Origen: {tools?.scrcpy.source || '-'}</span><span>Versión instalada: {tools?.scrcpy.version || '-'}</span>{tools?.scrcpy.latest_version && <span>Última versión: {tools.scrcpy.latest_version}</span>}</div><div className="form-stack"><input value={scrcpyPath} onChange={event => setScrcpyPath(event.target.value)} placeholder="Ruta al ejecutable scrcpy o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('scrcpy', scrcpyPath)}>Guardar ruta</button><button onClick={() => saveToolPath('scrcpy', '')}>Detección automática</button>{!tools?.scrcpy.available && <button className="primary" onClick={() => installTool('scrcpy')}>Instalar scrcpy</button>}{tools?.scrcpy.update_available && <button className="primary" onClick={() => installTool('scrcpy')}>Actualizar scrcpy</button>}</div></div></Panel>
-    <Panel title="Java para AAB y APKS"><div className="tool-status"><strong>{tools?.java.available ? 'Compatible' : tools?.java.path ? 'Versión no compatible' : 'No detectado'}</strong><span>Origen: {tools?.java.source || '-'}</span><span>Versión: {tools?.java.version || '-'}</span></div><div className="form-stack"><p className="muted">Necesario para procesar archivos .aab y .apks con bundletool. Indica la ruta a java.exe, a la carpeta bin o al directorio de Java.</p><input value={javaPath} onChange={event => setJavaPath(event.target.value)} placeholder="Ruta a java.exe o su carpeta" /><div className="button-row"><button onClick={() => saveToolPath('java', javaPath)}>Guardar ruta</button><button onClick={() => saveToolPath('java', '')}>Detección automática</button><a className="settings-link-button" href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">Descargar Temurin LTS</a></div><p className="settings-recommendation">Se recomienda instalar la última versión LTS de Eclipse Temurin. Java 11 o superior es obligatorio para bundletool.</p></div></Panel>
-    <Panel title="Caché de aplicaciones"><p className="muted">Solo almacena localmente los nombres e iconos obtenidos de las aplicaciones.</p><div className="button-row settings-cache-actions"><button className="danger" onClick={clearApplicationCache}>Borrar caché de nombres e iconos</button></div></Panel>
-  </div>;
+  const settings = <SettingsView theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={setTheme} onLanguageChange={setLanguage} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} />;
 
-  const pages: Record<WorkTab, ReactNode> = { display, mirroring, control, apps: appsPage, files: filesPage, system, settings };
-  return <div className="workbench"><header className="page-header"><div><h2>{t(`nav.${tab}`)}</h2><p>{serial || 'No hay dispositivo seleccionado'}</p></div><span className={busy ? 'status busy' : 'status'}>{busy ? 'Trabajando...' : status}</span></header><div className="workbench-content">{pages[tab]}</div></div>;
+  const pages: Record<WorkTab, ReactNode> = {
+    display,
+    mirroring,
+    control,
+    apps: appsPage,
+    files: filesPage,
+    system,
+    settings,
+  };
+  return <WorkbenchShell title={t(`nav.${tab}`)} busy={busy} status={status}>{pages[tab]}</WorkbenchShell>;
 }

@@ -1,28 +1,26 @@
 /* ============================================================
    ADB App - Global Styles
    ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
 @import './variables.css';
 
-/* Reset */
+/* Keep Material Web hosts untouched; their spacing is part of the component. */
 *, *::before, *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-/* Material dialogs inherit their inner native dialog margin from the host. */
-md-dialog {
-  margin: auto;
+h1, h2, h3, h4, p, ul, ol, dl, dd, figure {
+  margin: 0;
 }
 
 html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: var(--bg);
 }
 
 body {
+  margin: 0;
   font-family: var(--font-family);
   font-size: 14px;
   line-height: 1.5;

@@ -1,0 +1,1 @@
+.power-dialog__actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.power-dialog__actions md-divider{grid-column:1/-1}@media(max-width:560px){.power-dialog__actions{grid-template-columns:1fr}}
