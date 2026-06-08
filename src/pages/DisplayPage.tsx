@@ -63,7 +63,7 @@ export function DisplayPage(props: DisplayPageProps) {
       <EditCard icon="timer" label="Apagado de pantalla">
         <div className="display-fields"><Field label="Tiempo" value={props.timeout} min={1} suffix="s" onValue={props.setTimeout} /></div>
       </EditCard>
-      <article className={`display-dark-card ${props.darkMode ? 'active' : ''} ${props.darkModeLoading ? 'loading' : ''}`}>
+      <article className={`display-dark-card ${props.darkModeLoading ? 'loading' : ''}`}>
         <span className="display-dark-card__icon"><MaterialIcon name={props.darkMode ? 'dark_mode' : 'light_mode'} filled /></span>
         <div><span>Apariencia</span><strong>{props.darkModeLoading ? 'Cambiando modo…' : props.darkMode ? 'Modo oscuro activado' : 'Modo oscuro desactivado'}</strong></div>
         <md-switch selected={props.darkMode || undefined} disabled={!details || props.darkModeLoading || undefined} onClick={props.onToggleDarkMode} />

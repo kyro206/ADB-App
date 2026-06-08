@@ -27,7 +27,7 @@ export function AppModal({ open, title, subtitle, children, actions, onClose, wi
 
   return createPortal(
     <div className="app-modal-layer" onDoubleClick={event => event.stopPropagation()}>
-      <button className="app-modal-scrim" aria-label="Cerrar" onClick={onClose} />
+      <div className="app-modal-scrim" onClick={onClose} aria-hidden="true" />
       <section className={`app-modal app-modal--${width}`} role="dialog" aria-modal="true" aria-labelledby="app-modal-title" onClick={event => event.stopPropagation()}>
         <md-elevation />
         <header className="app-modal__header">

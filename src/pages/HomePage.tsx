@@ -13,7 +13,7 @@ const primaryTitle = (details: DeviceDetails) => details.marketing_name !== '-' 
 const secondaryTitle = (details: DeviceDetails) => [details.manufacturer, details.soc, details.model].filter(value => value && value !== '-').join(' · ');
 
 function Surface({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`material-surface ${className}`}><md-elevation />{children}</section>;
+  return <section className={`material-surface ${className}`}>{children}</section>;
 }
 
 function Metric({ icon, title, value, total, progress }: { icon: string; title: string; value: string; total: string; progress: number }) {
@@ -32,12 +32,14 @@ export function HomePage() {
   const dd = deviceDetails;
 
   const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : t('common.noData');
+  
   const captureScreenshot = useCallback(async () => {
     if (!selectedDevice || selectedDevice.state !== 'device') return;
     setCapturing(true);
     try { setScreenshot(`data:image/png;base64,${await invoke<string>('capture_screenshot', { serial: selectedDevice.serial })}`); }
     finally { setCapturing(false); }
   }, [selectedDevice]);
+
   const saveScreenshot = useCallback(async () => {
     if (!screenshot || savingScreenshot) return;
     const destination = await save({
@@ -53,6 +55,7 @@ export function HomePage() {
       setSavingScreenshot(false);
     }
   }, [savingScreenshot, screenshot, t]);
+
   const performPowerAction = async (label: string, args: string[], exitHint = '') => {
     if (!selectedDevice || powerBusy) return;
     if (label !== 'apagar pantalla' && !await confirm(`${label}${exitHint ? `\n\nCómo salir:\n${exitHint}` : ''}\n\n¿Quieres continuar?`, { title: 'Confirmar acción de energía', kind: 'warning', okLabel: 'Continuar', cancelLabel: 'Cancelar' })) return;
@@ -71,9 +74,10 @@ export function HomePage() {
   ];
 
   return <main className="home-material">
+    {/* Contenido Izquierdo */}
     <div className="home-material__content">
       <Surface className="home-hero">
-        <div><span className="home-overline">DISPOSITIVO ACTUAL</span><h2>{dd ? primaryTitle(dd) : t('app.name')}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
+        <div><h2>{dd ? primaryTitle(dd) : t('app.name')}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
           <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
         </div>
         <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label="Opciones de energía" title="Opciones de energía" disabled={!selectedDevice || powerBusy || undefined} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
@@ -86,11 +90,37 @@ export function HomePage() {
         <Metric icon="hard_drive" title={t('home.storage.inUse')} value={dd ? formatStorage(dd.used_storage_mb) : '-'} total={dd ? formatStorage(dd.total_storage_mb) : '-'} progress={dd?.total_storage_mb ? dd.used_storage_mb * 100 / dd.total_storage_mb : 0} />
       </div>
 
-      <section className="home-facts"><div>{facts.map(([icon, label, value]) => <article key={label}><MaterialIcon name={icon} /><span>{label}</span><strong title={value}>{value}</strong></article>)}</div></section>
+      {/* Nueva Sección de Datos Estilo Lista Material 3 */}
+      <section className="home-facts">
+        <div className="home-facts__list">
+          {facts.map(([icon, label, value]) => (
+            <div className="home-facts__item" key={label}>
+              <div className="home-facts__item-leading">
+                <MaterialIcon name={icon} />
+              </div>
+              <div className="home-facts__item-content">
+                <span className="home-facts__item-label">{label}</span>
+                <strong className="home-facts__item-value" title={value}>{value}</strong>
+              </div>
+              <button 
+                className="home-facts__item-copy" 
+                title="Copiar valor" 
+                onClick={(e) => { 
+                  e.currentTarget.blur(); 
+                  navigator.clipboard.writeText(value); 
+                }}
+              >
+                <MaterialIcon name="content_copy" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
 
+    {/* Contenido Derecho (Vista Previa Estilizada) */}
     <Surface className="home-preview">
-      <header><div><span className="home-overline">PANTALLA</span><h3>Vista previa</h3></div><div className="home-preview__actions"><md-icon-button aria-label={t('home.saveCapture')} title={t('home.saveCapture')} disabled={!screenshot || savingScreenshot || undefined} onClick={saveScreenshot}><MaterialIcon name="save" /></md-icon-button><md-filled-icon-button aria-label={t('home.capture')} title={t('home.capture')} disabled={capturing || !selectedDevice || selectedDevice.state !== 'device' || undefined} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-icon-button></div></header>
+      <header><div><h3>Vista previa</h3></div><div className="home-preview__actions"><md-icon-button aria-label={t('home.saveCapture')} title={t('home.saveCapture')} disabled={!screenshot || savingScreenshot || undefined} onClick={saveScreenshot}><MaterialIcon name="save" /></md-icon-button><md-filled-icon-button aria-label={t('home.capture')} title={t('home.capture')} disabled={capturing || !selectedDevice || selectedDevice.state !== 'device' || undefined} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-icon-button></div></header>
       <div className="home-preview__body">{screenshot ? <img src={screenshot} alt="Captura del dispositivo" /> : <div><MaterialIcon name="smartphone" /><strong>{t('home.preview.empty.title')}</strong><span>{t('home.preview.empty.subtitle')}</span></div>}</div>
     </Surface>
 

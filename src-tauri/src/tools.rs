@@ -404,7 +404,7 @@ async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, Strin
         .ok_or_else(|| "No se pudo leer la última versión de scrcpy".to_string())
 }
 
-fn update_available(tool: &str, latest: &str, installed: &str) -> bool {
+fn update_available(_tool: &str, latest: &str, installed: &str) -> bool {
     is_newer_version(latest, installed)
 }
 

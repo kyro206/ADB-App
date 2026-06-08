@@ -166,7 +166,7 @@ export function MirroringPage(props: MirroringPageProps) {
           <md-outlined-button onClick={props.onRefreshData}><span slot="icon"><MaterialIcon name="refresh" /></span>Actualizar lista</md-outlined-button>
         </section>}
 
-        <section className="mirror-material-card mirror-material-advanced">
+        <section className="mirror-material-card">
           <header><MaterialIcon name="terminal" /><div><h3>Argumentos avanzados</h3><p>Ejecuta scrcpy con parámetros personalizados.</p></div></header>
           <Field label="Argumentos adicionales" value={advancedArgs} onValue={setAdvancedArgs} placeholder="--video-bit-rate=8M" />
           <md-outlined-button disabled={!props.serial || undefined} onClick={() => props.onDirectLaunch(advancedArgs)}><span slot="icon"><MaterialIcon name="terminal" /></span>Ejecutar directamente</md-outlined-button>

@@ -29,7 +29,7 @@
     "targets": ["msi", "nsis", "dmg", "app", "deb", "rpm"],
     "category": "DeveloperTool",
     "publisher": "kyro206",
-    "shortDescription": "ADB App is a visual manager for the Android Debug Bridge (ADB).",
+    "shortDescription": "Visual manager for the Android Debug Bridge (ADB).",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

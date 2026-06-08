@@ -594,7 +594,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const control = <div className="control-page">
     <div className="control-settings">
       <section className="control-card">
-        <div className="control-card-title"><div><span className="control-kicker">DISPOSITIVO</span><h3>Brillo y volumen</h3></div></div>
+        <div className="control-card-title"><div><h3>Brillo y volumen</h3></div></div>
         <label className="control-slider">
           <span><b>Brillo</b><strong>{controlBrightness} / 255</strong></span>
           <input type="range" min="0" max="255" value={controlBrightness} onChange={event => setControlBrightness(Number(event.target.value))} onMouseUp={event => run(['shell', 'settings', 'put', 'system', 'screen_brightness', event.currentTarget.value])} />
@@ -606,14 +606,14 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       </section>
 
       <section className="control-card">
-        <div className="control-card-title"><div><span className="control-kicker">PANTALLA</span><h3>Rotación</h3></div><label className="control-toggle"><span>Automática</span><input type="checkbox" checked={rotationAuto} onChange={async event => { setRotationAuto(event.target.checked); await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', event.target.checked ? '1' : '0']); }} /></label></div>
+        <div className="control-card-title"><div><h3>Rotación</h3></div><label className="control-toggle"><span>Automática</span><input type="checkbox" checked={rotationAuto} onChange={async event => { setRotationAuto(event.target.checked); await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', event.target.checked ? '1' : '0']); }} /></label></div>
         <div className="rotation-grid">
           {[['stay_current_portrait', 'Vertical', 0], ['stay_current_landscape', 'Horizontal', 1], ['stay_current_portrait', 'Vertical inversa', 2], ['stay_current_landscape', 'Horizontal inversa', 3]].map(([icon, label, value]) => <button key={String(value)} className={!rotationAuto && rotation === value ? 'active' : ''} onClick={() => setDeviceRotation(Number(value))}><b className={`rotation-icon rotation-${value}`}><MaterialIcon name={String(icon)} /></b><span>{label}</span></button>)}
         </div>
       </section>
 
       <section className="control-card">
-        <div className="control-card-title"><div><span className="control-kicker">AUDIO</span><h3>Modo de sonido</h3></div></div>
+        <div className="control-card-title"><div><h3>Modo de sonido</h3></div></div>
         <div className="sound-grid">
           <button className={soundMode === 'NORMAL' ? 'active' : ''} onClick={() => setDeviceSoundMode('NORMAL')}><b><MaterialIcon name="volume_up" filled /></b><span>Sonido</span></button>
           <button className={soundMode === 'VIBRATE' ? 'active' : ''} onClick={() => setDeviceSoundMode('VIBRATE')}><b><MaterialIcon name="vibration" filled /></b><span>Vibración</span></button>
@@ -622,14 +622,14 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       </section>
 
       <section className="control-card">
-        <div className="control-card-title"><div><span className="control-kicker">ENTRADA</span><h3>Introducir texto</h3></div></div>
+        <div className="control-card-title"><div><h3>Introducir texto</h3></div></div>
         <form className="control-text-form" onSubmit={event => { event.preventDefault(); run(['shell', 'input', 'text', String(new FormData(event.currentTarget).get('text')).replace(/ /g, '%s')]); }}><input name="text" placeholder="Texto a enviar (espacios incluidos)" /><button className="primary">Enviar texto</button></form>
         <details className="control-advanced"><summary>Entrada avanzada</summary><form className="control-text-form" onSubmit={event => { event.preventDefault(); run(['shell', 'input', ...words(String(new FormData(event.currentTarget).get('args')))]); }}><input name="args" placeholder="tap 500 800 / swipe 100 500 900 500 300" /><button>Ejecutar</button></form></details>
       </section>
     </div>
 
     <aside className="remote-panel">
-      <div className="remote-heading"><div><span className="control-kicker">ACCIONES RÁPIDAS</span><h3>Mando Android TV</h3></div><button className="remote-power" title="Encender o apagar" onClick={() => sendKey('KEYCODE_POWER')}><MaterialIcon name="power_settings_new" /></button></div>
+      <div className="remote-heading"><div><h3>Mando Android TV</h3></div><button className="remote-power" title="Encender o apagar" onClick={() => sendKey('KEYCODE_POWER')}><MaterialIcon name="power_settings_new" /></button></div>
       <div className="remote-body">
         <div className="remote-dpad" aria-label="Control direccional">
           <button className="remote-up" title="Arriba" onClick={() => sendKey('KEYCODE_DPAD_UP')}><MaterialIcon name="keyboard_arrow_up" /></button>

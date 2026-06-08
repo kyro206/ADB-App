@@ -3,7 +3,6 @@ use std::io::{self, Cursor};
 use std::path::{Path, PathBuf};
 
 use flate2::read::GzDecoder;
-use regex::Regex;
 
 #[cfg(unix)]
 use crate::tools::managed_executable;
