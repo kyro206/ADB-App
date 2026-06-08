@@ -12,7 +12,6 @@ pub struct ToolConfig {
     pub adb_path: String,
     pub scrcpy_path: String,
     pub java_path: String,
-    pub aapt2_path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -33,7 +32,6 @@ pub struct ToolsStatus {
     pub adb: ToolStatus,
     pub scrcpy: ToolStatus,
     pub java: ToolStatus,
-    pub aapt2: ToolStatus,
 }
 
 fn config_path() -> PathBuf {
@@ -79,7 +77,6 @@ pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
         "adb" => config.adb_path = normalized,
         "scrcpy" => config.scrcpy_path = normalized,
         "java" => config.java_path = normalized,
-        "aapt2" => config.aapt2_path = normalized,
         _ => return Err(format!("Unknown tool: {tool}")),
     }
     fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
@@ -97,7 +94,6 @@ fn custom_path(tool: &str) -> String {
         "adb" => config.adb_path,
         "scrcpy" => config.scrcpy_path,
         "java" => config.java_path,
-        "aapt2" => config.aapt2_path,
         _ => String::new(),
     }
 }
@@ -221,37 +217,6 @@ fn detected_java_path() -> Option<PathBuf> {
         .or_else(java_from_common_directories)
 }
 
-fn aapt2_build_tools_candidates(sdk_root: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir(sdk_root.join("build-tools")) else {
-        return Vec::new();
-    };
-    let mut candidates = entries
-        .flatten()
-        .map(|entry| entry.path().join(executable_name("aapt2")))
-        .filter(|path| path.is_file())
-        .collect::<Vec<_>>();
-    candidates.sort_by(|left, right| right.cmp(left));
-    candidates
-}
-
-fn detected_aapt2_path() -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    for variable in ["ANDROID_HOME", "ANDROID_SDK_ROOT"] {
-        if let Some(root) = env::var_os(variable) {
-            candidates.extend(aapt2_build_tools_candidates(&PathBuf::from(root)));
-        }
-    }
-    if let Some(adb_path) = resolve_tool_path("adb") {
-        if let Some(sdk_root) = adb_path.parent().and_then(Path::parent) {
-            candidates.extend(aapt2_build_tools_candidates(sdk_root));
-        }
-    }
-    candidates
-        .into_iter()
-        .find(|path| path.is_file())
-        .or_else(|| system_path("aapt2"))
-}
-
 pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
     normalize_candidate(tool, &custom_path(tool))
         .or_else(|| {
@@ -259,7 +224,6 @@ pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
         })
         .or_else(|| match tool {
             "java" => detected_java_path(),
-            "aapt2" => detected_aapt2_path(),
             _ => system_path(tool),
         })
 }
@@ -268,7 +232,6 @@ fn version_for(tool: &str, path: &Path) -> String {
     let argument = match tool {
         "adb" => "version",
         "java" => "-version",
-        "aapt2" => "version",
         _ => "--version",
     };
     let output = crate::process::command(path).arg(argument).output();
@@ -371,7 +334,6 @@ pub fn tools_status() -> ToolsStatus {
         adb: status_for("adb"),
         scrcpy: status_for("scrcpy"),
         java: status_for("java"),
-        aapt2: status_for("aapt2"),
     }
 }
 
@@ -442,61 +404,7 @@ async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, Strin
         .ok_or_else(|| "No se pudo leer la última versión de scrcpy".to_string())
 }
 
-fn latest_stable_aapt2_version(metadata: &str) -> Option<String> {
-    let pattern = Regex::new(r"<version>([^<]+)</version>").ok()?;
-    let versions = pattern
-        .captures_iter(metadata)
-        .filter_map(|capture| capture.get(1))
-        .map(|value| value.as_str().trim())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-    versions
-        .iter()
-        .rev()
-        .find(|version| {
-            let normalized = version.to_ascii_lowercase();
-            !normalized.contains("alpha")
-                && !normalized.contains("beta")
-                && !normalized.contains("rc")
-        })
-        .or_else(|| versions.last())
-        .map(|value| value.to_string())
-}
-
-async fn latest_aapt2_version(client: &reqwest::Client) -> Result<String, String> {
-    let metadata = client
-        .get("https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/maven-metadata.xml")
-        .header(reqwest::header::USER_AGENT, "ADB-App")
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?
-        .text()
-        .await
-        .map_err(|error| error.to_string())?;
-    latest_stable_aapt2_version(&metadata)
-        .ok_or_else(|| "No se pudo leer la última versión estable de AAPT2".to_string())
-}
-
-fn aapt2_build_id(value: &str) -> Option<u64> {
-    Regex::new(r"-(\d{5,})")
-        .ok()?
-        .captures_iter(value)
-        .last()?
-        .get(1)?
-        .as_str()
-        .parse()
-        .ok()
-}
-
 fn update_available(tool: &str, latest: &str, installed: &str) -> bool {
-    if tool == "aapt2" {
-        return match (aapt2_build_id(latest), aapt2_build_id(installed)) {
-            (Some(latest), Some(installed)) => latest > installed,
-            _ => false,
-        };
-    }
     is_newer_version(latest, installed)
 }
 
@@ -506,10 +414,9 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
         .timeout(std::time::Duration::from_secs(12))
         .build()
         .unwrap_or_default();
-    let (adb_latest, scrcpy_latest, aapt2_latest) = tokio::join!(
+    let (adb_latest, scrcpy_latest) = tokio::join!(
         latest_adb_version(&client),
         latest_scrcpy_version(&client),
-        latest_aapt2_version(&client)
     );
     if let Ok(latest) = adb_latest {
         status.adb.update_checked = true;
@@ -522,12 +429,6 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
         status.scrcpy.update_available =
             status.scrcpy.available && update_available("scrcpy", &latest, &status.scrcpy.version);
         status.scrcpy.latest_version = latest;
-    }
-    if let Ok(latest) = aapt2_latest {
-        status.aapt2.update_checked = true;
-        status.aapt2.update_available =
-            status.aapt2.available && update_available("aapt2", &latest, &status.aapt2.version);
-        status.aapt2.latest_version = latest;
     }
     status
 }
@@ -616,36 +517,6 @@ fn latest_scrcpy_asset(
                 env::consts::ARCH
             )
         })
-}
-
-fn aapt2_classifier_for(os: &str) -> Result<&'static str, String> {
-    match os {
-        "windows" => Ok("windows"),
-        "macos" => Ok("osx"),
-        "linux" => Ok("linux"),
-        _ => Err("AAPT2 no ofrece un binario para este sistema operativo".to_string()),
-    }
-}
-
-fn latest_aapt2_asset(client: &reqwest::blocking::Client) -> Result<(String, ArchiveKind), String> {
-    let metadata = client
-        .get("https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/maven-metadata.xml")
-        .header(reqwest::header::USER_AGENT, "ADB-App")
-        .send()
-        .map_err(|error| format!("No se pudo consultar AAPT2: {error}"))?
-        .error_for_status()
-        .map_err(|error| format!("Google Maven rechazó la consulta de AAPT2: {error}"))?
-        .text()
-        .map_err(|error| format!("No se pudo leer la respuesta de AAPT2: {error}"))?;
-    let version = latest_stable_aapt2_version(&metadata)
-        .ok_or_else(|| "No se pudo determinar la última versión estable de AAPT2".to_string())?;
-    let classifier = aapt2_classifier_for(env::consts::OS)?;
-    Ok((
-        format!(
-            "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/{version}/aapt2-{version}-{classifier}.jar"
-        ),
-        ArchiveKind::Zip,
-    ))
 }
 
 fn download_bytes(client: &reqwest::blocking::Client, url: &str) -> Result<Vec<u8>, String> {
@@ -782,7 +653,6 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
     match tool {
         "adb" => config.adb_path.clear(),
         "scrcpy" => config.scrcpy_path.clear(),
-        "aapt2" => config.aapt2_path.clear(),
         _ => {}
     }
     fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
@@ -797,8 +667,8 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        aapt2_build_id, aapt2_classifier_for, adb_download_for, adb_platform_tools_version,
-        is_newer_version, latest_stable_aapt2_version, scrcpy_asset_pattern_for, update_available,
+        adb_download_for, adb_platform_tools_version,
+        is_newer_version, scrcpy_asset_pattern_for, update_available,
         ArchiveKind,
     };
 
@@ -852,31 +722,5 @@ mod tests {
             Ok(("scrcpy-macos-aarch64-".to_string(), ArchiveKind::TarGz))
         );
         assert!(scrcpy_asset_pattern_for("linux", "aarch64").is_err());
-    }
-
-    #[test]
-    fn selects_aapt2_classifiers_for_all_supported_platforms() {
-        assert_eq!(aapt2_classifier_for("windows"), Ok("windows"));
-        assert_eq!(aapt2_classifier_for("macos"), Ok("osx"));
-        assert_eq!(aapt2_classifier_for("linux"), Ok("linux"));
-        assert!(aapt2_classifier_for("freebsd").is_err());
-    }
-
-    #[test]
-    fn selects_latest_stable_aapt2_and_compares_build_ids() {
-        let metadata = "<version>8.9.0-alpha01-10000000</version><version>8.8.2-12000000</version><version>8.9.0-beta01-13000000</version>";
-        assert_eq!(
-            latest_stable_aapt2_version(metadata).as_deref(),
-            Some("8.8.2-12000000")
-        );
-        assert_eq!(
-            aapt2_build_id("Android Asset Packaging Tool (aapt) 2.20-15009934"),
-            Some(15009934)
-        );
-        assert!(update_available(
-            "aapt2",
-            "8.12.0-16000000",
-            "Android Asset Packaging Tool (aapt) 2.20-15009934"
-        ));
     }
 }

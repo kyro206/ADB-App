@@ -1,8 +1,8 @@
 import { Panel } from './Panel';
 import type { ToolStatus, ToolsStatus } from './types';
 
-type ConfigurableTool = 'adb' | 'scrcpy' | 'java' | 'aapt2';
-type InstallableTool = 'adb' | 'scrcpy' | 'aapt2';
+type ConfigurableTool = 'adb' | 'scrcpy' | 'java';
+type InstallableTool = 'adb' | 'scrcpy';
 
 type SettingsViewProps = {
   theme: 'light' | 'dark';
@@ -12,13 +12,11 @@ type SettingsViewProps = {
   adbPath: string;
   scrcpyPath: string;
   javaPath: string;
-  aapt2Path: string;
   onThemeChange: (theme: 'light' | 'dark') => void;
   onLanguageChange: (language: 'es' | 'en') => void;
   onAdbPathChange: (path: string) => void;
   onScrcpyPathChange: (path: string) => void;
   onJavaPathChange: (path: string) => void;
-  onAapt2PathChange: (path: string) => void;
   onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
   onInstallTool: (tool: InstallableTool) => void;
   onClearCache: () => void;
@@ -89,19 +87,6 @@ export function SettingsView(props: SettingsViewProps) {
     </Panel>
     <ToolPanel title="ADB" toolName="adb" tool={tools?.adb} path={props.adbPath} placeholder="Ruta al ejecutable adb o su carpeta" checking={checkingUpdates} onPathChange={props.onAdbPathChange} onSave={props.onSaveToolPath} onInstall={props.onInstallTool} />
     <ToolPanel title="scrcpy" toolName="scrcpy" tool={tools?.scrcpy} path={props.scrcpyPath} placeholder="Ruta al ejecutable scrcpy o su carpeta" checking={checkingUpdates} onPathChange={props.onScrcpyPathChange} onSave={props.onSaveToolPath} onInstall={props.onInstallTool} />
-    <ToolPanel
-      title="AAPT2 para nombres e iconos"
-      toolName="aapt2"
-      tool={tools?.aapt2}
-      path={props.aapt2Path}
-      placeholder="Ruta al ejecutable aapt2 o su carpeta"
-      checking={checkingUpdates}
-      description="Lee el nombre y el icono de los APK. Se detecta desde Android SDK, PATH, instalaciones anteriores o la copia gestionada por ADB App."
-      onPathChange={props.onAapt2PathChange}
-      onSave={props.onSaveToolPath}
-      onInstall={props.onInstallTool}
-    >
-    </ToolPanel>
     <Panel title="Java para AAB y APKS">
       <div className="tool-status">
         <strong>{tools?.java.available ? 'Compatible' : tools?.java.path ? 'Versión no compatible' : 'No detectado'}</strong>

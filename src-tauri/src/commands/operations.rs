@@ -305,114 +305,6 @@ fn resolve_install_files(
     }
 }
 
-fn resolved_icon_path(aapt2: &Path, apk_path: &Path, entry_name: &str) -> String {
-    if !entry_name.to_lowercase().ends_with(".xml") {
-        return entry_name.to_string();
-    }
-    let xml = crate::process::command(aapt2)
-        .args(["dump", "xmltree"])
-        .args(["--file", entry_name])
-        .arg(apk_path)
-        .output()
-        .ok()
-        .map(|value| String::from_utf8_lossy(&value.stdout).to_string())
-        .unwrap_or_default();
-    let mut foreground = false;
-    let mut fallback_id = None;
-    let mut resource_id = None;
-    for line in xml.lines() {
-        if line.contains("E: foreground") {
-            foreground = true;
-            continue;
-        }
-        if !line.contains("drawable") || !line.contains("@0x") {
-            continue;
-        }
-        let Some(start) = line.find("@0x").map(|index| index + 1) else {
-            continue;
-        };
-        let Some(value) = line[start..].split_whitespace().next() else {
-            continue;
-        };
-        fallback_id.get_or_insert_with(|| value.to_string());
-        if foreground {
-            resource_id = Some(value.to_string());
-            break;
-        }
-    }
-    let resource_id = resource_id.or(fallback_id);
-    let Some(resource_id) = resource_id else {
-        return entry_name.to_string();
-    };
-    let resources = crate::process::command(aapt2)
-        .args(["dump", "resources"])
-        .arg(apk_path)
-        .output()
-        .ok()
-        .map(|value| String::from_utf8_lossy(&value.stdout).to_string())
-        .unwrap_or_default();
-    let mut in_resource = false;
-    let mut candidates = Vec::new();
-    for line in resources.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("resource 0x") {
-            in_resource = trimmed.contains(&resource_id);
-            continue;
-        }
-        if in_resource && trimmed.contains("(file)") {
-            if let Some(path) = trimmed
-                .split("(file)")
-                .nth(1)
-                .and_then(|value| value.split_whitespace().next())
-            {
-                if matches!(
-                    Path::new(path).extension().and_then(|value| value.to_str()),
-                    Some("png" | "webp" | "jpg" | "jpeg")
-                ) {
-                    candidates.push(path.to_string());
-                }
-            }
-        }
-    }
-    candidates.pop().unwrap_or_else(|| entry_name.to_string())
-}
-
-fn extract_badging_value(output: &str, prefix: &str) -> String {
-    output
-        .lines()
-        .find_map(|line| line.trim().strip_prefix(prefix))
-        .map(|value| value.trim().trim_matches('\'').to_string())
-        .unwrap_or_default()
-}
-
-fn extract_icon_from_apk(apk_path: &Path, entry_name: &str) -> String {
-    if entry_name.is_empty() {
-        return String::new();
-    }
-    let output = crate::process::command("tar")
-        .arg("-xOf")
-        .arg(apk_path)
-        .arg(entry_name)
-        .output();
-    let bytes = match output {
-        Ok(value) if value.status.success() => value.stdout,
-        _ => Vec::new(),
-    };
-    if bytes.is_empty() {
-        return String::new();
-    }
-    let mime = if entry_name.to_lowercase().ends_with(".webp") {
-        "image/webp"
-    } else if entry_name.to_lowercase().ends_with(".jpg")
-        || entry_name.to_lowercase().ends_with(".jpeg")
-    {
-        "image/jpeg"
-    } else {
-        "image/png"
-    };
-    format!("data:{mime};base64,{}", STANDARD.encode(bytes))
-}
-
 fn dump_value(output: &str, key: &str) -> String {
     output
         .split_whitespace()
@@ -928,6 +820,17 @@ pub async fn list_apps(serial: String) -> Result<Vec<AppSummary>, String> {
     Ok(apps)
 }
 
+// 1. Añadimos las estructuras para deserializar la respuesta del Daemon
+#[derive(Deserialize)]
+struct DaemonResponse {
+    label: Option<String>,
+    icon: Option<String>,
+    error: Option<String>,
+}
+
+// 2. Incrustamos el archivo JAR directamente en el ejecutable de Rust
+static DAEMON_BYTES: &[u8] = include_bytes!("studio_daemon.jar");
+
 #[tauri::command]
 pub async fn enrich_app_summary(
     serial: String,
@@ -936,6 +839,8 @@ pub async fn enrich_app_summary(
     system_app: bool,
     disabled: bool,
 ) -> Result<AppSummary, String> {
+    
+    // Comprobar caché local (Se mantiene intacto)
     let cache_path = app_summary_cache_path(&package_name, &apk_path);
     if let Ok(cached) = fs::read_to_string(&cache_path) {
         if let Ok(presentation) = serde_json::from_str::<CachedAppPresentation>(&cached) {
@@ -951,79 +856,72 @@ pub async fn enrich_app_summary(
             }
         }
     }
-    let aapt2 = tools::resolve_tool_path("aapt2").ok_or_else(|| {
-        "AAPT2 no está disponible. Instálalo o configura su ruta desde Ajustes.".to_string()
-    })?;
-    let safe_name = package_name.replace(|character: char| !character.is_ascii_alphanumeric(), "_");
-    let local_apk = crate::app_paths::cache_dir().join(format!("adb-app-{safe_name}.apk"));
-    let local_value = local_apk.to_string_lossy().to_string();
-    let pull = adb::run_adb_for_serial(&serial, &["pull", &apk_path, &local_value]).await?;
-    if !pull.ok() {
-        return Err(pull.output);
+
+    // 1. Escribir el Daemon en una carpeta temporal del PC e inyectarlo en el dispositivo
+    let daemon_local_path = crate::app_paths::cache_dir().join("studio_daemon.jar");
+    let daemon_device_path = "/data/local/tmp/studio_daemon.jar";
+
+    if !daemon_local_path.exists() {
+        fs::write(&daemon_local_path, DAEMON_BYTES).map_err(|e| e.to_string())?;
     }
 
-    let result = tauri::async_runtime::spawn_blocking({
-        let local_apk = local_apk.clone();
-        let package_name = package_name.clone();
-        move || {
-            let output = crate::process::command(&aapt2)
-                .args(["dump", "badging"])
-                .arg(&local_apk)
-                .output()
-                .map_err(|error| error.to_string())?;
-            let badging = String::from_utf8_lossy(&output.stdout);
-            let mut display_name = extract_badging_value(&badging, "application-label:");
-            if display_name.is_empty() {
-                display_name = package_name.clone();
-            }
-            let icon_path = badging
-                .lines()
-                .filter_map(|line| {
-                    let trimmed = line.trim();
-                    if !trimmed.starts_with("application-icon-") {
-                        return None;
-                    }
-                    trimmed
-                        .split_once(':')
-                        .map(|(_, value)| value.trim().trim_matches('\'').to_string())
-                })
-                .last()
-                .or_else(|| {
-                    badging.lines().find_map(|line| {
-                        let trimmed = line.trim();
-                        let start = trimmed.find(" icon='")? + 7;
-                        let end = trimmed[start..].find('\'')? + start;
-                        Some(trimmed[start..end].to_string())
-                    })
-                })
-                .unwrap_or_default();
-            let resolved_icon = resolved_icon_path(&aapt2, &local_apk, &icon_path);
-            Ok::<AppSummary, String>(AppSummary {
-                package_name,
-                display_name,
-                apk_path,
-                system_app,
-                disabled,
-                icon_data_url: extract_icon_from_apk(&local_apk, &resolved_icon),
-            })
-        }
-    })
-    .await
-    .map_err(|error| error.to_string())?;
-    let _ = fs::remove_file(local_apk);
-    if let Ok(value) = &result {
-        if let Some(parent) = cache_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let presentation = CachedAppPresentation {
-            display_name: value.display_name.clone(),
-            icon_data_url: value.icon_data_url.clone(),
-        };
-        if let Ok(serialized) = serde_json::to_string(&presentation) {
-            let _ = fs::write(cache_path, serialized);
-        }
+    // Solo enviamos el daemon si no existe ya en el dispositivo
+    let check_daemon = adb::run_adb_for_serial(&serial, &["shell", "ls", daemon_device_path]).await?;
+    if !check_daemon.ok() || check_daemon.output.contains("No such file") {
+        adb::run_adb_for_serial(&serial, &["push", &daemon_local_path.to_string_lossy(), daemon_device_path]).await?;
+        adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path]).await?;
     }
-    result
+
+    // 2. Ejecutar el Daemon nativamente dentro de Android usando app_process
+    let result = adb::run_adb_for_serial(
+        &serial,
+        &[
+            "shell",
+            &format!("CLASSPATH={} app_process / com.kyro.adbapp.extractapktool.Main {}", daemon_device_path, package_name)
+        ]
+    ).await?;
+
+    if !result.ok() {
+        return Err(format!("Daemon execution failed: {}", result.output));
+    }
+
+    // 3. Procesar el JSON que devuelve el Daemon por consola
+    let daemon_output = result.output.lines().last().unwrap_or("{}");
+    let parsed: DaemonResponse = serde_json::from_str(daemon_output).unwrap_or(DaemonResponse {
+        label: None,
+        icon: None,
+        error: Some("Failed to parse JSON from device".into())
+    });
+
+    if let Some(err) = parsed.error {
+        return Err(format!("Device Error: {}", err));
+    }
+
+    let display_name = parsed.label.unwrap_or_else(|| package_name.clone());
+    let icon_data_url = parsed.icon.unwrap_or_default();
+
+    // 4. Guardar en caché y devolver el AppSummary
+    if let Some(parent) = cache_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    
+    let presentation = CachedAppPresentation {
+        display_name: display_name.clone(),
+        icon_data_url: icon_data_url.clone(),
+    };
+    
+    if let Ok(serialized) = serde_json::to_string(&presentation) {
+        let _ = fs::write(cache_path, serialized);
+    }
+
+    Ok(AppSummary {
+        package_name,
+        display_name,
+        apk_path,
+        system_app,
+        disabled,
+        icon_data_url,
+    })
 }
 
 #[tauri::command]

@@ -35,39 +35,6 @@ fn download_bytes(client: &reqwest::blocking::Client, url: &str) -> Result<Vec<u
         .map_err(|error| format!("No se pudo leer la descarga: {error}"))
 }
 
-fn latest_stable_aapt2_version(metadata: &str) -> Option<String> {
-    let pattern = Regex::new(r"<version>([^<]+)</version>").ok()?;
-    let versions = pattern
-        .captures_iter(metadata)
-        .filter_map(|capture| capture.get(1))
-        .map(|value| value.as_str().trim())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-    versions
-        .iter()
-        .rev()
-        .find(|version| {
-            let normalized = version.to_ascii_lowercase();
-            !normalized.contains("alpha")
-                && !normalized.contains("beta")
-                && !normalized.contains("rc")
-        })
-        .or_else(|| versions.last())
-        .map(|value| value.to_string())
-}
-
-fn aapt2_classifier() -> Result<&'static str, String> {
-    match std::env::consts::OS {
-        "windows" => Ok("windows"),
-        "macos" => Ok("osx"),
-        "linux" => Err(
-            "La instalación automática está deshabilitada en Linux. Instala AAPT2 con tu gestor de paquetes o Android SDK."
-                .to_string(),
-        ),
-        _ => Err("AAPT2 no ofrece un binario para este sistema operativo".to_string()),
-    }
-}
-
 fn tool_asset(
     tool: &str,
     client: &reqwest::blocking::Client,
@@ -135,19 +102,6 @@ fn tool_asset(
                 })
                 .ok_or_else(|| "No se encontró una descarga de scrcpy compatible".to_string())?;
             Ok((url, kind))
-        }
-        "aapt2" => {
-            let metadata = client
-                .get("https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/maven-metadata.xml")
-                .header(reqwest::header::USER_AGENT, "ADB-App")
-                .send().map_err(|error| error.to_string())?
-                .error_for_status().map_err(|error| error.to_string())?
-                .text().map_err(|error| error.to_string())?;
-            let version = latest_stable_aapt2_version(&metadata).ok_or_else(|| {
-                "No se pudo determinar la última versión estable de AAPT2".to_string()
-            })?;
-            let classifier = aapt2_classifier()?;
-            Ok((format!("https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/{version}/aapt2-{version}-{classifier}.jar"), ArchiveKind::Zip))
         }
         _ => Err(format!("Dependencia desconocida: {tool}")),
     }

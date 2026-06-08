@@ -56,7 +56,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [adbPath, setAdbPath] = useState('');
   const [scrcpyPath, setScrcpyPath] = useState('');
   const [javaPath, setJavaPath] = useState('');
-  const [aapt2Path, setAapt2Path] = useState('');
   const [displayWidth, setDisplayWidth] = useState(0);
   const [displayHeight, setDisplayHeight] = useState(0);
   const [displayDensity, setDisplayDensity] = useState(0);
@@ -442,7 +441,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
       setJavaPath(value.java.path);
-      setAapt2Path(value.aapt2.path);
       setToolUpdatesChecking(true);
       const updated = await invoke<ToolsStatus>('check_tool_updates');
       setTools(updated);
@@ -450,7 +448,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     finally { setToolUpdatesChecking(false); }
   };
 
-  const saveToolPath = async (tool: 'adb' | 'scrcpy' | 'java' | 'aapt2', pathValue: string) => {
+  const saveToolPath = async (tool: 'adb' | 'scrcpy' | 'java', pathValue: string) => {
     setBusy(true);
     try {
       const value = await invoke<ToolsStatus>('set_tool_path', { tool, path: pathValue });
@@ -458,14 +456,13 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
       setJavaPath(value.java.path);
-      setAapt2Path(value.aapt2.path);
       setStatus(`Ruta de ${tool} guardada`);
       if (tool === 'adb') await refreshDevices();
       await refreshTools();
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
-  const installTool = async (tool: 'adb' | 'scrcpy' | 'aapt2') => {
+  const installTool = async (tool: 'adb' | 'scrcpy') => {
     setBusy(true);
     setStatus(`Descargando e instalando ${tool}...`);
     try {
@@ -474,7 +471,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
       setJavaPath(value.java.path);
-      setAapt2Path(value.aapt2.path);
       setStatus(`${tool} instalado o actualizado correctamente`);
       if (tool === 'adb') await refreshDevices();
       await refreshTools();
@@ -866,7 +862,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     onRefreshData={refreshMirrorData} onLaunch={launchMirror} onDirectLaunch={args => scrcpy(words(args))}
   />;
 
-  const settings = <SettingsView theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} aapt2Path={aapt2Path} onThemeChange={setTheme} onLanguageChange={setLanguage} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onAapt2PathChange={setAapt2Path} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} />;
+  const settings = <SettingsView theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={setTheme} onLanguageChange={setLanguage} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} />;
 
   const pages: Record<WorkTab, ReactNode> = {
     display,
