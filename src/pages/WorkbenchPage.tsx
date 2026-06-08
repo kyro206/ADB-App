@@ -6,12 +6,14 @@ import { useI18n } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { InstallationDialog } from '../components/dialogs/InstallationDialog';
+import { DestructiveActionDialog, type DestructiveAppAction } from '../components/dialogs/DestructiveActionDialog';
 import { DisplayPage } from './DisplayPage';
 import { MirroringPage } from './MirroringPage';
 import { SettingsView } from './workbench/SettingsView';
+import { AppsView } from './workbench/AppsView';
 import { SystemView } from './workbench/SystemView';
 import { WorkbenchShell } from './workbench/WorkbenchShell';
-import { appTone, formatBytes, words } from './workbench/utils';
+import { formatBytes, words } from './workbench/utils';
 import type { AppDetailsInfo, AppFilter, AppPermissionInfo, AppSummary, FileEntry, FileSortKey, FileView, MediaVolumeState, MirrorMode, SoundMode, SystemState, ToolsStatus, WorkTab } from './workbench/types';
 import './WorkbenchPage.css';
 
@@ -29,6 +31,8 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [appDetails, setAppDetails] = useState<AppDetailsInfo | null>(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [destructiveAction, setDestructiveAction] = useState<DestructiveAppAction | null>(null);
+  const [destructiveBusy, setDestructiveBusy] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const [installFiles, setInstallFiles] = useState<string[]>([]);
   const [installingApps, setInstallingApps] = useState(false);
@@ -705,75 +709,55 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     } catch (error) { setStatus(String(error)); }
   };
 
-  const appsPage = <div className={`apps-page ${selectedPackage ? 'detail-open' : ''}`}>
-    <section className="apps-catalog">
-      <div className="apps-toolbar">
-        <div className="apps-search"><span>⌕</span><input value={filter} onChange={event => setFilter(event.target.value)} placeholder="Buscar por nombre o paquete" /></div>
-        <button className="metadata-button" disabled={metadataLoading || !appsNeedingMetadata.length} onClick={loadVisibleMetadata}>{metadataLoading ? 'Cargando nombres e iconos…' : appsNeedingMetadata.length ? `Cargar nombres e iconos (${appsNeedingMetadata.length})` : 'Nombres e iconos cargados'}</button>
-        <button onClick={refreshApps}>Actualizar</button>
-        <button className="apps-install-open" title="Instalar aplicaciones" aria-label="Instalar aplicaciones" onClick={() => setInstallOpen(true)}>+</button>
-      </div>
-      <div className="apps-filters">
-        {([['user', 'Usuario'], ['all', 'Todas'], ['system', 'Sistema'], ['disabled', 'Deshabilitadas']] as const).map(([value, label]) => <button key={value} className={appFilter === value ? 'active' : ''} onClick={() => setAppFilter(value)}>{label}<span>{apps.filter(app => value === 'all' ? true : value === 'disabled' ? app.disabled : value === 'system' ? app.system_app && !app.disabled : !app.system_app && !app.disabled).length}</span></button>)}
-      </div>
-      <div className="apps-grid">
-        {filteredApps.map(app => <button className={`app-tile ${selectedPackage === app.package_name ? 'selected' : ''}`} key={app.package_name} onClick={() => selectApplication(app)}>
-          <span className="app-icon-frame">
-            {app.icon_data_url ? <img src={app.icon_data_url} alt="" /> : <span className={`app-fallback ${appTone(app.package_name)}`}>{app.display_name.slice(0, 2).toUpperCase()}</span>}
-          </span>
-          <strong>{app.display_name}</strong><small>{app.package_name}</small>
-          <em>{app.disabled ? 'Deshabilitada' : app.system_app ? 'Sistema' : 'Usuario'}</em>
-        </button>)}
-        {!filteredApps.length && <div className="apps-empty"><b>Sin aplicaciones</b><span>No hay resultados para este filtro.</span></div>}
-      </div>
-    </section>
+  const performDestructiveAppAction = async () => {
+    if (!destructiveAction || !selectedPackage) return;
+    setDestructiveBusy(true);
+    try {
+      if (destructiveAction === 'uninstall') {
+        await run(['uninstall', selectedPackage], 'Aplicación desinstalada');
+        setSelectedPackage('');
+        setAppDetails(null);
+        await refreshApps();
+      } else {
+        await run(['shell', 'pm', 'clear', selectedPackage], 'Datos de la aplicación eliminados');
+        await refreshAppDetails();
+      }
+      setDestructiveAction(null);
+    } finally {
+      setDestructiveBusy(false);
+    }
+  };
 
-    <aside className="app-detail">
-      {!appDetails ? <div className="app-detail-empty"><b>Selecciona una aplicación</b><span>Consulta sus detalles, acciones y permisos.</span></div> : <>
-        <button className="app-detail-back" onClick={() => { setSelectedPackage(''); setAppDetails(null); }}>← Volver a aplicaciones</button>
-        <header className="app-detail-header">
-          <span className="app-icon-frame">
-            {appDetails.icon_data_url ? <img src={appDetails.icon_data_url} alt="" /> : <span className={`app-fallback ${appTone(appDetails.package_name)}`}>{appDetails.display_name.slice(0, 2).toUpperCase()}</span>}
-          </span>
-          <div><h3>{appDetails.display_name}</h3><p>{appDetails.package_name}</p><span>{appDetails.disabled ? 'Deshabilitada' : appDetails.system_app ? 'Aplicación del sistema' : 'Aplicación de usuario'}</span></div>
-        </header>
-
-        <section className="app-detail-section"><h4>Acciones</h4><div className="app-actions">
-          <button className="primary" onClick={() => run(['shell', 'monkey', '-p', selectedPackage, '1'])}>↗ Abrir</button>
-          <button onClick={() => run(['shell', 'am', 'force-stop', selectedPackage])}>■ Detener</button>
-          <button className="danger" onClick={async () => { await run(['uninstall', selectedPackage]); setSelectedPackage(''); await refreshApps(); }}>Desinstalar</button>
-          <button className={appDetails.disabled ? 'enable-action' : ''} onClick={toggleAppEnabled}>{appDetails.disabled ? 'Habilitar' : 'Deshabilitar'}</button>
-          <button onClick={async () => { await run(['shell', 'pm', 'clear', selectedPackage]); await refreshAppDetails(); }}>Borrar datos</button>
-          <button onClick={async () => { await run(['shell', 'run-as', selectedPackage, 'sh', '-c', 'rm -rf cache/* code_cache/* 2>/dev/null || true']); await refreshAppDetails(); }}>Borrar caché</button>
-        </div><button className="app-export-button primary" onClick={exportApk}>Guardar APK…</button></section>
-
-        <section className="app-detail-section"><h4>Energía</h4><div className="energy-options">{([['unrestricted', 'Sin restricciones'], ['optimized', 'Optimizada'], ['restricted', 'Restringida']] as const).map(([value, label]) => <button key={value} className={appDetails.background_mode === value ? 'active' : ''} onClick={() => setBackgroundMode(value)}><b>{label}</b><span>{value === 'unrestricted' ? 'Permite actividad en segundo plano' : value === 'optimized' ? 'Android decide cuándo limitarla' : 'Limita el uso en segundo plano'}</span></button>)}</div></section>
-
-        <section className="app-detail-section"><div className="detail-section-title"><h4>Información</h4>{detailsLoading && <span>Cargando detalles…</span>}</div><dl className="app-info">
-          <div><dt>Versión</dt><dd>{appDetails.version_name} ({appDetails.version_code})</dd></div><div><dt>Target SDK</dt><dd>{appDetails.target_sdk}</dd></div><div><dt>Min SDK</dt><dd>{appDetails.min_sdk}</dd></div><div><dt>Instalador</dt><dd>{appDetails.installer}</dd></div>
-          <div><dt>Tamaño APK</dt><dd>{formatBytes(appDetails.code_size_bytes)}</dd></div><div><dt>Datos</dt><dd>{formatBytes(appDetails.data_size_bytes)}</dd></div><div><dt>Caché</dt><dd>{formatBytes(appDetails.cache_size_bytes)}</dd></div><div><dt>Ruta APK</dt><dd>{appDetails.apk_path}</dd></div>
-        </dl></section>
-
-        <section className="app-detail-section permissions-section"><div className="permissions-title"><h4>Permisos</h4><span>{detailsLoading ? 'Cargando permisos…' : `${appDetails.permissions.filter(permission => permission.granted).length} de ${appDetails.permissions.length} concedidos`}</span></div><div className="permissions-list">
-          {appDetails.permissions.map(permission => <div className="permission-row" key={permission.name}><div><strong>{permission.name.split('.').pop()}</strong><span>{permission.name}</span></div><label><input type="checkbox" checked={permission.granted} disabled={!permission.runtime} onChange={() => togglePermission(permission)} /><span>{permission.granted ? 'Permitido' : 'No permitido'}</span></label></div>)}
-          {!appDetails.permissions.length && <p className="muted">Esta aplicación no declara permisos.</p>}
-        </div></section>
-      </>}
-    </aside>
-
-    <InstallationDialog
-      open={installOpen}
-      files={installFiles}
-      installing={installingApps}
-      result={installResult}
-      options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }}
-      canInstall={Boolean(serial && installFiles.length)}
-      onClose={() => setInstallOpen(false)}
-      onChooseFiles={chooseInstallFiles}
-      onRemoveFile={file => setInstallFiles(current => current.filter(value => value !== file))}
-      onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)}
-      onInstall={installSelectedApps}
+  const materialAppsPage = <div className="apps-material-host">
+    <AppsView
+      apps={apps}
+      filteredApps={filteredApps}
+      filter={filter}
+      appFilter={appFilter}
+      selectedPackage={selectedPackage}
+      details={appDetails}
+      metadataLoading={metadataLoading}
+      detailsLoading={detailsLoading}
+      busy={busy}
+      onFilterChange={setFilter}
+      onAppFilterChange={setAppFilter}
+      onSelect={selectApplication}
+      onCloseDetail={() => { setSelectedPackage(''); setAppDetails(null); }}
+      onLoadMetadata={loadVisibleMetadata}
+      onRefresh={refreshApps}
+      onInstall={() => setInstallOpen(true)}
+      onOpen={() => run(['shell', 'monkey', '-p', selectedPackage, '1'])}
+      onStop={() => run(['shell', 'am', 'force-stop', selectedPackage])}
+      onUninstall={() => setDestructiveAction('uninstall')}
+      onToggleEnabled={toggleAppEnabled}
+      onClearData={() => setDestructiveAction('clear-data')}
+      onClearCache={async () => { await run(['shell', 'run-as', selectedPackage, 'sh', '-c', 'rm -rf cache/* code_cache/* 2>/dev/null || true']); await refreshAppDetails(); }}
+      onExport={exportApk}
+      onBackgroundMode={setBackgroundMode}
+      onTogglePermission={togglePermission}
     />
+    <DestructiveActionDialog action={destructiveAction} appName={appDetails?.display_name || selectedPackage} packageName={selectedPackage} iconDataUrl={appDetails?.icon_data_url || ''} busy={destructiveBusy} onClose={() => setDestructiveAction(null)} onConfirm={performDestructiveAppAction} />
+    <InstallationDialog open={installOpen} files={installFiles} installing={installingApps} result={installResult} options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }} canInstall={Boolean(serial && installFiles.length)} onClose={() => setInstallOpen(false)} onChooseFiles={chooseInstallFiles} onRemoveFile={file => setInstallFiles(current => current.filter(value => value !== file))} onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)} onInstall={installSelectedApps} />
   </div>;
 
   const selectFileEntry = (event: MouseEvent, file: FileEntry) => {
@@ -888,7 +872,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     display,
     mirroring,
     control,
-    apps: appsPage,
+    apps: materialAppsPage,
     files: filesPage,
     system: materialSystem,
     settings,

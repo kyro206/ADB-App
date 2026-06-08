@@ -105,19 +105,6 @@ export function MirroringPage(props: MirroringPageProps) {
   const scrcpyReady = Boolean(props.tools?.scrcpy.available);
 
   return <div className="mirror-material-page">
-    <header className="mirror-material-hero">
-      <div className="mirror-material-hero__icon"><MaterialIcon name="cast" filled /></div>
-      <div>
-        <span className="mirror-material-overline">SCRCPY</span>
-        <h2>Espejo del dispositivo</h2>
-        <p>Configura la fuente, imagen, sonido y controles antes de abrir la vista.</p>
-      </div>
-      <span className={`mirror-material-status ${scrcpyReady ? 'ready' : 'missing'}`}>
-        <MaterialIcon name={scrcpyReady ? 'check_circle' : 'error'} filled />
-        {scrcpyReady ? `scrcpy ${props.tools?.scrcpy.version}` : 'scrcpy no instalado'}
-      </span>
-    </header>
-
     <section className="mirror-material-source" aria-label="Fuente de vídeo">
       {modes.map(item => <SourceButton key={item.id} item={item} active={props.mode === item.id} onClick={() => props.setMode(item.id)} />)}
     </section>
