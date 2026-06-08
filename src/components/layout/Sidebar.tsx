@@ -1,4 +1,4 @@
-import { useI18n } from '../../i18n';
+import { useI18n } from '../../locales';
 import { MaterialIcon } from '../MaterialIcon';
 import './Sidebar.css';
 

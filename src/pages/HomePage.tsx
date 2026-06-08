@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { confirm, save } from '@tauri-apps/plugin-dialog';
 import { useDevices, type DeviceDetails } from '../context/DeviceContext';
-import { useI18n } from '../i18n';
+import { useI18n } from '../locales';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { PowerDialog } from '../components/dialogs/PowerDialog';
 import './HomePage.css';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useDevices } from '../../context/DeviceContext';
-import { useI18n } from '../../i18n';
+import { useI18n } from '../../locales';
 import { WirelessDialog } from '../dialogs/WirelessDialog';
 import { MaterialIcon } from '../MaterialIcon';
 import { DeviceSelector } from './DeviceSelector';

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'r
 import { invoke } from '@tauri-apps/api/core';
 import { confirm, open, save } from '@tauri-apps/plugin-dialog';
 import { useDevices } from '../context/DeviceContext';
-import { useI18n } from '../i18n';
+import { useI18n } from '../locales';
 import { useTheme } from '../context/ThemeContext';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { InstallationDialog } from '../components/dialogs/InstallationDialog';

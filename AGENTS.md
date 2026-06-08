@@ -10,4 +10,6 @@ Estás trabajando en una aplicación de escritorio usando Tauri v2, Rust en el b
    - Backend: Asegúrate de que los plugins estén inicializados en `Builder::new().plugin(...)` en `main.rs`.
 5. IPC (Comandos): Los comandos de Rust siempre deben devolver un `Result<T, String>` para un manejo de errores limpio en el frontend.
 
-Reccuerda siempre al final ver que compila y pasa los tests
+Los textos se guardan en src/locales, tienes que añadirlos en formato TypeScript
+
+Recuerda siempre al final ver que compila y pasa los tests

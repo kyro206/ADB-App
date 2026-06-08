@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ThemeProvider } from "./context/ThemeContext";
 import { DeviceProvider } from "./context/DeviceContext";
-import { I18nProvider } from "./i18n";
+import { I18nProvider } from "./locales";
 import "./styles/global.css";
 import "@fontsource/material-symbols-rounded";
 import "@fontsource-variable/google-sans-flex";
