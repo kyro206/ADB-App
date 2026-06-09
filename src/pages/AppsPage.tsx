@@ -4,7 +4,7 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import { useI18n } from '../locales';
 import type { AppSummary, AppDetailsInfo, AppPermissionInfo } from './workbench/types';
 
-export interface AppSettings { cache_enabled: boolean; cache_path: string; }
+export interface AppSettings { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; }
 import { DestructiveActionDialog } from '../components/dialogs/DestructiveActionDialog';
 import { InstallationDialog } from '../components/dialogs/InstallationDialog';
 import { MaterialIcon } from '../components/MaterialIcon';
@@ -17,6 +17,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
   const [apps, setApps] = useState<AppSummary[]>([]);
   const [appDetails, setAppDetails] = useState<AppDetailsInfo | null>(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
+  const [attemptedMetadata, setAttemptedMetadata] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [installingApps, setInstallingApps] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
@@ -51,6 +52,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
   const refreshApps = async () => {
     if (!serial) return;
     setBusy(true);
+    setAttemptedMetadata(false);
     try {
       const value = await invoke<AppSummary[]>('list_apps', { serial });
       setApps(value); setStatus('');
@@ -60,6 +62,13 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
   useEffect(() => {
     if (tab === 'apps' && serial && !apps.length) refreshApps();
   }, [tab, serial]);
+
+  useEffect(() => {
+    if (appSettings && !appSettings.cache_enabled && appsNeedingMetadata.length > 0 && !metadataLoading && !attemptedMetadata) {
+      setAttemptedMetadata(true);
+      loadVisibleMetadata();
+    }
+  }, [appSettings?.cache_enabled, appsNeedingMetadata.length, metadataLoading, attemptedMetadata]);
 
   const refreshAppDetails = async (packageName = selectedPackage) => {
     if (!serial || !packageName) return;
@@ -251,7 +260,12 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
                 </md-icon-button>
               )}
             </md-outlined-text-field>
-            <md-filled-tonal-button disabled={metadataLoading || !pending || undefined} onClick={loadVisibleMetadata}><MaterialIcon slot="icon" name="image_search" />{metadataLoading ? t('common.loading') : pending ? t('apps.action.loadMetadata', { pending }) : t('apps.action.metadataLoaded')}</md-filled-tonal-button>
+            {(appSettings?.cache_enabled && pending > 0) && (
+              <md-filled-tonal-button disabled={metadataLoading || undefined} onClick={loadVisibleMetadata}>
+                <MaterialIcon slot="icon" name="image_search" />
+                {metadataLoading ? t('common.loading') : t('apps.action.loadMetadata', { pending })}
+              </md-filled-tonal-button>
+            )}
             <md-icon-button aria-label={t('apps.action.refresh')} title={t('apps.action.refresh')} disabled={false || undefined} onClick={refreshApps}><MaterialIcon name="refresh" className={false ? 'apps-material-spin' : ''} /></md-icon-button>
             <md-filled-icon-button aria-label={t('apps.action.install')} title={t('apps.action.install')} onClick={() => setInstallOpen(true)}><MaterialIcon name="add" /></md-filled-icon-button>
           </header>

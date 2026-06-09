@@ -266,6 +266,23 @@ export function SettingsPage(props: SettingsPageProps) {
           </div>
         </div>
       </Panel>
+
+      {/* TARJETA DE OPCIONES AVANZADAS */}
+      <Panel title={t('settings.advancedTitle')}>
+        <div className="form-stack">          
+          <label className="settings-switch-row">
+            <span className="md3-body-large">{t('settings.killAdbOnExit')}</span>
+            <md-switch 
+              selected={props.appSettings?.kill_adb_on_exit ?? true}
+              onChange={(e: any) => {
+                if (props.appSettings) {
+                  props.onSaveAppSettings({ ...props.appSettings, kill_adb_on_exit: e.target.selected });
+                }
+              }}
+            />
+          </label>
+        </div>
+      </Panel>
     </div>
   );
 }

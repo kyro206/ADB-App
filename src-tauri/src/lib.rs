@@ -20,6 +20,16 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let settings = crate::commands::operations::read_settings();
+                if settings.kill_adb_on_exit {
+                    if let Some(path) = crate::tools::resolve_tool_path("adb") {
+                        let _ = crate::process::command(path).arg("kill-server").status();
+                    }
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             devices::list_devices,
             devices::get_device_details,

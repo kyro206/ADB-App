@@ -122,6 +122,7 @@ fn settings_path() -> PathBuf {
 pub struct AppSettings {
     pub cache_enabled: bool,
     pub cache_path: String,
+    pub kill_adb_on_exit: bool,
 }
 
 impl Default for AppSettings {
@@ -129,6 +130,7 @@ impl Default for AppSettings {
         Self {
             cache_enabled: false,
             cache_path: String::new(),
+            kill_adb_on_exit: true,
         }
     }
 }

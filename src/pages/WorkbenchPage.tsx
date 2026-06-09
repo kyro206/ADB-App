@@ -40,7 +40,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     });
   }, [tab]);
   const [tools, setTools] = useState<ToolsStatus | null>(null);
-  const [appSettings, setAppSettings] = useState<{ cache_enabled: boolean; cache_path: string } | null>(null);
+  const [appSettings, setAppSettings] = useState<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean } | null>(null);
   const [defaultCacheDir, setDefaultCacheDir] = useState('');
   const [toolUpdatesChecking, setToolUpdatesChecking] = useState(false);
   const [adbPath, setAdbPath] = useState('');
