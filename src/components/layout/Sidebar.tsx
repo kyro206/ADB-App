@@ -11,7 +11,7 @@ interface SidebarProps {
 
 const TAB_ICONS: Record<TabId, string> = {
   home: 'home', display: 'display_settings', mirroring: 'cast', control: 'remote_gen',
-  apps: 'apps', files: 'folder', system: 'manufacturing', settings: 'settings',
+  apps: 'apps', files: 'folder', system: 'android', settings: 'settings',
 };
 
 const NAV_TABS: TabId[] = ['home', 'display', 'mirroring', 'control', 'apps', 'files', 'system'];

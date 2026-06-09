@@ -32,7 +32,7 @@ function InfoCard({ icon, label, value }: { icon: string; label: string; value: 
 
 function EditCard({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) {
   return <article className="display-edit-card">
-    <header><span><MaterialIcon name={icon} filled /></span><strong>{label}</strong><MaterialIcon name="edit" /></header>
+    <header><span><MaterialIcon name={icon} filled /></span><strong>{label}</strong></header>
     {children}
   </article>;
 }

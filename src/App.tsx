@@ -17,6 +17,8 @@ function App() {
         e.key === 'F7' ||
         ((e.ctrlKey || e.metaKey) && e.key === 'r') ||
         ((e.ctrlKey || e.metaKey) && e.key === 'R') ||
+        ((e.ctrlKey || e.metaKey) && e.key === 'f') ||
+        ((e.ctrlKey || e.metaKey) && e.key === 'F') ||
         ((e.ctrlKey || e.metaKey) && e.key === 'p') ||
         ((e.ctrlKey || e.metaKey) && e.key === 'P')
       ) {

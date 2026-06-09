@@ -113,17 +113,65 @@ fn package_set(output: &str) -> HashSet<String> {
         .collect()
 }
 
+fn settings_path() -> PathBuf {
+    crate::app_paths::config_dir().join("app_settings.json")
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppSettings {
+    pub cache_enabled: bool,
+    pub cache_path: String,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            cache_enabled: true,
+            cache_path: String::new(),
+        }
+    }
+}
+
+pub fn read_settings() -> AppSettings {
+    fs::read_to_string(settings_path())
+        .ok()
+        .and_then(|value| serde_json::from_str(&value).ok())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn get_app_settings() -> AppSettings {
+    read_settings()
+}
+
+#[tauri::command]
+pub fn save_app_settings(settings: AppSettings) -> Result<(), String> {
+    fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
+    let serialized = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
+    fs::write(settings_path(), serialized).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn application_cache_dir() -> PathBuf {
+    let settings = read_settings();
+    if !settings.cache_path.trim().is_empty() {
+        PathBuf::from(settings.cache_path.trim()).join("app-icons")
+    } else {
+        crate::app_paths::cache_dir().join("app-icons")
+    }
+}
+
+#[tauri::command]
+pub fn get_default_cache_dir() -> String {
+    crate::app_paths::cache_dir().join("app-icons").to_string_lossy().to_string()
+}
+
 fn app_summary_cache_path(package_name: &str, apk_path: &str) -> PathBuf {
     let mut hasher = DefaultHasher::new();
     package_name.hash(&mut hasher);
     apk_path.hash(&mut hasher);
-    crate::app_paths::cache_dir()
-        .join("app-icons")
-        .join(format!("{:x}.json", hasher.finish()))
-}
-
-fn application_cache_dir() -> PathBuf {
-    crate::app_paths::cache_dir().join("app-icons")
+    application_cache_dir().join(format!("{:x}.json", hasher.finish()))
 }
 
 fn install_working_dir() -> Result<PathBuf, String> {
@@ -221,6 +269,7 @@ fn resolve_install_files(
         .extension()
         .map(|value| value.to_string_lossy().to_ascii_lowercase())
         .unwrap_or_default();
+    
     if extension == "apk" {
         return Ok(vec![package_file.to_path_buf()]);
     }
@@ -234,12 +283,22 @@ fn resolve_install_files(
     );
     fs::create_dir_all(&extraction_directory).map_err(|error| error.to_string())?;
 
-    if extension == "aab" || extension == "apks" {
-        let jar = bundletool_jar()?;
-        let java = modern_java_path()?;
-        let adb_path =
-            tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
+    // Evaluamos si Java y Bundletool están disponibles (y lo hacemos solo una vez)
+    let (java_path, jar_path) = match (modern_java_path(), bundletool_jar()) {
+        (Ok(java), Ok(jar)) => (Some(java), Some(jar)),
+        _ => (None, None),
+    };
+    let bundletool_available = java_path.is_some() && jar_path.is_some();
+
+    if extension == "aab" {
+        if !bundletool_available {
+            return Err("Para instalar archivos .aab necesitas configurar Java 11+ en Ajustes y tener Bundletool descargado.".to_string());
+        }
+        let java = java_path.unwrap();
+        let jar = jar_path.unwrap();
+        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
         let device_spec = working_directory.join("device-spec.json");
+        
         run_local_command(
             &java,
             &[
@@ -251,24 +310,21 @@ fn resolve_install_files(
                 format!("--device-id={serial}"),
             ],
         )?;
-        let apks_archive = if extension == "aab" {
-            let output = working_directory.join("device.apks");
-            run_local_command(
-                &java,
-                &[
-                    "-jar".into(),
-                    jar.to_string_lossy().into_owned(),
-                    "build-apks".into(),
-                    format!("--bundle={}", package_file.display()),
-                    format!("--output={}", output.display()),
-                    format!("--device-spec={}", device_spec.display()),
-                    "--overwrite".into(),
-                ],
-            )?;
-            output
-        } else {
-            package_file.to_path_buf()
-        };
+
+        let apks_archive = working_directory.join("device.apks");
+        run_local_command(
+            &java,
+            &[
+                "-jar".into(),
+                jar.to_string_lossy().into_owned(),
+                "build-apks".into(),
+                format!("--bundle={}", package_file.display()),
+                format!("--output={}", apks_archive.display()),
+                format!("--device-spec={}", device_spec.display()),
+                "--overwrite".into(),
+            ],
+        )?;
+
         run_local_command(
             &java,
             &[
@@ -280,7 +336,52 @@ fn resolve_install_files(
                 format!("--device-spec={}", device_spec.display()),
             ],
         )?;
-    } else if matches!(extension.as_str(), "apkm" | "xapk" | "zip") {
+
+        let apks = collect_apks(&extraction_directory)?;
+        if apks.is_empty() {
+            return Err(format!("No se encontraron APK compatibles en {}", package_file.display()));
+        }
+        return Ok(apks);
+
+    } else if extension == "apks" && bundletool_available {
+        // Vía original para .apks si Java/Bundletool están instalados
+        let java = java_path.unwrap();
+        let jar = jar_path.unwrap();
+        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
+        let device_spec = working_directory.join("device-spec.json");
+        
+        run_local_command(
+            &java,
+            &[
+                "-jar".into(),
+                jar.to_string_lossy().into_owned(),
+                "get-device-spec".into(),
+                format!("--output={}", device_spec.display()),
+                format!("--adb={}", adb_path.display()),
+                format!("--device-id={serial}"),
+            ],
+        )?;
+        
+        run_local_command(
+            &java,
+            &[
+                "-jar".into(),
+                jar.to_string_lossy().into_owned(),
+                "extract-apks".into(),
+                format!("--apks={}", package_file.display()),
+                format!("--output-dir={}", extraction_directory.display()),
+                format!("--device-spec={}", device_spec.display()),
+            ],
+        )?;
+
+        let apks = collect_apks(&extraction_directory)?;
+        if apks.is_empty() {
+            return Err(format!("No se encontraron APK compatibles en {}", package_file.display()));
+        }
+        return Ok(apks);
+
+    } else if matches!(extension.as_str(), "apks" | "apkm" | "xapk" | "zip") {
+        // Extracción manual nativa y filtrado inteligente sin Java
         run_local_command(
             Path::new("tar"),
             &[
@@ -290,18 +391,71 @@ fn resolve_install_files(
                 extraction_directory.to_string_lossy().into_owned(),
             ],
         )?;
+
+        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
+        
+        // 1. Obtener la arquitectura del dispositivo conectado
+        let abi_output = run_local_command(
+            &adb_path, 
+            &["-s".into(), serial.to_string(), "shell".into(), "getprop".into(), "ro.product.cpu.abilist".into()]
+        ).unwrap_or_default();
+        
+        let mut supported_abis: Vec<String> = abi_output
+            .split(',')
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty())
+            .collect();
+        
+        // Dispositivos viejos (Android 4.4/5.0) pueden no tener abilist, usamos abi como respaldo
+        if supported_abis.is_empty() {
+            let fallback_abi = run_local_command(
+                &adb_path, 
+                &["-s".into(), serial.to_string(), "shell".into(), "getprop".into(), "ro.product.cpu.abi".into()]
+            ).unwrap_or_default();
+            if !fallback_abi.trim().is_empty() {
+                supported_abis.push(fallback_abi.trim().to_lowercase());
+            }
+        }
+
+        let known_abi_markers = ["arm64_v8a", "armeabi_v7a", "armeabi", "x86_64", "x86", "mips"];
+        let all_apks = collect_apks(&extraction_directory)?;
+        let mut filtered_apks = Vec::new();
+
+        // 2. Filtrar los APKs extraídos
+        for apk in all_apks {
+            let filename = apk.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+            let mut is_abi_split = false;
+            let mut matches_device_abi = false;
+
+            for marker in &known_abi_markers {
+                // Buscamos tanto con guion bajo como medio (ej: arm64_v8a y arm64-v8a)
+                if filename.contains(marker) || filename.contains(&marker.replace('_', "-")) {
+                    is_abi_split = true;
+                    // Comprobamos si este APK pertenece a las arquitecturas soportadas
+                    for supported_abi in &supported_abis {
+                        let normalized_supported = supported_abi.replace('-', "_");
+                        if filename.contains(&normalized_supported) || filename.contains(supported_abi) {
+                            matches_device_abi = true;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // Mantenemos el APK si es un archivo base, idiomas/densidades, o una arquitectura compatible
+            if !is_abi_split || matches_device_abi {
+                filtered_apks.push(apk);
+            }
+        }
+
+        if filtered_apks.is_empty() {
+            return Err(format!("No se encontraron APKs compatibles para tu dispositivo en {}", package_file.display()));
+        }
+
+        return Ok(filtered_apks);
     } else {
         return Err(format!("Formato no compatible: {}", package_file.display()));
-    }
-
-    let apks = collect_apks(&extraction_directory)?;
-    if apks.is_empty() {
-        Err(format!(
-            "No se encontraron APK compatibles en {}",
-            package_file.display()
-        ))
-    } else {
-        Ok(apks)
     }
 }
 
@@ -457,7 +611,7 @@ fn random_wireless_token(length: usize) -> String {
 
 #[tauri::command]
 pub fn generate_wireless_qr() -> Result<WirelessQrPayload, String> {
-    let service_name = format!("studio-{}", random_wireless_token(8));
+    let service_name = format!("adb-{}", random_wireless_token(8));
     let password = random_wireless_token(12);
     let payload = format!("WIFI:T:ADB;S:{service_name};P:{password};;");
     let svg = QrCode::new(payload.as_bytes())
@@ -799,9 +953,8 @@ pub async fn list_apps(serial: String) -> Result<Vec<AppSummary>, String> {
         })
         .collect::<Vec<_>>();
     for app in &mut apps {
-        if let Ok(cached) =
-            fs::read_to_string(app_summary_cache_path(&app.package_name, &app.apk_path))
-        {
+        let cache_path = app_summary_cache_path(&app.package_name, &app.apk_path);
+        if let Ok(cached) = fs::read_to_string(&cache_path) {
             if let Ok(presentation) = serde_json::from_str::<CachedAppPresentation>(&cached) {
                 if presentation.display_name != app.package_name
                     || !presentation.icon_data_url.is_empty()
@@ -820,7 +973,6 @@ pub async fn list_apps(serial: String) -> Result<Vec<AppSummary>, String> {
     Ok(apps)
 }
 
-// 1. Añadimos las estructuras para deserializar la respuesta del Daemon
 #[derive(Deserialize)]
 struct DaemonResponse {
     label: Option<String>,
@@ -828,8 +980,7 @@ struct DaemonResponse {
     error: Option<String>,
 }
 
-// 2. Incrustamos el archivo JAR directamente en el ejecutable de Rust
-static DAEMON_BYTES: &[u8] = include_bytes!("studio_daemon.jar");
+static DAEMON_BYTES: &[u8] = include_bytes!("info_apps.jar");
 
 #[tauri::command]
 pub async fn enrich_app_summary(
@@ -857,9 +1008,8 @@ pub async fn enrich_app_summary(
         }
     }
 
-    // 1. Escribir el Daemon en una carpeta temporal del PC e inyectarlo en el dispositivo
-    let daemon_local_path = crate::app_paths::cache_dir().join("studio_daemon.jar");
-    let daemon_device_path = "/data/local/tmp/studio_daemon.jar";
+    let daemon_local_path = crate::app_paths::cache_dir().join("info_apps.jar");
+    let daemon_device_path = "/data/local/tmp/info_apps.jar";
 
     if !daemon_local_path.exists() {
         fs::write(&daemon_local_path, DAEMON_BYTES).map_err(|e| e.to_string())?;
@@ -872,7 +1022,6 @@ pub async fn enrich_app_summary(
         adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path]).await?;
     }
 
-    // 2. Ejecutar el Daemon nativamente dentro de Android usando app_process
     let result = adb::run_adb_for_serial(
         &serial,
         &[
@@ -885,7 +1034,6 @@ pub async fn enrich_app_summary(
         return Err(format!("Daemon execution failed: {}", result.output));
     }
 
-    // 3. Procesar el JSON que devuelve el Daemon por consola
     let daemon_output = result.output.lines().last().unwrap_or("{}");
     let parsed: DaemonResponse = serde_json::from_str(daemon_output).unwrap_or(DaemonResponse {
         label: None,
@@ -901,17 +1049,20 @@ pub async fn enrich_app_summary(
     let icon_data_url = parsed.icon.unwrap_or_default();
 
     // 4. Guardar en caché y devolver el AppSummary
-    if let Some(parent) = cache_path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    
-    let presentation = CachedAppPresentation {
-        display_name: display_name.clone(),
-        icon_data_url: icon_data_url.clone(),
-    };
-    
-    if let Ok(serialized) = serde_json::to_string(&presentation) {
-        let _ = fs::write(cache_path, serialized);
+    let settings = read_settings();
+    if settings.cache_enabled {
+        if let Some(parent) = cache_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        
+        let presentation = CachedAppPresentation {
+            display_name: display_name.clone(),
+            icon_data_url: icon_data_url.clone(),
+        };
+        
+        if let Ok(serialized) = serde_json::to_string(&presentation) {
+            let _ = fs::write(cache_path, serialized);
+        }
     }
 
     Ok(AppSummary {
@@ -1187,7 +1338,7 @@ mod wireless_tests {
     #[test]
     fn generates_hidden_credentials_and_scannable_qr() {
         let qr = generate_wireless_qr().expect("QR generation should succeed");
-        assert!(qr.service_name.starts_with("studio-"));
+        assert!(qr.service_name.starts_with("adb-"));
         assert_eq!(qr.password.len(), 12);
         assert!(qr.qr_data_url.starts_with("data:image/svg+xml;base64,"));
     }

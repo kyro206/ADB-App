@@ -1,0 +1,121 @@
+/* --- VARIABLES BASE (MD3) ---
+   Ajusta estos colores en tu tema global si ya usas un generador de Material Theme.
+   Estos son valores por defecto que se ven bien en claro/oscuro. */
+:root {
+  --md-sys-color-primary: #006494; /* Color de ejemplo, ajusta al tuyo */
+  --md-sys-color-surface-container: #f3f4f9;
+  --md-sys-color-surface-container-highest: #e3e6f0;
+  --md-sys-color-on-surface: #1a1c1e;
+  --md-sys-color-on-surface-variant: #43474e;
+  --md-sys-color-outline: #73777f;
+}
+
+[data-theme="dark"] {
+  --md-sys-color-surface-container: #1e1f22;
+  --md-sys-color-surface-container-highest: #333538;
+  --md-sys-color-on-surface: #e2e2e6;
+  --md-sys-color-on-surface-variant: #c4c6d0;
+  --md-sys-color-outline: #8d9199;
+}
+
+/* --- GRID Y LAYOUT --- */
+.work-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* --- TARJETAS MD3 (CARDS) --- */
+.md3-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+  border-radius: 16px;
+  padding: 24px;
+  transition: background-color 0.3s ease;
+}
+
+.md3-title {
+  margin: 0 0 16px 0;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0px;
+  color: var(--md-sys-color-on-surface);
+}
+
+.md3-body-medium {
+  font-size: 14px;
+  letter-spacing: 0.25px;
+  line-height: 20px;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+/* --- ALINEACIÓN DE FORMULARIOS --- */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- FILA DE APARIENCIA --- */
+.settings-appearance-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  align-items: center;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+md-outlined-select {
+  min-width: 200px;
+}
+
+/* --- ESTADO DE LAS HERRAMIENTAS --- */
+.tool-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background-color: var(--md-sys-color-surface-container-highest);
+  border-radius: 12px;
+}
+
+.tool-status-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--md-sys-color-primary);
+}
+
+.tool-status-header md-icon {
+  font-size: 20px;
+}
+
+.tool-status-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 13px;
+}
+
+.muted {
+  color: var(--md-sys-color-on-surface-variant);
+}
