@@ -278,7 +278,6 @@ export const es: Record<string, string> = {
   'settings.clearCache': 'Borrar caché',
   'settings.enableCache': 'Habilitar caché',
   'settings.cachePathPlaceholder': 'Ruta de la caché de iconos',
-  'settings.theme': 'Tema',
   'settings.theme.light': 'Modo Claro',
   'settings.theme.dark': 'Modo Oscuro',
   'settings.theme.auto': 'Automático',

@@ -278,7 +278,6 @@ export const en = {
   'settings.cacheTitle': 'Application Cache',
   'settings.enableCache': 'Enable cache',
   'settings.cachePathPlaceholder': 'Icons cache path',
-  'settings.theme': 'Theme',
   'settings.theme.light': 'Light Mode',
   'settings.theme.dark': 'Dark Mode',
   'settings.theme.auto': 'System Default',
