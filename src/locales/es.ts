@@ -55,10 +55,7 @@ export const es: Record<string, string> = {
   'home.preview.empty.title': 'Sin capturas aún',
   'home.preview.empty.subtitle': 'La última captura aparecerá aquí',
   'home.power.options': 'Opciones de energía',
-  'home.power.sending': 'Enviando orden: {label}...',
-  'home.power.sent': 'Orden enviada: {label}',
-  'home.power.confirm.exit': 'Cómo salir:',
-  'home.power.confirm.prompt': '¿Quieres continuar?',
+  'home.power.confirm.exit': 'Para salir de este modo debe',
   'home.power.confirm.title': 'Confirmar acción de energía',
 
   // Display
@@ -81,7 +78,7 @@ export const es: Record<string, string> = {
   'display.presets.title': 'Ajustes rápidos',
   'display.presets.desc': 'Presets proporcionales a la pantalla física.',
   'display.rates.title': 'Frecuencias disponibles',
-  'display.rates.desc': 'Selecciona la frecuencia que usará el dispositivo.',
+  'display.rates.desc': 'seleccionar la frecuencia que usará el dispositivo.',
   'display.rates.empty': 'Sin datos disponibles',
 
   // Mirroring
@@ -330,23 +327,18 @@ export const es: Record<string, string> = {
 
   'power.title': 'Opciones de energía',
   'power.subtitle': 'Controla el estado del dispositivo conectado.',
-  'power.action.screenOff': 'apagar pantalla',
   'power.btn.screenOff': 'Apagar pantalla',
-  'power.action.reboot': 'reiniciar Android',
   'power.btn.reboot': 'Reiniciar',
-  'power.action.powerOff': 'apagar dispositivo',
   'power.btn.powerOff': 'Apagar',
   'power.advanced.title': 'Modos de arranque',
-  'power.advanced.desc': 'Estos modos requieren una confirmación antes de reiniciar.',
   'power.btn.recovery': 'Recovery',
-  'power.hint.recovery': 'Selecciona Reboot system now.',
+  'power.hint.recovery': 'seleccionar Reboot system now.',
   'power.btn.bootloader': 'Bootloader',
-  'power.hint.bootloader': 'Ejecuta fastboot reboot o selecciona Start.',
+  'power.hint.bootloader': 'ejecutar fastboot reboot o seleccionar Start.',
   'power.btn.fastbootd': 'Fastbootd',
-  'power.hint.fastbootd': 'Ejecuta fastboot reboot.',
-  'power.action.download': 'modo descarga',
+  'power.hint.fastbootd': 'ejecutar fastboot reboot.',
   'power.btn.download': 'Modo descarga',
-  'power.hint.download': 'La forma de salir depende del fabricante.',
+  'power.hint.download': 'Presione volumen abajo y el botón de apagado.',
 
   'app.action.uninstallApp': 'Desinstalar aplicación',
   'app.action.clearData': 'Borrar datos de la aplicación',

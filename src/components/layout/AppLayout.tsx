@@ -16,6 +16,37 @@ export function AppLayout() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    let lastTabChangeTime = 0;
+    const tabOrder: TabId[] = ['home', 'display', 'mirroring', 'control', 'apps', 'files', 'system', 'settings'];
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault();
+
+        const now = Date.now();
+        if (e.repeat && now - lastTabChangeTime < 250) {
+          return;
+        }
+        lastTabChangeTime = now;
+
+        setActiveTab((current) => {
+          const currentIndex = tabOrder.indexOf(current);
+          if (currentIndex === -1) return current;
+
+          let nextIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
+          if (nextIndex >= tabOrder.length) nextIndex = 0;
+          if (nextIndex < 0) nextIndex = tabOrder.length - 1;
+
+          return tabOrder[nextIndex];
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     pageRef.current?.animate(
       [

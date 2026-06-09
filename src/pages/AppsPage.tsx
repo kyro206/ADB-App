@@ -1,16 +1,18 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { useTranslation } from 'react-i18next';
-import { AppSummary, AppDetailsInfo, AppPermissionInfo, AppSettings } from '../models';
-import { DestructiveActionDialog } from '../components/apps/DestructiveActionDialog';
-import { InstallationDialog } from '../components/apps/InstallationDialog';
+import { useI18n } from '../locales';
+import type { AppSummary, AppDetailsInfo, AppPermissionInfo } from './workbench/types';
+
+export interface AppSettings { cache_enabled: boolean; cache_path: string; }
+import { DestructiveActionDialog } from '../components/dialogs/DestructiveActionDialog';
+import { InstallationDialog } from '../components/dialogs/InstallationDialog';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { appTone, formatBytes } from './workbench/utils';
 import './AppsPage.css';
 
 export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: { serial: string; setStatus: (s: string) => void; setBusy: (b: boolean) => void; run: (args: string[], success?: string) => Promise<string | undefined>; tab: string; appSettings: AppSettings | null; }) {
-  const { t } = useTranslation();
+  const { t } = useI18n();
   
   const [apps, setApps] = useState<AppSummary[]>([]);
   const [appDetails, setAppDetails] = useState<AppDetailsInfo | null>(null);
@@ -24,7 +26,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
   const [installGrant, setInstallGrant] = useState(true);
   const [installTest, setInstallTest] = useState(true);
   const [installBypass, setInstallBypass] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'user' | 'system'>('user');
+  const [filter, setFilter] = useState<'all' | 'user' | 'system' | 'disabled'>('user');
   const [appFilter, setAppFilter] = useState('');
   const [selectedPackage, setSelectedPackage] = useState('');
   const [destructiveAction, setDestructiveAction] = useState<'uninstall' | 'clear-data' | null>(null);
@@ -64,10 +66,10 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
     try {
       const value = await invoke<AppDetailsInfo>('get_app_details', { serial, packageName });
       const summary = apps.find(app => app.package_name === packageName);
-      setAppDetails(current => current?.package_name === packageName
+      setAppDetails((current: AppDetailsInfo | null) => current?.package_name === packageName
         ? { ...value, display_name: summary && summary.display_name !== summary.package_name ? summary.display_name : value.display_name, icon_data_url: summary?.icon_data_url || value.icon_data_url }
         : current);
-      setApps(current => current.map(app => app.package_name === packageName ? {
+      setApps((current: AppSummary[]) => current.map(app => app.package_name === packageName ? {
         ...app,
         display_name: value.display_name !== value.package_name ? value.display_name : app.display_name,
         disabled: value.disabled,
@@ -114,8 +116,8 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
         const summaries = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
         loaded += summaries.length;
         failed += results.length - summaries.length;
-        setApps(current => current.map(app => summaries.find(summary => summary.package_name === app.package_name) || app));
-        setAppDetails(current => {
+        setApps((current: AppSummary[]) => current.map(app => summaries.find(summary => summary.package_name === app.package_name) || app));
+        setAppDetails((current: AppDetailsInfo | null) => {
           if (!current) return current;
           const summary = summaries.find(item => item.package_name === current.package_name);
           return summary ? { ...current, display_name: summary.display_name, icon_data_url: summary.icon_data_url } : current;
@@ -136,7 +138,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
       });
       const selectedFiles = Array.isArray(selected) ? selected : selected ? [selected] : [];
       if (selectedFiles.length) {
-        setInstallFiles(current => [...new Set([...current, ...selectedFiles])]);
+        setInstallFiles((current: string[]) => [...new Set([...current, ...selectedFiles])]);
         setInstallResult('');
       }
     } catch (error) { setInstallResult(String(error)); }
@@ -174,8 +176,8 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
       : ['shell', 'pm', 'enable', '--user', '0', selectedPackage];
     const result = await run(command, willDisable ? t('workbench.status.appDisabled') : t('workbench.status.appEnabled'));
     if (result === undefined) return;
-    setAppDetails(current => current ? { ...current, disabled: willDisable } : current);
-    setApps(current => current.map(app => app.package_name === selectedPackage ? { ...app, disabled: willDisable } : app));
+    setAppDetails((current: AppDetailsInfo | null) => current ? { ...current, disabled: willDisable } : current);
+    setApps((current: AppSummary[]) => current.map(app => app.package_name === selectedPackage ? { ...app, disabled: willDisable } : app));
   };
 
   const setBackgroundMode = async (mode: 'unrestricted' | 'optimized' | 'restricted') => {
@@ -315,10 +317,10 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
                 <section className="apps-material-section">
                   <header>
                     <span className="apps-material-section__title"><MaterialIcon name="shield" /><h3>{t('apps.detail.permissions')}</h3></span>
-                    <span className="apps-material-section__meta"><span>{t('apps.permissions.count', { granted: appDetails.permissions.filter(permission=>permission.granted).length, total: appDetails.permissions.length })}</span></span>
+                    <span className="apps-material-section__meta"><span>{t('apps.permissions.count', { granted: appDetails.permissions.filter((permission: AppPermissionInfo)=>permission.granted).length, total: appDetails.permissions.length })}</span></span>
                   </header>
                   <div className="apps-material-permissions">
-                    {appDetails.permissions.map(permission=><div key={permission.name}><span><strong>{permission.name.split('.').pop()}</strong><small>{permission.name}</small></span><md-switch selected={permission.granted||undefined} disabled={!permission.runtime||undefined} onClick={()=>togglePermission(permission)}/></div>)}{!appDetails.permissions.length&&<p>{t('apps.permissions.empty')}</p>}
+                    {appDetails.permissions.map((permission: AppPermissionInfo)=><div key={permission.name}><span><strong>{permission.name.split('.').pop()}</strong><small>{permission.name}</small></span><md-switch selected={permission.granted||undefined} disabled={!permission.runtime||undefined} onClick={()=>togglePermission(permission)}/></div>)}{!appDetails.permissions.length&&<p>{t('apps.permissions.empty')}</p>}
                   </div>
                 </section>
               </>

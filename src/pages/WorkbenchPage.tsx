@@ -4,11 +4,10 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import { useDevices } from '../context/DeviceContext';
 import { useI18n } from '../locales';
 import { useTheme } from '../context/ThemeContext';
-import { InstallationDialog } from '../components/dialogs/InstallationDialog';
-import { DestructiveActionDialog, type DestructiveAppAction } from '../components/dialogs/DestructiveActionDialog';
+
 import { DisplayPage } from './DisplayPage';
 import { MirroringPage } from './MirroringPage';
-import {ControlPage} from './ControlPage';
+import { ControlPage } from './ControlPage';
 import { AppsPage } from './AppsPage';
 import { FilesPage } from './FilesPage';
 import { SystemPage } from './SystemPage';
@@ -16,7 +15,7 @@ import { SettingsPage } from './SettingsPage';
 import { WorkbenchShell } from './workbench/WorkbenchShell';
 import { DeviceStateScreen } from '../components/layout/DeviceStateScreen';
 import { words } from './workbench/utils';
-import type { AppDetailsInfo, AppFilter, AppPermissionInfo, AppSummary, MirrorMode, ToolsStatus, WorkTab } from './workbench/types';
+import type { AppSummary, MirrorMode, ToolsStatus, WorkTab } from './workbench/types';
 import './WorkbenchPage.css';
 
 export function WorkbenchPage({ tab }: { tab: WorkTab }) {
@@ -30,16 +29,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const serial = selectedDevice?.serial ?? '';
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [destructiveAction, setDestructiveAction] = useState<DestructiveAppAction | null>(null);
-  const [destructiveBusy, setDestructiveBusy] = useState(false);
-  const [installOpen, setInstallOpen] = useState(false);
-  const [installFiles, setInstallFiles] = useState<string[]>([]);
-  const [installingApps, setInstallingApps] = useState(false);
-  const [installResult, setInstallResult] = useState('');
-  const [installReplace, setInstallReplace] = useState(true);
-  const [installGrant, setInstallGrant] = useState(false);
-  const [installTest, setInstallTest] = useState(false);
-  const [installBypass, setInstallBypass] = useState(false);
+
   const [tools, setTools] = useState<ToolsStatus | null>(null);
   const [appSettings, setAppSettings] = useState<{ cache_enabled: boolean; cache_path: string } | null>(null);
   const [defaultCacheDir, setDefaultCacheDir] = useState('');
@@ -163,6 +153,14 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
+  const clearApplicationCache = async () => {
+    setBusy(true);
+    try {
+      await invoke('clear_cache');
+      setStatus(t('workbench.status.cacheCleared'));
+    } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
+  };
+
   const saveToolPath = async (tool: 'adb' | 'scrcpy' | 'java', pathValue: string) => {
     setBusy(true);
     try {
@@ -193,7 +191,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   };
 
   useEffect(() => {
-    if (tab === 'apps') refreshApps();
     if (tab === 'settings') {
       refreshTools();
       refreshSettings();
@@ -213,25 +210,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     setDisplayDarkMode(deviceDetails.dark_mode_enabled);
   }, [deviceDetails]);
 
-  const filteredApps = useMemo(
-    () => apps.filter(app => {
-      const matchesType = appFilter === 'all' ? true : appFilter === 'disabled' ? app.disabled : appFilter === 'system' ? app.system_app && !app.disabled : !app.system_app && !app.disabled;
-      const query = filter.trim().toLowerCase();
-      return matchesType && (!query || app.package_name.toLowerCase().includes(query) || app.display_name.toLowerCase().includes(query));
-    }),
-    [apps, filter, appFilter],
-  );
-  const appsNeedingMetadata = useMemo(
-    () => filteredApps.filter(app => !app.icon_data_url || app.display_name === app.package_name),
-    [filteredApps],
-  );
 
-  useEffect(() => {
-    if (tab === 'apps' && appSettings && !appSettings.cache_enabled && appsNeedingMetadata.length > 0 && !metadataLoading) {
-      // Usamos setTimeout para no bloquear el renderizado actual
-      setTimeout(() => loadVisibleMetadata(), 0);
-    }
-  }, [tab, appSettings, appsNeedingMetadata, metadataLoading]);
 
   const displaySuggestions = useMemo(() => {
     if (!deviceDetails?.physical_width || !deviceDetails?.physical_height || !deviceDetails?.physical_density) return [];
@@ -285,8 +264,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     onToggleDarkMode={toggleDeviceDarkMode} onSetRefreshRate={setDisplayRefreshRate} onReset={resetDisplay} onApply={applyDisplay}
   />;
 
-    await refreshDevices();
-  };
+
 
   const mirroring = <MirroringPage
     serial={serial} tools={tools} mode={mirrorMode} setMode={setMirrorMode}
@@ -304,7 +282,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     onRefreshData={refreshMirrorData} onLaunch={launchMirror} onDirectLaunch={args => scrcpy(words(args))}
   />;
 
-const settings = <SettingsPage theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={setTheme} onLanguageChange={setLanguage} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} appSettings={appSettings} onSaveAppSettings={saveAppSettings} defaultCacheDir={defaultCacheDir} />;
+  const settings = <SettingsPage theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={setTheme} onLanguageChange={setLanguage} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} appSettings={appSettings} onSaveAppSettings={saveAppSettings} defaultCacheDir={defaultCacheDir} />;
 
   const wrap = (content: ReactNode, loading?: boolean) => <DeviceStateScreen serial={serial} loading={loading}>{serial ? content : null}</DeviceStateScreen>;
 

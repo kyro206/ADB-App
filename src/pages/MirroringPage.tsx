@@ -67,7 +67,9 @@ function Field({ label, value, onValue, type = 'text', placeholder = '', disable
   label: string; value: string; onValue: (value: string) => void; type?: string; placeholder?: string; disabled?: boolean;
 }) {
   return <md-outlined-text-field label={label} type={type} value={value} placeholder={placeholder} disabled={disabled || undefined}
-    onInput={(event: any) => onValue(event.currentTarget.value)} />;
+    onInput={(event: any) => onValue(event.currentTarget.value)}>
+    {value && <md-icon-button slot="trailing-icon" onClick={() => onValue('')}><MaterialIcon name="close" /></md-icon-button>}
+  </md-outlined-text-field>;
 }
 
 function Select({ label, value, disabled = false, options, onValue }: {

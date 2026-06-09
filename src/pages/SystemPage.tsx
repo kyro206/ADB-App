@@ -136,7 +136,9 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
               value={newSystemUser}
               onInput={(e: any) => setNewSystemUser(e.target.value)}
               onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && createSystemUser()}
-            ></md-outlined-text-field>
+            >
+              {newSystemUser && <md-icon-button slot="trailing-icon" onClick={() => setNewSystemUser('')}><MaterialIcon name="close" /></md-icon-button>}
+            </md-outlined-text-field>
             <md-filled-button onClick={createSystemUser}>
               <MaterialIcon name="add" slot="icon" />
               {t('system.action.create')}

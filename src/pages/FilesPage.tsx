@@ -200,6 +200,7 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
           onInput={(event: any) => setFileFilter(event.currentTarget.value)}
         >
           <MaterialIcon slot="leading-icon" name="search" />
+          {fileFilter && <md-icon-button slot="trailing-icon" onClick={() => setFileFilter('')}><MaterialIcon name="close" /></md-icon-button>}
         </md-outlined-text-field>
 
         <div className="file-view-switch">

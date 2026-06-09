@@ -31,6 +31,8 @@ export function ControlPage({ serial, run, setStatus, setBusy }: ControlPageProp
   const [rotationAuto, setRotationAuto] = useState(true);
   const [rotation, setRotation] = useState(0);
   const [soundMode, setSoundMode] = useState<SoundMode>('NORMAL');
+  const [inputText, setInputText] = useState('');
+  const [inputArgs, setInputArgs] = useState('');
 
   const loadDeviceState = () => {
     if (!serial) return;
@@ -180,22 +182,30 @@ export function ControlPage({ serial, run, setStatus, setBusy }: ControlPageProp
           <div className="md3-card-header">
             <h3>{t('control.input.title')}</h3>
           </div>
-          <form className="md3-text-form" onSubmit={event => { event.preventDefault(); run(['shell', 'input', 'text', String(new FormData(event.currentTarget).get('text')).replace(/ /g, '%s')]); }}>
-            <div className="md3-text-field">
-              <input name="text" placeholder=" " required />
-              <label>{t('control.input.text')}</label>
-            </div>
+          <form className="md3-text-form" onSubmit={event => { event.preventDefault(); if (inputText) run(['shell', 'input', 'text', inputText.replace(/ /g, '%s')]); }}>
+            <md-outlined-text-field
+              label={t('control.input.text')}
+              value={inputText}
+              onInput={(e: any) => setInputText(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              {inputText && <md-icon-button slot="trailing-icon" type="button" onClick={() => setInputText('')}><MaterialIcon name="close" /></md-icon-button>}
+            </md-outlined-text-field>
             <button className="md3-btn-filled">{t('control.input.send')}</button>
           </form>
 
           <details className="md3-details">
             <summary>{t('control.input.advanced')}</summary>
-            <form className="md3-text-form" onSubmit={event => { event.preventDefault(); run(['shell', 'input', ...words(String(new FormData(event.currentTarget).get('args')))]); }}>
-              <div className="md3-text-field">
-                <input name="args" placeholder=" " required />
-                <label>{t('control.input.advancedDesc')}</label>
-              </div>
-              <button className="md3-btn-tonal">{t('control.input.run')}</button>
+            <form className="md3-text-form" onSubmit={event => { event.preventDefault(); if (inputArgs) run(['shell', 'input', ...words(inputArgs)]); }}>
+              <md-outlined-text-field
+                label={t('control.input.advancedDesc')}
+                value={inputArgs}
+                onInput={(e: any) => setInputArgs(e.target.value)}
+                style={{ flex: 1 }}
+              >
+                {inputArgs && <md-icon-button slot="trailing-icon" type="button" onClick={() => setInputArgs('')}><MaterialIcon name="close" /></md-icon-button>}
+              </md-outlined-text-field>
+              <button className="md3-btn-filled">{t('control.input.run')}</button>
             </form>
           </details>
         </section>

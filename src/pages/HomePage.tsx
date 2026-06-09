@@ -1,6 +1,6 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useEffect, useCallback, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { confirm, save } from '@tauri-apps/plugin-dialog';
+import { save } from '@tauri-apps/plugin-dialog';
 import { useDevices, type DeviceDetails } from '../context/DeviceContext';
 import { useI18n } from '../locales';
 import { MaterialIcon } from '../components/MaterialIcon';
@@ -27,8 +27,25 @@ export function HomePage() {
   const [savingScreenshot, setSavingScreenshot] = useState(false);
   const [powerOpen, setPowerOpen] = useState(false);
   const [powerBusy, setPowerBusy] = useState(false);
-  const [powerStatus, setPowerStatus] = useState('');
+  const [deviceName, setDeviceName] = useState('ADB App');
   const dd = deviceDetails;
+
+  useEffect(() => {
+    if (selectedDevice?.serial && selectedDevice.state === 'device') {
+      invoke<string>('run_device_action', { 
+        serial: selectedDevice.serial, 
+        args: ['shell', 'settings', 'get', 'global', 'device_name'] 
+      }).then(name => {
+        if (name && name.trim() !== 'null') {
+          setDeviceName(name.trim());
+        } else {
+          setDeviceName('ADB App');
+        }
+      }).catch(() => setDeviceName('ADB App'));
+    } else {
+      setDeviceName('ADB App');
+    }
+  }, [selectedDevice]);
 
   const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : t('common.noData');
 
@@ -55,12 +72,11 @@ export function HomePage() {
     }
   }, [savingScreenshot, screenshot, t]);
 
-  const performPowerAction = async (label: string, args: string[], exitHint = '') => {
+  const performPowerAction = async (label: string, args: string[]) => {
     if (!selectedDevice || powerBusy) return;
-    if (label !== 'apagar pantalla' && !await confirm(`${label}${exitHint ? `\n\n${t('home.power.confirm.exit')}\n${exitHint}` : ''}\n\n${t('home.power.confirm.prompt')}`, { title: t('home.power.confirm.title'), kind: 'warning', okLabel: t('common.continue'), cancelLabel: t('common.cancel') })) return;
-    setPowerBusy(true); setPowerOpen(false); setPowerStatus(t('home.power.sending', { label }));
-    try { await invoke<string>('run_device_action', { serial: selectedDevice.serial, args }); setPowerStatus(t('home.power.sent', { label })); window.setTimeout(refreshDevices, 4000); }
-    catch (error) { setPowerStatus(String(error)); }
+    setPowerBusy(true); setPowerOpen(false);
+    try { await invoke<string>('run_device_action', { serial: selectedDevice.serial, args }); window.setTimeout(refreshDevices, 4000); }
+    catch (error) { console.error(error); }
     finally { setPowerBusy(false); }
   };
 
@@ -76,11 +92,10 @@ export function HomePage() {
     {/* Contenido Izquierdo */}
     <div className="home-material__content">
       <Surface className="home-hero">
-        <div><h2>ADB App</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
+        <div><h2>{deviceName}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
           <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
         </div>
         <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label={t('home.power.options')} title={t('home.power.options')} disabled={!selectedDevice || powerBusy || undefined} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
-        {powerStatus && <small className="home-power-status">{powerStatus}</small>}
       </Surface>
 
       <div className="home-metrics">
