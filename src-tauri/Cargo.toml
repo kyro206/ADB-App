@@ -32,3 +32,8 @@ rand = "0.9"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 flate2 = "1"
 tar = "0.4"
+
+[profile.release]
+strip = true # peor para obtener logs
+lto = true
+codegen-units = 1

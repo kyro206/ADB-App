@@ -29,7 +29,16 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const serial = selectedDevice?.serial ?? '';
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const [mountedTabs, setMountedTabs] = useState<Set<WorkTab>>(new Set([tab]));
 
+  useEffect(() => {
+    setMountedTabs(prev => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  }, [tab]);
   const [tools, setTools] = useState<ToolsStatus | null>(null);
   const [appSettings, setAppSettings] = useState<{ cache_enabled: boolean; cache_path: string } | null>(null);
   const [defaultCacheDir, setDefaultCacheDir] = useState('');
@@ -295,5 +304,16 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     system: wrap(<SystemPage serial={serial!} setStatus={setStatus} />),
     settings,
   };
-  return <WorkbenchShell title={t(`nav.${tab}`)} busy={busy} status={status}>{pages[tab]}</WorkbenchShell>;
+  return (
+    <WorkbenchShell title={t(`nav.${tab}`)} busy={busy} status={status}>
+      {Object.entries(pages).map(([key, node]) => {
+        if (!mountedTabs.has(key as WorkTab)) return null;
+        return (
+          <div key={key} style={{ display: tab === key ? 'contents' : 'none' }}>
+            {node}
+          </div>
+        );
+      })}
+    </WorkbenchShell>
+  );
 }
