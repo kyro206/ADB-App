@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
-import { AppModal } from './AppModal'; // Ajusta la ruta si es necesario
+import { useI18n } from '../../locales';
+import { AppModal } from './AppModal';
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -16,12 +17,16 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmText = 'Confirmar',
-  cancelText = 'Cancelar',
+  confirmText,
+  cancelText,
   isDanger = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
+  const finalConfirmText = confirmText || t('common.confirm');
+  const finalCancelText = cancelText || t('common.cancel');
+
   return (
     <AppModal
       open={open}
@@ -30,12 +35,12 @@ export function ConfirmDialog({
       width="compact"
       actions={
         <>
-          <md-text-button onClick={onCancel}>{cancelText}</md-text-button>
+          <md-text-button onClick={onCancel}>{finalCancelText}</md-text-button>
           <md-filled-button 
             onClick={onConfirm} 
             className={isDanger ? 'md-btn-danger' : ''}
           >
-            {confirmText}
+            {finalConfirmText}
           </md-filled-button>
         </>
       }

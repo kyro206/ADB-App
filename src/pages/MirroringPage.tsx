@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { useI18n } from '../locales';
 import type { AppSummary, MirrorMode, ToolsStatus } from './workbench/types';
 import './MirroringPage.css';
 
@@ -55,10 +56,11 @@ export interface MirroringPageProps {
   onDirectLaunch: (args: string) => void;
 }
 
-const modes: Array<{ id: MirrorMode; icon: string; title: string; detail: string }> = [
-  { id: 'display', icon: 'smartphone', title: 'Pantalla principal', detail: 'Duplica la pantalla actual' },
-  { id: 'virtual', icon: 'ad_group', title: 'Pantalla virtual', detail: 'Crea una pantalla independiente' },
-  { id: 'camera', icon: 'photo_camera', title: 'Cámara', detail: 'Transmite una cámara del dispositivo' },
+const MODES = [
+  // We'll map these with t() inside the component
+  { id: 'display', icon: 'smartphone', titleKey: 'mirror.mode.display', detailKey: 'mirror.mode.display.desc' },
+  { id: 'virtual', icon: 'ad_group', titleKey: 'mirror.mode.virtual', detailKey: 'mirror.mode.virtual.desc' },
+  { id: 'camera', icon: 'photo_camera', titleKey: 'mirror.mode.camera', detailKey: 'mirror.mode.camera.desc' },
 ];
 
 function Field({ label, value, onValue, type = 'text', placeholder = '', disabled = false }: {
@@ -87,10 +89,10 @@ function Toggle({ icon, title, detail, checked, disabled = false, onChange }: {
   </label>;
 }
 
-function SourceButton({ item, active, onClick }: { item: typeof modes[number]; active: boolean; onClick: () => void }) {
+function SourceButton({ item, active, onClick, t }: { item: any; active: boolean; onClick: () => void; t: any }) {
   const content = <>
     <span slot="icon" className="mirror-material-source__icon"><MaterialIcon name={item.icon} filled={active} /></span>
-    <span className="mirror-material-source__copy"><strong>{item.title}</strong><small>{item.detail}</small></span>
+    <span className="mirror-material-source__copy"><strong>{t(item.titleKey)}</strong><small>{t(item.detailKey)}</small></span>
     <span slot="trailing-icon"><MaterialIcon name={active ? 'radio_button_checked' : 'radio_button_unchecked'} /></span>
   </>;
   return active
@@ -99,84 +101,85 @@ function SourceButton({ item, active, onClick }: { item: typeof modes[number]; a
 }
 
 export function MirroringPage(props: MirroringPageProps) {
+  const { t } = useI18n();
   const [advancedArgs, setAdvancedArgs] = useState('');
   const cameraMode = props.mode === 'camera';
   const inputDisabled = props.readOnly || cameraMode;
   const scrcpyReady = Boolean(props.tools?.scrcpy.available);
 
   return <div className="mirror-material-page">
-    <section className="mirror-material-source" aria-label="Fuente de vídeo">
-      {modes.map(item => <SourceButton key={item.id} item={item} active={props.mode === item.id} onClick={() => props.setMode(item.id)} />)}
+    <section className="mirror-material-source" aria-label={t('mirror.source')}>
+      {MODES.map(item => <SourceButton key={item.id} item={item} active={props.mode === item.id} onClick={() => props.setMode(item.id as MirrorMode)} t={t} />)}
     </section>
 
     <div className="mirror-material-layout">
       <main className="mirror-material-main">
         <section className="mirror-material-card">
-          <header><MaterialIcon name="image" filled /><div><h3>Imagen</h3><p>Resolución, fluidez y comportamiento de la ventana.</p></div></header>
+          <header><MaterialIcon name="image" filled /><div><h3>{t('mirror.image.title')}</h3><p>{t('mirror.image.desc')}</p></div></header>
           <div className="mirror-material-fields">
-            {!cameraMode && <Field label="Tamaño máximo (px)" type="number" value={props.maxSize} onValue={props.setMaxSize} placeholder="Sin límite" />}
-            <Field label="FPS máximos" type="number" value={props.maxFps} onValue={props.setMaxFps} placeholder="Sin límite" />
+            {!cameraMode && <Field label={t('mirror.image.maxSize')} type="number" value={props.maxSize} onValue={props.setMaxSize} placeholder={t('mirror.image.noLimit')} />}
+            <Field label={t('mirror.image.maxFps')} type="number" value={props.maxFps} onValue={props.setMaxFps} placeholder={t('mirror.image.noLimit')} />
           </div>
           <div className="mirror-material-toggles">
-            <Toggle icon="fullscreen" title="Pantalla completa" detail="Abrir scrcpy ocupando toda la pantalla" checked={props.fullscreen} onChange={props.setFullscreen} />
-            <Toggle icon="screen_lock_portrait" title="Apagar pantalla física" detail="Mantiene activa la vista en el equipo" checked={props.turnScreenOff} disabled={cameraMode} onChange={props.setTurnScreenOff} />
+            <Toggle icon="fullscreen" title={t('mirror.image.fullscreen')} detail={t('mirror.image.fullscreen.desc')} checked={props.fullscreen} onChange={props.setFullscreen} />
+            <Toggle icon="screen_lock_portrait" title={t('mirror.image.turnScreenOff')} detail={t('mirror.image.turnScreenOff.desc')} checked={props.turnScreenOff} disabled={cameraMode} onChange={props.setTurnScreenOff} />
           </div>
         </section>
 
         {props.mode === 'virtual' && <section className="mirror-material-card">
-          <header><MaterialIcon name="ad_group" filled /><div><h3>Pantalla virtual</h3><p>Crea un escritorio Android adicional con sus propias dimensiones.</p></div></header>
+          <header><MaterialIcon name="ad_group" filled /><div><h3>{t('mirror.virtual.title')}</h3><p>{t('mirror.virtual.desc')}</p></div></header>
           <div className="mirror-material-fields three">
-            <Field label="Ancho" type="number" value={props.virtualWidth} onValue={props.setVirtualWidth} placeholder="Automático" />
-            <Field label="Alto" type="number" value={props.virtualHeight} onValue={props.setVirtualHeight} placeholder="Automático" />
-            <Field label="DPI" type="number" value={props.virtualDpi} onValue={props.setVirtualDpi} placeholder="Automático" />
+            <Field label={t('mirror.virtual.width')} type="number" value={props.virtualWidth} onValue={props.setVirtualWidth} placeholder={t('mirror.virtual.auto')} />
+            <Field label={t('mirror.virtual.height')} type="number" value={props.virtualHeight} onValue={props.setVirtualHeight} placeholder={t('mirror.virtual.auto')} />
+            <Field label="DPI" type="number" value={props.virtualDpi} onValue={props.setVirtualDpi} placeholder={t('mirror.virtual.auto')} />
           </div>
-          <Toggle icon="aspect_ratio" title="Ventana redimensionable" detail="Adapta la pantalla virtual al cambiar el tamaño" checked={props.virtualResizable} onChange={props.setVirtualResizable} />
+          <Toggle icon="aspect_ratio" title={t('mirror.virtual.resizable')} detail={t('mirror.virtual.resizable.desc')} checked={props.virtualResizable} onChange={props.setVirtualResizable} />
         </section>}
 
         {cameraMode && <section className="mirror-material-card">
-          <header><MaterialIcon name="photo_camera" filled /><div><h3>Cámara</h3><p>Selecciona la cámara y su resolución de transmisión.</p></div><md-icon-button title="Actualizar cámaras" onClick={props.onRefreshData}><MaterialIcon name="refresh" /></md-icon-button></header>
-          <Select label="Cámara / ID" value={props.cameraId} onValue={props.setCameraId} options={[['', 'Selección automática'], ...props.cameras.map(camera => [camera, camera] as [string, string])]} />
+          <header><MaterialIcon name="photo_camera" filled /><div><h3>{t('mirror.camera.title')}</h3><p>{t('mirror.camera.desc')}</p></div><md-icon-button title={t('mirror.camera.refresh')} onClick={props.onRefreshData}><MaterialIcon name="refresh" /></md-icon-button></header>
+          <Select label={t('mirror.camera.id')} value={props.cameraId} onValue={props.setCameraId} options={[['', t('mirror.camera.auto')], ...props.cameras.map(camera => [camera, camera] as [string, string])]} />
           <div className="mirror-material-fields">
-            <Field label="Ancho de cámara" type="number" value={props.cameraWidth} onValue={props.setCameraWidth} placeholder="Automático" />
-            <Field label="Alto de cámara" type="number" value={props.cameraHeight} onValue={props.setCameraHeight} placeholder="Automático" />
+            <Field label={t('mirror.camera.width')} type="number" value={props.cameraWidth} onValue={props.setCameraWidth} placeholder={t('mirror.virtual.auto')} />
+            <Field label={t('mirror.camera.height')} type="number" value={props.cameraHeight} onValue={props.setCameraHeight} placeholder={t('mirror.virtual.auto')} />
           </div>
         </section>}
 
         <section className="mirror-material-card">
-          <header><MaterialIcon name="fiber_manual_record" filled /><div><h3>Grabación</h3><p>Guarda la sesión de scrcpy directamente en un archivo.</p></div></header>
-          <Toggle icon="videocam" title="Grabar esta vista" detail="La grabación comienza al abrir scrcpy" checked={props.record} onChange={props.setRecord} />
-          <Field label="Ruta del archivo de grabación" value={props.recordPath} onValue={props.setRecordPath} disabled={!props.record} placeholder="C:\Videos\captura.mkv" />
+          <header><MaterialIcon name="fiber_manual_record" filled /><div><h3>{t('mirror.record.title')}</h3><p>{t('mirror.record.desc')}</p></div></header>
+          <Toggle icon="videocam" title={t('mirror.record.toggle')} detail={t('mirror.record.toggle.desc')} checked={props.record} onChange={props.setRecord} />
+          <Field label={t('mirror.record.path')} value={props.recordPath} onValue={props.setRecordPath} disabled={!props.record} placeholder="C:\Videos\captura.mkv" />
         </section>
       </main>
 
       <aside className="mirror-material-side">
         <section className="mirror-material-card">
-          <header><MaterialIcon name="tune" filled /><div><h3>Entrada y sonido</h3><p>Controla cómo interactúa el equipo con Android.</p></div></header>
-          {!cameraMode && <Toggle icon="visibility" title="Solo ver" detail="Deshabilita teclado, ratón y control táctil" checked={props.readOnly} onChange={props.setReadOnly} />}
-          <Select label="Audio" value={props.audio} onValue={props.setAudio} options={[['default', 'Por defecto'], ['none', 'Sin audio'], ['output', 'Salida del dispositivo'], ['mic', 'Micrófono']]} />
-          <Select label="Teclado" value={props.keyboard} disabled={inputDisabled} onValue={props.setKeyboard} options={[['default', 'Por defecto'], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', 'Deshabilitado']]} />
-          <Select label="Ratón" value={props.mouse} disabled={inputDisabled} onValue={props.setMouse} options={[['default', 'Por defecto'], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', 'Deshabilitado']]} />
+          <header><MaterialIcon name="tune" filled /><div><h3>{t('mirror.input.title')}</h3><p>{t('mirror.input.desc')}</p></div></header>
+          {!cameraMode && <Toggle icon="visibility" title={t('mirror.input.readOnly')} detail={t('mirror.input.readOnly.desc')} checked={props.readOnly} onChange={props.setReadOnly} />}
+          <Select label={t('mirror.input.audio')} value={props.audio} onValue={props.setAudio} options={[['default', t('mirror.input.default')], ['none', t('mirror.input.none')], ['output', t('mirror.input.output')], ['mic', t('mirror.input.mic')]]} />
+          <Select label={t('mirror.input.keyboard')} value={props.keyboard} disabled={inputDisabled} onValue={props.setKeyboard} options={[['default', t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', t('mirror.input.disabled')]]} />
+          <Select label={t('mirror.input.mouse')} value={props.mouse} disabled={inputDisabled} onValue={props.setMouse} options={[['default', t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', t('mirror.input.disabled')]]} />
         </section>
 
         {!cameraMode && <section className="mirror-material-card">
-          <header><MaterialIcon name="rocket_launch" filled /><div><h3>Inicio</h3><p>Abre directamente una aplicación al iniciar.</p></div></header>
-          <Toggle icon="apps" title="Abrir una aplicación" detail="Inicia la app seleccionada junto a scrcpy" checked={props.startApp} onChange={props.setStartApp} />
-          <Select label="Aplicación" value={props.app} disabled={!props.startApp} onValue={props.setApp}
-            options={[['', 'Selecciona una aplicación'], ...props.apps.map(app => [app.package_name, app.display_name || app.package_name] as [string, string])]} />
-          <md-outlined-button onClick={props.onRefreshData}><span slot="icon"><MaterialIcon name="refresh" /></span>Actualizar lista</md-outlined-button>
+          <header><MaterialIcon name="rocket_launch" filled /><div><h3>{t('mirror.start.title')}</h3><p>{t('mirror.start.desc')}</p></div></header>
+          <Toggle icon="apps" title={t('mirror.start.toggle')} detail={t('mirror.start.toggle.desc')} checked={props.startApp} onChange={props.setStartApp} />
+          <Select label={t('mirror.start.app')} value={props.app} disabled={!props.startApp} onValue={props.setApp}
+            options={[['', t('mirror.start.appPlaceholder')], ...props.apps.map(app => [app.package_name, app.display_name || app.package_name] as [string, string])]} />
+          <md-outlined-button onClick={props.onRefreshData}><span slot="icon"><MaterialIcon name="refresh" /></span>{t('mirror.start.refresh')}</md-outlined-button>
         </section>}
 
         <section className="mirror-material-card">
-          <header><MaterialIcon name="terminal" /><div><h3>Argumentos avanzados</h3><p>Ejecuta scrcpy con parámetros personalizados.</p></div></header>
-          <Field label="Argumentos adicionales" value={advancedArgs} onValue={setAdvancedArgs} placeholder="--video-bit-rate=8M" />
-          <md-outlined-button disabled={!props.serial || undefined} onClick={() => props.onDirectLaunch(advancedArgs)}><span slot="icon"><MaterialIcon name="terminal" /></span>Ejecutar directamente</md-outlined-button>
+          <header><MaterialIcon name="terminal" /><div><h3>{t('mirror.advanced.title')}</h3><p>{t('mirror.advanced.desc')}</p></div></header>
+          <Field label={t('mirror.advanced.args')} value={advancedArgs} onValue={setAdvancedArgs} placeholder="--video-bit-rate=8M" />
+          <md-outlined-button disabled={!props.serial || undefined} onClick={() => props.onDirectLaunch(advancedArgs)}><span slot="icon"><MaterialIcon name="terminal" /></span>{t('mirror.advanced.run')}</md-outlined-button>
         </section>
       </aside>
     </div>
 
     <footer className="mirror-material-footer">
-      <span><MaterialIcon name="info" />{cameraMode ? 'La cámara requiere Android 12 o superior y no permite control.' : 'El audio del dispositivo requiere Android 11 o superior.'}</span>
-      <md-filled-button disabled={!props.serial || !scrcpyReady || undefined} onClick={props.onLaunch}><span slot="icon"><MaterialIcon name="cast" /></span>Abrir vista con scrcpy</md-filled-button>
+      <span><MaterialIcon name="info" />{cameraMode ? t('mirror.footer.cameraInfo') : t('mirror.footer.audioInfo')}</span>
+      <md-filled-button disabled={!props.serial || !scrcpyReady || undefined} onClick={props.onLaunch}><span slot="icon"><MaterialIcon name="cast" /></span>{t('mirror.action.launch')}</md-filled-button>
     </footer>
   </div>;
 }

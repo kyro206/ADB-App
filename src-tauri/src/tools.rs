@@ -376,7 +376,7 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
     )
     .map_err(|error| error.to_string())?
     .captures(&repository)
-    .ok_or_else(|| "No se pudo leer la última versión de Platform Tools".to_string())?;
+    .ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
     Ok(format!(
         "{}.{}.{}",
         package.get(1).map_or("0", |value| value.as_str()),
@@ -401,7 +401,7 @@ async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, Strin
         .get("tag_name")
         .and_then(serde_json::Value::as_str)
         .map(|value| value.trim_start_matches('v').to_string())
-        .ok_or_else(|| "No se pudo leer la última versión de scrcpy".to_string())
+        .ok_or_else(|| "Could not download the latest scrcpy version".to_string())
 }
 
 fn update_available(_tool: &str, latest: &str, installed: &str) -> bool {
@@ -451,7 +451,7 @@ fn adb_download_for(os: &str) -> Result<(&'static str, ArchiveKind), String> {
             }
             "macos" => "https://dl.google.com/android/repository/platform-tools-latest-darwin.zip",
             "linux" => "https://dl.google.com/android/repository/platform-tools-latest-linux.zip",
-            _ => return Err("ADB no ofrece Platform Tools para este sistema operativo".to_string()),
+            _ => return Err("ADB does not provide Platform Tools for this operating system".to_string()),
         },
         ArchiveKind::Zip,
     ))
@@ -469,7 +469,7 @@ fn scrcpy_asset_pattern_for(os: &str, architecture: &str) -> Result<(String, Arc
         ("macos", "x86_64") => Ok(("scrcpy-macos-x86_64-".to_string(), ArchiveKind::TarGz)),
         ("macos", "aarch64") => Ok(("scrcpy-macos-aarch64-".to_string(), ArchiveKind::TarGz)),
         _ => Err(format!(
-            "scrcpy no publica un binario gestionado para {} {}. Instálalo con el gestor de paquetes del sistema y usa Detección automática.",
+            "scrcpy does not publish a managed binary for {} {}. Install it with your system package manager and use Auto detect.",
             os,
             architecture
         )),
@@ -484,11 +484,11 @@ fn latest_scrcpy_asset(
         .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
         .header(reqwest::header::USER_AGENT, "ADB-Manager")
         .send()
-        .map_err(|error| format!("No se pudo consultar scrcpy: {error}"))?
+        .map_err(|error| format!("Could not query scrcpy: {error}"))?
         .error_for_status()
-        .map_err(|error| format!("GitHub rechazó la consulta de scrcpy: {error}"))?
+        .map_err(|error| format!("GitHub rejected the scrcpy query: {error}"))?
         .json::<serde_json::Value>()
-        .map_err(|error| format!("No se pudo leer la respuesta de scrcpy: {error}"))?;
+        .map_err(|error| format!("Could not read the scrcpy response: {error}"))?;
     release
         .get("assets")
         .and_then(serde_json::Value::as_array)
@@ -512,7 +512,7 @@ fn latest_scrcpy_asset(
         .map(|url| (url, kind))
         .ok_or_else(|| {
             format!(
-                "La última versión de scrcpy no incluye un archivo compatible con {} {}",
+                "The latest version of scrcpy does not include a compatible file for {} {}",
                 env::consts::OS,
                 env::consts::ARCH
             )
@@ -524,27 +524,27 @@ fn download_bytes(client: &reqwest::blocking::Client, url: &str) -> Result<Vec<u
         .get(url)
         .header(reqwest::header::USER_AGENT, "ADB-Manager")
         .send()
-        .map_err(|error| format!("No se pudo descargar la herramienta: {error}"))?
+        .map_err(|error| format!("Could not download the tool: {error}"))?
         .error_for_status()
-        .map_err(|error| format!("La descarga de la herramienta falló: {error}"))?
+        .map_err(|error| format!("The tool download failed: {error}"))?
         .bytes()
         .map(|bytes| bytes.to_vec())
-        .map_err(|error| format!("No se pudo leer la descarga: {error}"))
+        .map_err(|error| format!("Could not read the download: {error}"))
 }
 
 fn extract_archive(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Result<(), String> {
     fs::create_dir_all(destination).map_err(|error| error.to_string())?;
     if kind == ArchiveKind::Zip {
         let reader = std::io::Cursor::new(bytes);
-        let mut archive =
-            zip::ZipArchive::new(reader).map_err(|error| format!("ZIP no válido: {error}"))?;
-        for index in 0..archive.len() {
-            let mut entry = archive
-                .by_index(index)
-                .map_err(|error| format!("No se pudo leer el ZIP: {error}"))?;
-            let Some(relative_path) = entry.enclosed_name() else {
-                return Err("El ZIP contiene una ruta no segura".to_string());
-            };
+            let mut archive =
+                zip::ZipArchive::new(reader).map_err(|error| format!("Invalid ZIP: {error}"))?;
+            for index in 0..archive.len() {
+                let mut entry = archive
+                    .by_index(index)
+                    .map_err(|error| format!("Could not read the ZIP: {error}"))?;
+                let Some(relative_path) = entry.enclosed_name() else {
+                    return Err("The ZIP contains an unsafe path".to_string());
+                };
             let output_path = destination.join(relative_path);
             if entry.is_dir() {
                 fs::create_dir_all(&output_path).map_err(|error| error.to_string())?;
@@ -570,12 +570,12 @@ fn extract_archive(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Resul
         .arg("-C")
         .arg(destination)
         .status()
-        .map_err(|error| format!("No se pudo iniciar el extractor del sistema: {error}"))?;
+        .map_err(|error| format!("Could not start the system extractor: {error}"))?;
     let _ = fs::remove_file(&archive_path);
     if status.success() {
         Ok(())
     } else {
-        Err("El extractor del sistema no pudo abrir la descarga".to_string())
+        Err("The system extractor could not open the download".to_string())
     }
 }
 
@@ -607,7 +607,7 @@ fn install_archive(tool: &str, bytes: &[u8], kind: ArchiveKind) -> Result<(), St
     let target = managed_dir(tool);
     let parent = target
         .parent()
-        .ok_or_else(|| "No se pudo preparar la carpeta de la herramienta".to_string())?;
+        .ok_or_else(|| "Could not prepare the tool folder".to_string())?;
     let staging = parent.join("staging");
     remove_directory_if_present(&staging)?;
     fs::create_dir_all(&staging).map_err(|error| error.to_string())?;
@@ -615,7 +615,7 @@ fn install_archive(tool: &str, bytes: &[u8], kind: ArchiveKind) -> Result<(), St
 
     let executable = find_file(&staging, &executable_name(tool)).ok_or_else(|| {
         format!(
-            "El archivo descargado no contiene {}",
+            "The downloaded file does not contain {}",
             executable_name(tool)
         )
     })?;
@@ -624,13 +624,13 @@ fn install_archive(tool: &str, bytes: &[u8], kind: ArchiveKind) -> Result<(), St
     } else {
         executable
             .parent()
-            .ok_or_else(|| "La herramienta extraída no tiene una carpeta válida".to_string())?
+            .ok_or_else(|| "The extracted tool does not have a valid folder".to_string())?
             .to_path_buf()
     };
 
     remove_directory_if_present(&target)?;
     fs::rename(&extracted_root, &target)
-        .map_err(|error| format!("No se pudo activar la herramienta descargada: {error}"))?;
+        .map_err(|error| format!("Could not execute the downloaded tool: {error}"))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

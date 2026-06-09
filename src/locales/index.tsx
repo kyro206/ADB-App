@@ -9,7 +9,7 @@ const translations: Record<Language, Record<string, string>> = { en, es };
 interface I18nContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: TranslationKey | string) => string;
+  t: (key: TranslationKey | string, params?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
@@ -26,9 +26,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('adb-app-language', lang);
   }, []);
 
-  const t = useCallback((key: TranslationKey | string): string => {
+  const t = useCallback((key: TranslationKey | string, params?: Record<string, string | number>): string => {
     const dict = translations[language];
-    return dict[key] ?? translations['en'][key] ?? `!${key}!`;
+    let result = dict[key] ?? translations['en'][key] ?? `!${key}!`;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        result = result.replace(`{${k}}`, String(v));
+      }
+    }
+    return result;
   }, [language]);
 
   return (

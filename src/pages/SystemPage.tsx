@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { SystemState } from './workbench/types';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { useI18n } from '../locales';
 import { ConfirmDialog } from '../components/dialogs/ConfirmDialog';
 
 import '@material/web/button/filled-button.js';
@@ -20,6 +21,7 @@ interface SystemPageProps {
 }
 
 export function SystemPage({ serial, setStatus }: SystemPageProps) {
+  const { t } = useI18n();
   const [systemState, setSystemState] = useState<SystemState | null>(null);
   const [newSystemUser, setNewSystemUser] = useState('');
   const [systemLoading, setSystemLoading] = useState(false);
@@ -38,7 +40,7 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
         value.keyboards.some(keyboard => keyboard.id === current) ? current : value.current_keyboard_id
       );
       
-      setStatus('Ajustes del sistema actualizados');
+      setStatus(t('system.status.updated'));
     } catch (error) {
       setStatus(String(error));
     } finally {
@@ -47,7 +49,7 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
   };
 
   const applySystemAction = async (args: string[], success: string) => {
-    if (!serial) return setStatus('Selecciona un dispositivo');
+    if (!serial) return setStatus(t('control.error.noDevice'));
     setSystemLoading(true);
     try {
       await invoke<string>('run_device_action', { serial, args });
@@ -62,14 +64,14 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
 
   const createSystemUser = async () => {
     const name = newSystemUser.trim();
-    if (!name) return setStatus('Introduce un nombre para el nuevo usuario');
-    await applySystemAction(['shell', 'pm', 'create-user', name], `Usuario "${name}" creado`);
+    if (!name) return setStatus(t('system.error.noUserName'));
+    await applySystemAction(['shell', 'pm', 'create-user', name], t('system.status.userCreated', { name }));
     setNewSystemUser('');
   };
 
   const removeSystemUser = async () => {
     if (!userToDelete) return;
-    await applySystemAction(['shell', 'pm', 'remove-user', userToDelete], `Usuario ${userToDelete} eliminado`);
+    await applySystemAction(['shell', 'pm', 'remove-user', userToDelete], t('system.status.userRemoved', { name: userToDelete }));
     setUserToDelete(null);
   };
 
@@ -81,8 +83,8 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
     return (
       <div className="md-system-empty">
         <MaterialIcon name="phonelink_off" size={48} className="md-system-empty-icon" />
-        <h2>No hay dispositivo conectado</h2>
-        <p>Selecciona un dispositivo para administrar el sistema.</p>
+        <h2>{t('system.empty.title')}</h2>
+        <p>{t('system.empty.desc')}</p>
       </div>
     );
   }
@@ -98,8 +100,8 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
           <header className="md-system-header">
             <MaterialIcon name="group" filled size={24} />
             <div>
-              <h3>Usuarios del sistema</h3>
-              <p>Gestiona los perfiles del dispositivo</p>
+              <h3>{t('system.users.title')}</h3>
+              <p>{t('system.users.desc')}</p>
             </div>
           </header>
 
@@ -111,16 +113,16 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
                   key={user.id} 
                   className={`md-system-list-item ${isCurrent ? 'selected' : ''}`}
                   style={{ cursor: isCurrent ? 'default' : 'pointer' }}
-                  onClick={() => !isCurrent && applySystemAction(['shell', 'am', 'switch-user', String(user.id)], `Cambiado al usuario ${user.id}`)}
+                  onClick={() => !isCurrent && applySystemAction(['shell', 'am', 'switch-user', String(user.id)], t('system.status.userSwitched', { id: String(user.id) }))}
                 >
                   <MaterialIcon name="person" size={20} />
                   <div className="md-item-content">
-                    <strong>{user.name || `Usuario ${user.id}`}</strong>
+                    <strong>{user.name || t('system.users.defaultName', { id: String(user.id) })}</strong>
                     <small>ID: {user.id}</small>
                   </div>
                   
                   {isCurrent ? (
-                    <span className="md-badge md-badge-primary">Actual</span>
+                    <span className="md-badge md-badge-primary">{t('system.users.current')}</span>
                   ) : (
                     <md-icon-button 
                       onClick={(e: React.MouseEvent) => { 
@@ -138,14 +140,14 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
 
           <div className="md-system-actions-row">
             <md-outlined-text-field
-              label="Nuevo usuario"
+              label={t('system.users.new')}
               value={newSystemUser}
               onInput={(e: any) => setNewSystemUser(e.target.value)}
               onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && createSystemUser()}
             ></md-outlined-text-field>
             <md-filled-button onClick={createSystemUser}>
               <MaterialIcon name="add" slot="icon" />
-              Crear
+              {t('system.action.create')}
             </md-filled-button>
           </div>
         </section>
@@ -154,36 +156,36 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
           <header className="md-system-header">
             <MaterialIcon name="settings_suggest" filled size={24} />
             <div>
-              <h3>Ajustes Rápidos</h3>
-              <p>Configuraciones globales del sistema</p>
+              <h3>{t('system.settings.title')}</h3>
+              <p>{t('system.settings.desc')}</p>
             </div>
           </header>
 
           <div className="md-system-settings-list">
             <div className="md-setting-row">
               <div className="md-item-content">
-                <strong>Idiomas por aplicación</strong>
-                <p>Permite configurar el idioma individualmente para cada app</p>
+                <strong>{t('system.settings.appLang')}</strong>
+                <p>{t('system.settings.appLangDesc')}</p>
               </div>
               <md-switch 
                 selected={systemState?.app_languages_enabled || false}
                 onClick={() => applySystemAction(
                   ['shell', 'settings', 'put', 'global', 'settings_app_locale_opt_in_enabled', systemState?.app_languages_enabled ? '0' : '1'], 
-                  'Lista de idiomas actualizada'
+                  t('system.status.langUpdated')
                 )}
               ></md-switch>
             </div>
 
             <div className="md-setting-row">
               <div className="md-item-content">
-                <strong>Navegación por gestos</strong>
-                <p>Oculta la barra de navegación clásica</p>
+                <strong>{t('system.settings.gestures')}</strong>
+                <p>{t('system.settings.gesturesDesc')}</p>
               </div>
               <md-switch 
                 selected={systemState?.gestural_navigation || false}
                 onClick={() => applySystemAction(
                   ['shell', 'cmd', 'overlay', systemState?.gestural_navigation ? 'disable' : 'enable', 'com.android.internal.systemui.navbar.gestural'], 
-                  'Navegación del sistema actualizada'
+                  t('system.status.navUpdated')
                 )}
               ></md-switch>
             </div>
@@ -194,8 +196,8 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
           <header className="md-system-header">
             <MaterialIcon name="keyboard" filled size={24} />
             <div>
-              <h3>Teclados instalados (IME)</h3>
-              <p>Activa métodos disponibles y elige el teclado predeterminado.</p>
+              <h3>{t('system.ime.title')}</h3>
+              <p>{t('system.ime.desc')}</p>
             </div>
           </header>
 
@@ -216,9 +218,9 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
                     <small>{keyboard.id.split('/')[1] || keyboard.id}</small>
                   </div>
                   {isDefault ? (
-                    <span className="md-badge md-badge-primary">Predeterminado</span>
+                    <span className="md-badge md-badge-primary">{t('system.ime.default')}</span>
                   ) : !keyboard.enabled ? (
-                    <span className="md-badge md-badge-neutral">Desactivado</span>
+                    <span className="md-badge md-badge-neutral">{t('system.ime.disabled')}</span>
                   ) : null}
                 </div>
               );
@@ -227,7 +229,7 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
             {!systemState?.keyboards.length && (
               <div className="md-system-inline-empty" style={{ gridColumn: '1 / -1', padding: '24px', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                 <MaterialIcon name="keyboard_off" size={32} />
-                <p style={{ margin: '8px 0 0', fontSize: '12px' }}>No se encontraron métodos de entrada.</p>
+                <p style={{ margin: '8px 0 0', fontSize: '12px' }}>{t('system.ime.empty')}</p>
               </div>
             )}
           </div>
@@ -237,24 +239,24 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
               disabled={!selectedKeyboardInfo || systemLoading || undefined} 
               onClick={() => selectedKeyboardInfo && applySystemAction(
                 ['shell', 'ime', selectedKeyboardInfo.enabled ? 'disable' : 'enable', selectedKeyboardInfo.id], 
-                selectedKeyboardInfo.enabled ? 'Teclado deshabilitado' : 'Teclado habilitado'
+                selectedKeyboardInfo.enabled ? t('system.status.imeDisabled') : t('system.status.imeEnabled')
               )}
             >
               <MaterialIcon slot="icon" name={selectedKeyboardInfo?.enabled ? 'block' : 'check_circle'} />
-              {selectedKeyboardInfo?.enabled ? 'Deshabilitar' : 'Habilitar'}
+              {selectedKeyboardInfo?.enabled ? t('system.action.disable') : t('system.action.enable')}
             </md-filled-tonal-button>
             
             <md-filled-button 
               disabled={!selectedKeyboardInfo || systemState?.current_keyboard_id === selectedKeyboard || systemLoading || undefined} 
               onClick={async () => {
                 if (selectedKeyboardInfo) {
-                  await applySystemAction(['shell', 'ime', 'enable', selectedKeyboardInfo.id], 'Teclado habilitado'); 
-                  await applySystemAction(['shell', 'settings', 'put', 'secure', 'default_input_method', selectedKeyboardInfo.id], 'Teclado predeterminado actualizado');
+                  await applySystemAction(['shell', 'ime', 'enable', selectedKeyboardInfo.id], t('system.status.imeEnabled')); 
+                  await applySystemAction(['shell', 'settings', 'put', 'secure', 'default_input_method', selectedKeyboardInfo.id], t('system.status.imeDefaultUpdated'));
                 }
               }}
             >
               <MaterialIcon slot="icon" name="keyboard_alt" />
-              Usar como predeterminado
+              {t('system.action.setDefault')}
             </md-filled-button>
           </footer>
         </section>
@@ -263,9 +265,9 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
 
       <ConfirmDialog
         open={userToDelete !== null}
-        title="Eliminar usuario"
-        message={`Se eliminará el usuario "${userToDeleteObj?.name || userToDelete}" y todos sus datos del dispositivo. Esta acción no se puede deshacer.`}
-        confirmText="Eliminar"
+        title={t('system.users.deleteTitle')}
+        message={t('system.users.deleteDesc', { name: userToDeleteObj?.name || userToDelete || '' })}
+        confirmText={t('common.continue')}
         isDanger={true}
         onConfirm={removeSystemUser}
         onCancel={() => setUserToDelete(null)}

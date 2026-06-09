@@ -9,7 +9,6 @@ import './HomePage.css';
 
 const formatMemory = (mb: number) => mb <= 0 ? '-' : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
 const formatStorage = (mb: number) => mb <= 0 ? '-' : mb >= 1024 * 1024 ? `${(mb / 1024 / 1024).toFixed(2)} TB` : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
-const primaryTitle = (details: DeviceDetails) => details.marketing_name !== '-' ? details.marketing_name : details.model !== '-' ? details.model : details.serial;
 const secondaryTitle = (details: DeviceDetails) => [details.manufacturer, details.soc, details.model].filter(value => value && value !== '-').join(' · ');
 
 function Surface({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -32,7 +31,7 @@ export function HomePage() {
   const dd = deviceDetails;
 
   const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : t('common.noData');
-  
+
   const captureScreenshot = useCallback(async () => {
     if (!selectedDevice || selectedDevice.state !== 'device') return;
     setCapturing(true);
@@ -58,9 +57,9 @@ export function HomePage() {
 
   const performPowerAction = async (label: string, args: string[], exitHint = '') => {
     if (!selectedDevice || powerBusy) return;
-    if (label !== 'apagar pantalla' && !await confirm(`${label}${exitHint ? `\n\nCómo salir:\n${exitHint}` : ''}\n\n¿Quieres continuar?`, { title: 'Confirmar acción de energía', kind: 'warning', okLabel: 'Continuar', cancelLabel: 'Cancelar' })) return;
-    setPowerBusy(true); setPowerOpen(false); setPowerStatus(`Enviando orden: ${label}...`);
-    try { await invoke<string>('run_device_action', { serial: selectedDevice.serial, args }); setPowerStatus(`Orden enviada: ${label}`); window.setTimeout(refreshDevices, 4000); }
+    if (label !== 'apagar pantalla' && !await confirm(`${label}${exitHint ? `\n\n${t('home.power.confirm.exit')}\n${exitHint}` : ''}\n\n${t('home.power.confirm.prompt')}`, { title: t('home.power.confirm.title'), kind: 'warning', okLabel: t('common.continue'), cancelLabel: t('common.cancel') })) return;
+    setPowerBusy(true); setPowerOpen(false); setPowerStatus(t('home.power.sending', { label }));
+    try { await invoke<string>('run_device_action', { serial: selectedDevice.serial, args }); setPowerStatus(t('home.power.sent', { label })); window.setTimeout(refreshDevices, 4000); }
     catch (error) { setPowerStatus(String(error)); }
     finally { setPowerBusy(false); }
   };
@@ -77,10 +76,10 @@ export function HomePage() {
     {/* Contenido Izquierdo */}
     <div className="home-material__content">
       <Surface className="home-hero">
-        <div><h2>{dd ? primaryTitle(dd) : t('app.name')}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
+        <div><h2>ADB App</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
           <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
         </div>
-        <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label="Opciones de energía" title="Opciones de energía" disabled={!selectedDevice || powerBusy || undefined} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
+        <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label={t('home.power.options')} title={t('home.power.options')} disabled={!selectedDevice || powerBusy || undefined} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
         {powerStatus && <small className="home-power-status">{powerStatus}</small>}
       </Surface>
 
@@ -102,12 +101,12 @@ export function HomePage() {
                 <span className="home-facts__item-label">{label}</span>
                 <strong className="home-facts__item-value" title={value}>{value}</strong>
               </div>
-              <button 
-                className="home-facts__item-copy" 
-                title="Copiar valor" 
-                onClick={(e) => { 
-                  e.currentTarget.blur(); 
-                  navigator.clipboard.writeText(value); 
+              <button
+                className="home-facts__item-copy"
+                title={t('common.copy')}
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  navigator.clipboard.writeText(value);
                 }}
               >
                 <MaterialIcon name="content_copy" />
@@ -120,8 +119,8 @@ export function HomePage() {
 
     {/* Contenido Derecho (Vista Previa Estilizada) */}
     <Surface className="home-preview">
-      <header><div><h3>Vista previa</h3></div><div className="home-preview__actions"><md-icon-button aria-label={t('home.saveCapture')} title={t('home.saveCapture')} disabled={!screenshot || savingScreenshot || undefined} onClick={saveScreenshot}><MaterialIcon name="save" /></md-icon-button><md-filled-icon-button aria-label={t('home.capture')} title={t('home.capture')} disabled={capturing || !selectedDevice || selectedDevice.state !== 'device' || undefined} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-icon-button></div></header>
-      <div className="home-preview__body">{screenshot ? <img src={screenshot} alt="Captura del dispositivo" /> : <div><MaterialIcon name="smartphone" /><strong>{t('home.preview.empty.title')}</strong><span>{t('home.preview.empty.subtitle')}</span></div>}</div>
+      <header><div><h3>{t('home.preview.title')}</h3></div><div className="home-preview__actions"><md-icon-button aria-label={t('home.saveCapture')} title={t('home.saveCapture')} disabled={!screenshot || savingScreenshot || undefined} onClick={saveScreenshot}><MaterialIcon name="save" /></md-icon-button><md-filled-icon-button aria-label={t('home.capture')} title={t('home.capture')} disabled={capturing || !selectedDevice || selectedDevice.state !== 'device' || undefined} onClick={captureScreenshot}><MaterialIcon name="screenshot_monitor" /></md-filled-icon-button></div></header>
+      <div className="home-preview__body">{screenshot ? <img src={screenshot} alt={t('home.preview.alt')} /> : <div><MaterialIcon name="smartphone" /><strong>{t('home.preview.empty.title')}</strong><span>{t('home.preview.empty.subtitle')}</span></div>}</div>
     </Surface>
 
     <PowerDialog open={powerOpen} busy={powerBusy} onClose={() => setPowerOpen(false)} onAction={performPowerAction} />

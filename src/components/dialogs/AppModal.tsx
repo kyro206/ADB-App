@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useI18n } from '../../locales';
 import { MaterialIcon } from '../MaterialIcon';
 import './AppModal.css';
 
@@ -14,6 +15,8 @@ type AppModalProps = {
 };
 
 export function AppModal({ open, title, subtitle, children, actions, onClose, width = 'medium' }: AppModalProps) {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (!open) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -32,7 +35,7 @@ export function AppModal({ open, title, subtitle, children, actions, onClose, wi
         <md-elevation />
         <header className="app-modal__header">
           <div><h2 id="app-modal-title">{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
-          <md-icon-button aria-label="Cerrar" onClick={onClose}><MaterialIcon name="close" /></md-icon-button>
+          <md-icon-button aria-label={t('common.close')} onClick={onClose}><MaterialIcon name="close" /></md-icon-button>
         </header>
         <div className="app-modal__content">{children}</div>
         {actions && <footer className="app-modal__actions">{actions}</footer>}

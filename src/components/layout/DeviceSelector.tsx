@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../../locales';
 import type { Device } from '../../context/DeviceContext';
 import { MaterialIcon } from '../MaterialIcon';
 
@@ -12,6 +13,7 @@ interface DeviceSelectorProps {
 }
 
 export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel, emptyLabel, onSelect }: DeviceSelectorProps) {
+  const { t } = useI18n();
   const anchorRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<any>(null);
   const onSelectRef = useRef(onSelect);
@@ -62,7 +64,7 @@ export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel,
       ref={anchorRef}
       className={`topbar-device-picker__field ${open ? 'open' : ''}`}
       type="button"
-      aria-label="Seleccionar dispositivo"
+      aria-label={t('device.selector.label')}
       aria-haspopup="menu"
       aria-expanded={open}
       disabled={disabled}

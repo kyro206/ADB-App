@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { useI18n } from '../locales';
 import { words } from './workbench/utils';
 import type { MediaVolumeState, SoundMode } from './workbench/types';
 import './ControlPage.css';
@@ -23,6 +24,7 @@ interface ControlPageProps {
 }
 
 export function ControlPage({ serial, run, setStatus, setBusy }: ControlPageProps) {
+  const { t } = useI18n();
   const [controlBrightness, setControlBrightness] = useState(128);
   const [controlVolume, setControlVolume] = useState(7);
   const [controlVolumeMax, setControlVolumeMax] = useState(15);
@@ -64,7 +66,7 @@ const loadDeviceState = () => {
   const sendKey = (code: string) => run(['shell', 'input', 'keyevent', code]);
 
   const applyMediaVolume = async (value: number) => {
-    if (!serial) { setStatus('Selecciona un dispositivo'); return; }
+    if (!serial) { setStatus(t('control.error.noDevice')); return; }
     const safeValue = Math.max(0, Math.min(value, controlVolumeMax));
     setControlVolume(safeValue);
     setBusy(true);
@@ -91,13 +93,13 @@ const loadDeviceState = () => {
         {/* BRILLO Y VOLUMEN */}
         <section className="md3-card">
           <div className="md3-card-header">
-            <h3>Pantalla y Sonido</h3>
+            <h3>{t('control.screenSound.title')}</h3>
           </div>
           <div className="md3-slider-group">
             <label className="md3-slider-container">
               <div className="md3-slider-info">
                 <MaterialIcon name="light_mode" />
-                <span>Brillo</span>
+                <span>{t('control.screenSound.brightness')}</span>
                 <strong>{controlBrightness} / 255</strong>
               </div>
               <md-slider 
@@ -112,7 +114,7 @@ const loadDeviceState = () => {
             <label className="md3-slider-container">
               <div className="md3-slider-info">
                 <MaterialIcon name="volume_up" />
-                <span>Volumen multimedia</span>
+                <span>{t('control.screenSound.volume')}</span>
                 <strong>{controlVolume} / {controlVolumeMax}</strong>
               </div>
               <md-slider 
@@ -129,9 +131,9 @@ const loadDeviceState = () => {
         {/* ROTACIÓN */}
         <section className="md3-card">
           <div className="md3-card-header">
-            <h3>Orientación</h3>
+            <h3>{t('control.orientation.title')}</h3>
             <label className="md3-switch-container">
-              <span>Automática</span>
+              <span>{t('control.orientation.auto')}</span>
               <md-switch 
                 selected={rotationAuto} 
                 onChange={async (event: any) => { 
@@ -143,7 +145,7 @@ const loadDeviceState = () => {
             </label>
           </div>
           <div className="md3-segmented-button">
-            {[['stay_current_portrait', 'Vertical', 0], ['stay_current_landscape', 'Horizontal', 1], ['stay_current_portrait', 'Vertical inv.', 2], ['stay_current_landscape', 'Horizontal inv.', 3]].map(([icon, label, value]) => (
+            {[['stay_current_portrait', t('control.orientation.portrait'), 0], ['stay_current_landscape', t('control.orientation.landscape'), 1], ['stay_current_portrait', t('control.orientation.portraitRev'), 2], ['stay_current_landscape', t('control.orientation.landscapeRev'), 3]].map(([icon, label, value]) => (
               <button key={String(value)} className={!rotationAuto && rotation === value ? 'active' : ''} onClick={() => setDeviceRotation(Number(value))}>
                 <MaterialIcon name={String(icon)} className={`rotation-${value}`} />
                 <span>{label}</span>
@@ -155,20 +157,20 @@ const loadDeviceState = () => {
         {/* MODO DE SONIDO */}
         <section className="md3-card">
           <div className="md3-card-header">
-            <h3>Perfil de sonido</h3>
+            <h3>{t('control.sound.title')}</h3>
           </div>
           <div className="md3-segmented-button">
             <button className={soundMode === 'NORMAL' ? 'active' : ''} onClick={() => setDeviceSoundMode('NORMAL')}>
               <MaterialIcon name="volume_up" filled={soundMode === 'NORMAL'} />
-              <span>Sonido</span>
+              <span>{t('control.sound.normal')}</span>
             </button>
             <button className={soundMode === 'VIBRATE' ? 'active' : ''} onClick={() => setDeviceSoundMode('VIBRATE')}>
               <MaterialIcon name="vibration" filled={soundMode === 'VIBRATE'} />
-              <span>Vibración</span>
+              <span>{t('control.sound.vibrate')}</span>
             </button>
             <button className={soundMode === 'SILENT' ? 'active' : ''} onClick={() => setDeviceSoundMode('SILENT')}>
               <MaterialIcon name="volume_off" filled={soundMode === 'SILENT'} />
-              <span>Silencio</span>
+              <span>{t('control.sound.silent')}</span>
             </button>
           </div>
         </section>
@@ -176,24 +178,24 @@ const loadDeviceState = () => {
         {/* INTRODUCIR TEXTO */}
         <section className="md3-card">
           <div className="md3-card-header">
-            <h3>Entrada de texto y comandos</h3>
+            <h3>{t('control.input.title')}</h3>
           </div>
           <form className="md3-text-form" onSubmit={event => { event.preventDefault(); run(['shell', 'input', 'text', String(new FormData(event.currentTarget).get('text')).replace(/ /g, '%s')]); }}>
             <div className="md3-text-field">
               <input name="text" placeholder=" " required />
-              <label>Texto a enviar (espacios incluidos)</label>
+              <label>{t('control.input.text')}</label>
             </div>
-            <button className="md3-btn-filled">Enviar</button>
+            <button className="md3-btn-filled">{t('control.input.send')}</button>
           </form>
 
           <details className="md3-details">
-            <summary>Entrada avanzada ADB</summary>
+            <summary>{t('control.input.advanced')}</summary>
             <form className="md3-text-form" onSubmit={event => { event.preventDefault(); run(['shell', 'input', ...words(String(new FormData(event.currentTarget).get('args')))]); }}>
               <div className="md3-text-field">
                 <input name="args" placeholder=" " required />
-                <label>Ej: tap 500 800 / swipe 100 500 900 500 300</label>
+                <label>{t('control.input.advancedDesc')}</label>
               </div>
-              <button className="md3-btn-tonal">Ejecutar</button>
+              <button className="md3-btn-tonal">{t('control.input.run')}</button>
             </form>
           </details>
         </section>
@@ -204,7 +206,7 @@ const loadDeviceState = () => {
         <div className="md3-remote">
           <div className="md3-remote-header">
             <h3>Android TV</h3>
-            <button className="md3-remote-power" title="Encender o apagar" onClick={() => sendKey('KEYCODE_POWER')}>
+            <button className="md3-remote-power" title={t('control.tv.power')} onClick={() => sendKey('KEYCODE_POWER')}>
               <MaterialIcon name="power_settings_new" />
             </button>
           </div>
@@ -218,13 +220,13 @@ const loadDeviceState = () => {
           </div>
 
           <div className="md3-remote-main-actions">
-            <button className="md3-icon-btn-tonal" title="Volver" onClick={() => sendKey('KEYCODE_BACK')}><MaterialIcon name="arrow_back" /></button>
-            <button className="md3-icon-btn-tonal assistant-btn" title="Asistente" onClick={() => sendKey('KEYCODE_ASSIST')}><MaterialIcon name="assistant" filled /></button>
-            <button className="md3-icon-btn-tonal" title="Inicio" onClick={() => sendKey('KEYCODE_HOME')}><MaterialIcon name="home" filled /></button>
+            <button className="md3-icon-btn-tonal" title={t('control.tv.back')} onClick={() => sendKey('KEYCODE_BACK')}><MaterialIcon name="arrow_back" /></button>
+            <button className="md3-icon-btn-tonal assistant-btn" title={t('control.tv.assistant')} onClick={() => sendKey('KEYCODE_ASSIST')}><MaterialIcon name="assistant" filled /></button>
+            <button className="md3-icon-btn-tonal" title={t('control.tv.home')} onClick={() => sendKey('KEYCODE_HOME')}><MaterialIcon name="home" filled /></button>
           </div>
 
           <div className="md3-remote-volume-row">
-            <button className="md3-icon-btn-tonal mute-btn" title="Silenciar" onClick={() => sendKey('KEYCODE_VOLUME_MUTE')}>
+            <button className="md3-icon-btn-tonal mute-btn" title={t('control.tv.mute')} onClick={() => sendKey('KEYCODE_VOLUME_MUTE')}>
               <MaterialIcon name="volume_off" />
             </button>
             <div className="md3-volume-pill">
@@ -235,17 +237,17 @@ const loadDeviceState = () => {
           </div>
 
           <div className="md3-remote-media-grid">
-            <button onClick={() => sendKey('KEYCODE_APP_SWITCH')}><MaterialIcon name="recent_actors" /><span>Recientes</span></button>
-            <button onClick={() => sendKey('KEYCODE_MENU')}><MaterialIcon name="menu" /><span>Menú</span></button>
-            <button onClick={() => sendKey('KEYCODE_INFO')}><MaterialIcon name="info" /><span>Info</span></button>
+            <button onClick={() => sendKey('KEYCODE_APP_SWITCH')}><MaterialIcon name="recent_actors" /><span>{t('control.tv.recent')}</span></button>
+            <button onClick={() => sendKey('KEYCODE_MENU')}><MaterialIcon name="menu" /><span>{t('control.tv.menu')}</span></button>
+            <button onClick={() => sendKey('KEYCODE_INFO')}><MaterialIcon name="info" /><span>{t('control.tv.info')}</span></button>
             
-            <button onClick={() => sendKey('KEYCODE_MEDIA_PREVIOUS')}><MaterialIcon name="skip_previous" filled /><span>Anterior</span></button>
-            <button onClick={() => sendKey('KEYCODE_MEDIA_PLAY_PAUSE')}><MaterialIcon name="play_pause" filled /><span>Play/Pausa</span></button>
-            <button onClick={() => sendKey('KEYCODE_MEDIA_NEXT')}><MaterialIcon name="skip_next" filled /><span>Siguiente</span></button>
+            <button onClick={() => sendKey('KEYCODE_MEDIA_PREVIOUS')}><MaterialIcon name="skip_previous" filled /><span>{t('control.tv.previous')}</span></button>
+            <button onClick={() => sendKey('KEYCODE_MEDIA_PLAY_PAUSE')}><MaterialIcon name="play_pause" filled /><span>{t('control.tv.playPause')}</span></button>
+            <button onClick={() => sendKey('KEYCODE_MEDIA_NEXT')}><MaterialIcon name="skip_next" filled /><span>{t('control.tv.next')}</span></button>
             
-            <button onClick={() => sendKey('KEYCODE_GUIDE')}><MaterialIcon name="tv" /><span>Guía</span></button>
-            <button onClick={() => sendKey('KEYCODE_CHANNEL_DOWN')}><MaterialIcon name="remove" /><span>CH -</span></button>
-            <button onClick={() => sendKey('KEYCODE_CHANNEL_UP')}><MaterialIcon name="add" /><span>CH +</span></button>
+            <button onClick={() => sendKey('KEYCODE_GUIDE')}><MaterialIcon name="tv" /><span>{t('control.tv.guide')}</span></button>
+            <button onClick={() => sendKey('KEYCODE_CHANNEL_DOWN')}><MaterialIcon name="remove" /><span>{t('control.tv.chDown')}</span></button>
+            <button onClick={() => sendKey('KEYCODE_CHANNEL_UP')}><MaterialIcon name="add" /><span>{t('control.tv.chUp')}</span></button>
           </div>
         </div>
       </aside>

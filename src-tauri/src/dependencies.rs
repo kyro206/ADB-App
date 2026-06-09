@@ -26,12 +26,12 @@ fn download_bytes(client: &reqwest::blocking::Client, url: &str) -> Result<Vec<u
         .get(url)
         .header(reqwest::header::USER_AGENT, "ADB-App")
         .send()
-        .map_err(|error| format!("No se pudo descargar la dependencia: {error}"))?
+        .map_err(|error| format!("Could not download the dependency: {error}"))?
         .error_for_status()
-        .map_err(|error| format!("La descarga de la dependencia falló: {error}"))?
+        .map_err(|error| format!("The dependency download failed: {error}"))?
         .bytes()
         .map(|bytes| bytes.to_vec())
-        .map_err(|error| format!("No se pudo leer la descarga: {error}"))
+        .map_err(|error| format!("Could not read the download: {error}"))
 }
 
 fn tool_asset(
@@ -39,7 +39,7 @@ fn tool_asset(
     client: &reqwest::blocking::Client,
 ) -> Result<(String, ArchiveKind), String> {
     if std::env::consts::OS == "linux" {
-        return Err("La instalación automática está deshabilitada en Linux. Usa el gestor de paquetes de tu distribución y Detección automática.".to_string());
+        return Err("Automatic installation is disabled on Linux. Use your distribution's package manager and Auto detect.".to_string());
     }
     match tool {
         "adb" => Ok((
@@ -52,7 +52,7 @@ fn tool_asset(
                 }
                 _ => {
                     return Err(
-                        "ADB no ofrece Platform Tools para este sistema operativo".to_string()
+                        "ADB does not provide Platform Tools for this operating system".to_string()
                     )
                 }
             }
@@ -67,7 +67,7 @@ fn tool_asset(
                 ("macos", "aarch64") => ("scrcpy-macos-aarch64-", ArchiveKind::TarGz),
                 _ => {
                     return Err(
-                        "scrcpy no publica un binario compatible con este equipo".to_string()
+                        "scrcpy does not publish a binary compatible with this computer".to_string()
                     )
                 }
             };
@@ -99,10 +99,10 @@ fn tool_asset(
                             .flatten()
                     })
                 })
-                .ok_or_else(|| "No se encontró una descarga de scrcpy compatible".to_string())?;
+                .ok_or_else(|| "Could not find a compatible scrcpy download".to_string())?;
             Ok((url, kind))
         }
-        _ => Err(format!("Dependencia desconocida: {tool}")),
+        _ => Err(format!("Unknown dependency: {tool}")),
     }
 }
 
@@ -111,12 +111,12 @@ fn extract(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Result<(), St
     match kind {
         ArchiveKind::Zip => {
             let mut archive = zip::ZipArchive::new(Cursor::new(bytes))
-                .map_err(|error| format!("ZIP no válido: {error}"))?;
+                .map_err(|error| format!("Invalid ZIP: {error}"))?;
             for index in 0..archive.len() {
                 let mut entry = archive.by_index(index).map_err(|error| error.to_string())?;
                 let relative = entry
                     .enclosed_name()
-                    .ok_or_else(|| "El ZIP contiene una ruta no segura".to_string())?;
+                    .ok_or_else(|| "The ZIP contains an unsafe path".to_string())?;
                 let output = destination.join(relative);
                 if entry.is_dir() {
                     fs::create_dir_all(output).map_err(|error| error.to_string())?;
@@ -135,7 +135,7 @@ fn extract(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Result<(), St
         ArchiveKind::TarGz => {
             tar::Archive::new(GzDecoder::new(Cursor::new(bytes)))
                 .unpack(destination)
-                .map_err(|error| format!("No se pudo extraer TAR.GZ: {error}"))?;
+                .map_err(|error| format!("Could not extract TAR.GZ: {error}"))?;
         }
     }
     Ok(())
@@ -174,7 +174,7 @@ pub fn install_tool(tool: &str) -> Result<(), String> {
     remove_dir(&staging)?;
     extract(&download_bytes(&client, &url)?, kind, &staging)?;
     let executable = find_file(&staging, &executable_name(tool))
-        .ok_or_else(|| format!("La descarga no contiene {}", executable_name(tool)))?;
+        .ok_or_else(|| format!("The download does not contain {}", executable_name(tool)))?;
     let extracted_root = if tool == "adb" {
         staging.clone()
     } else {
@@ -236,7 +236,7 @@ pub fn ensure_bundletool() -> Result<PathBuf, String> {
                     .flatten()
             })
         })
-        .ok_or_else(|| "No se encontró bundletool".to_string())?;
+        .ok_or_else(|| "Could not find bundletool".to_string())?;
     fs::write(&jar, download_bytes(&client, &url)?).map_err(|error| error.to_string())?;
     Ok(jar)
 }

@@ -192,7 +192,7 @@ fn run_local_command(program: &Path, args: &[String]) -> Result<String, String> 
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .map_err(|error| format!("No se pudo ejecutar {}: {error}", program.display()))?;
+        .map_err(|error| format!("Couldn't run {}: {error}", program.display()))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}").trim().to_string();
@@ -200,7 +200,7 @@ fn run_local_command(program: &Path, args: &[String]) -> Result<String, String> 
         Ok(combined)
     } else {
         Err(if combined.is_empty() {
-            format!("{} terminó con error", program.display())
+            format!("{} finished with error", program.display())
         } else {
             combined
         })
@@ -213,7 +213,7 @@ fn bundletool_jar() -> Result<PathBuf, String> {
 
 fn modern_java_path() -> Result<PathBuf, String> {
     let java = tools::resolve_tool_path("java").ok_or_else(|| {
-        "Java no está configurado. Indica su ruta en Ajustes. Se recomienda instalar la última versión LTS de Temurin desde https://adoptium.net/es/temurin/releases".to_string()
+        "Java is not configured. Set its path in Settings. It is recommended to install the latest LTS version of Temurin from https://adoptium.net/temurin/releases".to_string()
     })?;
     let output = run_local_command(&java, &["-version".into()])?;
     let version = Regex::new(r#"version "(\d+)(?:\.(\d+))?"#)
@@ -231,7 +231,7 @@ fn modern_java_path() -> Result<PathBuf, String> {
         .unwrap_or(0);
     if version < 11 {
         Err(format!(
-            "Java {version} no es compatible con bundletool. Configura Java 11 o superior en Ajustes; se recomienda la última versión LTS de Temurin."
+            "Java {version} is not compatible with bundletool. Configure Java 11 or higher in Settings; the latest LTS version of Temurin is recommended."
         ))
     } else {
         Ok(java)
@@ -292,11 +292,11 @@ fn resolve_install_files(
 
     if extension == "aab" {
         if !bundletool_available {
-            return Err("Para instalar archivos .aab necesitas configurar Java 11+ en Ajustes y tener Bundletool descargado.".to_string());
+            return Err("To install .aab files, you need to configure Java 11+ in Settings and have Bundletool downloaded.".to_string());
         }
         let java = java_path.unwrap();
         let jar = jar_path.unwrap();
-        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
+        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;
         let device_spec = working_directory.join("device-spec.json");
         
         run_local_command(
@@ -339,7 +339,7 @@ fn resolve_install_files(
 
         let apks = collect_apks(&extraction_directory)?;
         if apks.is_empty() {
-            return Err(format!("No se encontraron APK compatibles en {}", package_file.display()));
+            return Err(format!("No compatible APKs found in {}", package_file.display()));
         }
         return Ok(apks);
 
@@ -347,7 +347,7 @@ fn resolve_install_files(
         // Vía original para .apks si Java/Bundletool están instalados
         let java = java_path.unwrap();
         let jar = jar_path.unwrap();
-        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
+        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;
         let device_spec = working_directory.join("device-spec.json");
         
         run_local_command(
@@ -376,7 +376,7 @@ fn resolve_install_files(
 
         let apks = collect_apks(&extraction_directory)?;
         if apks.is_empty() {
-            return Err(format!("No se encontraron APK compatibles en {}", package_file.display()));
+            return Err(format!("No compatible APKs found in {}", package_file.display()));
         }
         return Ok(apks);
 
@@ -392,7 +392,7 @@ fn resolve_install_files(
             ],
         )?;
 
-        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
+        let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;
         
         // 1. Obtener la arquitectura del dispositivo conectado
         let abi_output = run_local_command(
@@ -450,12 +450,12 @@ fn resolve_install_files(
         }
 
         if filtered_apks.is_empty() {
-            return Err(format!("No se encontraron APKs compatibles para tu dispositivo en {}", package_file.display()));
+            return Err(format!("No compatible APKs found for your device in {}", package_file.display()));
         }
 
         return Ok(filtered_apks);
     } else {
-        return Err(format!("Formato no compatible: {}", package_file.display()));
+        return Err(format!("Unsupported format: {}", package_file.display()));
     }
 }
 
@@ -575,7 +575,7 @@ pub async fn run_device_action(serial: String, args: Vec<String>) -> Result<Stri
 pub async fn connect_wireless_device(endpoint: String) -> Result<String, String> {
     let endpoint = endpoint.trim();
     if endpoint.is_empty() || !endpoint.contains(':') {
-        return Err("Introduce una dirección IP y puerto válidos".to_string());
+        return Err("Please enter a valid IP address and port".to_string());
     }
     let result = adb::run_adb(&["connect", endpoint]).await?;
     if result.ok() && !result.output.to_ascii_lowercase().contains("failed") {
@@ -590,7 +590,7 @@ pub async fn pair_wireless_device(endpoint: String, code: String) -> Result<Stri
     let endpoint = endpoint.trim();
     let code = code.trim();
     if endpoint.is_empty() || !endpoint.contains(':') || code.is_empty() {
-        return Err("Introduce el endpoint y el código de emparejamiento".to_string());
+        return Err("Please enter the endpoint and pairing code".to_string());
     }
     let result = adb::run_adb(&["pair", endpoint, code]).await?;
     if result.ok() && !result.output.to_ascii_lowercase().contains("failed") {
@@ -631,7 +631,7 @@ pub fn generate_wireless_qr() -> Result<WirelessQrPayload, String> {
 #[tauri::command]
 pub async fn pair_wireless_qr(service_name: String, password: String) -> Result<String, String> {
     if service_name.trim().is_empty() || password.trim().is_empty() {
-        return Err("Genera y escanea primero un código QR".to_string());
+        return Err("Generate and scan a QR code first".to_string());
     }
     let endpoint_pattern =
         Regex::new(r"(?m)^(\S+)\s+(_adb-tls-pairing\._tcp)\s+((?:\d{1,3}\.){3}\d{1,3}):(\d+)")
@@ -648,7 +648,7 @@ pub async fn pair_wireless_qr(service_name: String, password: String) -> Result<
         }
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
-    Err("No se encontró el dispositivo. Genera otro QR y vuelve a escanearlo.".to_string())
+    Err("Device not found. Generate another QR and scan it again.".to_string())
 }
 
 async fn wireless_host_for_serial(serial: &str) -> Result<String, String> {
@@ -685,14 +685,14 @@ async fn wireless_host_for_serial(serial: &str) -> Result<String, String> {
     if property.ok() && !host.is_empty() {
         Ok(host.to_string())
     } else {
-        Err("No se pudo detectar la IP Wi-Fi del dispositivo".to_string())
+        Err("Could not detect the Wi-Fi IP of the device".to_string())
     }
 }
 
 #[tauri::command]
 pub async fn connect_usb_over_tcpip(serial: String) -> Result<String, String> {
     if serial.contains(':') || serial.starts_with("emulator-") {
-        return Err("Selecciona un dispositivo conectado físicamente por USB".to_string());
+        return Err("Select a physically connected USB device".to_string());
     }
     let host = wireless_host_for_serial(&serial).await?;
     let tcpip = adb::run_adb_for_serial(&serial, &["tcpip", "5555"]).await?;
@@ -844,11 +844,11 @@ pub async fn set_device_dark_mode(serial: String, enabled: bool) -> Result<Strin
     let expected = if enabled { "yes" } else { "no" };
     if current.ok() && current.output.to_ascii_lowercase().contains(expected) {
         Ok(format!(
-            "Modo oscuro {}",
-            if enabled { "activado" } else { "desactivado" }
+            "Dark mode {}",
+            if enabled { "enabled" } else { "disabled" }
         ))
     } else {
-        Err("Android no confirmó el cambio del modo oscuro".to_string())
+        Err("Android did not confirm the dark mode change".to_string())
     }
 }
 
@@ -905,13 +905,13 @@ pub async fn set_media_volume(serial: String, volume: i32) -> Result<String, Str
                     continue;
                 }
             }
-            return Ok(format!("Volumen multimedia: {safe_volume}"));
+            return Ok(format!("Media volume: {safe_volume}"));
         }
         last_output = result.output;
     }
 
     Err(if last_output.trim().is_empty() {
-        "No se pudo aplicar el volumen multimedia".to_string()
+        "Could not apply the media volume".to_string()
     } else {
         last_output
     })
@@ -1083,21 +1083,21 @@ pub async fn install_application_packages(
 ) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         if files.is_empty() {
-            return Err("Selecciona al menos un paquete para instalar".to_string());
+            return Err("Select at least one package to install".to_string());
         }
         let adb_path =
-            tools::resolve_tool_path("adb").ok_or_else(|| "ADB no está disponible".to_string())?;
+            tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;
         let working_directory = install_working_dir()?;
         let mut log = Vec::new();
 
         for file in files {
             let package_file = PathBuf::from(&file);
             if !package_file.is_file() {
-                log.push(format!("ERROR · No existe: {}", package_file.display()));
+                log.push(format!("ERROR · Does not exist: {}", package_file.display()));
                 continue;
             }
             log.push(format!(
-                "Preparando {}...",
+                "Preparing {}...",
                 package_file
                     .file_name()
                     .unwrap_or_default()
@@ -1248,7 +1248,7 @@ pub fn clear_application_cache() -> Result<String, String> {
     if legacy_details.exists() {
         fs::remove_dir_all(legacy_details).map_err(|error| error.to_string())?;
     }
-    Ok(format!("Caché de aplicaciones eliminada: {count} entradas"))
+    Ok(format!("Application cache cleared: {count} entries"))
 }
 
 #[tauri::command]
@@ -1316,7 +1316,7 @@ pub async fn get_file_thumbnail(serial: String, path: String) -> Result<String, 
     let (exit_code, bytes) =
         adb::run_adb_binary_for_serial(&serial, &["exec-out", "cat", &path]).await?;
     if exit_code != 0 {
-        return Err("No se pudo obtener la miniatura".to_string());
+        return Err("Could not get the thumbnail".to_string());
     }
     let extension = Path::new(&path)
         .extension()
@@ -1404,8 +1404,10 @@ pub async fn list_scrcpy_cameras(serial: String) -> Result<Vec<String>, String> 
 }
 
 #[tauri::command]
-pub fn get_tools_status() -> ToolsStatus {
-    tools::tools_status()
+pub async fn get_tools_status() -> ToolsStatus {
+    tauri::async_runtime::spawn_blocking(tools::tools_status)
+        .await
+        .unwrap()
 }
 
 #[tauri::command]

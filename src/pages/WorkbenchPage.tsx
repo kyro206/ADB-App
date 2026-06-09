@@ -27,7 +27,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const { language, setLanguage, t } = useI18n();
   const { theme, setTheme } = useTheme();
   const serial = selectedDevice?.serial ?? '';
-  const [status, setStatus] = useState('Listo');
+  const [status, setStatus] = useState(t('workbench.status.ready'));
   const [busy, setBusy] = useState(false);
   const [apps, setApps] = useState<AppSummary[]>([]);
   const [filter, setFilter] = useState('');
@@ -82,8 +82,8 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [cameraHeight, setCameraHeight] = useState('');
   const [cameras, setCameras] = useState<string[]>([]);
 
-  const run = async (args: string[], success = 'Acción completada') => {
-    if (!serial) { setStatus('Selecciona un dispositivo'); return; }
+  const run = async (args: string[], success = t('workbench.status.success')) => {
+    if (!serial) { setStatus(t('workbench.status.selectDevice')); return; }
     setBusy(true);
     try {
       const output = await invoke<string>('run_device_action', { serial, args });
@@ -97,7 +97,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     setBusy(true);
     try {
       const value = await invoke<AppSummary[]>('list_apps', { serial });
-      setApps(value); setStatus(`${value.length} aplicaciones`);
+      setApps(value); setStatus(t('workbench.status.appsLoaded', { count: value.length }));
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
@@ -142,7 +142,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const loadVisibleMetadata = async () => {
     if (!serial || !appsNeedingMetadata.length || metadataLoading) return;
     setMetadataLoading(true);
-    setStatus(`Cargando nombres e iconos de ${appsNeedingMetadata.length} aplicaciones pendientes...`);
+    setStatus(t('workbench.status.metadataLoading', { count: appsNeedingMetadata.length }));
     let loaded = 0;
     let failed = 0;
     try {
@@ -163,16 +163,16 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
           const summary = summaries.find(item => item.package_name === current.package_name);
           return summary ? { ...current, display_name: summary.display_name, icon_data_url: summary.icon_data_url } : current;
         });
-        setStatus(`Nombres e iconos procesados: ${Math.min(start + batch.length, appsNeedingMetadata.length)} / ${appsNeedingMetadata.length}`);
+        setStatus(t('workbench.status.metadataProgress', { processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length }));
       }
-      setStatus(failed ? `Metadatos cargados: ${loaded}. No se pudieron cargar: ${failed}.` : `${loaded} nombres e iconos guardados en caché`);
+      setStatus(failed ? t('workbench.status.metadataFailed', { loaded, failed }) : t('workbench.status.metadataDone', { loaded }));
     } finally { setMetadataLoading(false); }
   };
 
   const chooseInstallFiles = async () => {
     try {
       const selected = await open({
-        title: 'Seleccionar aplicaciones para instalar',
+        title: t('apps.action.install'),
         multiple: true,
         directory: false,
         filters: [{ name: 'Paquetes Android', extensions: ['apk', 'apks', 'apkm', 'xapk', 'zip', 'aab'] }],
@@ -188,7 +188,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const installSelectedApps = async () => {
     if (!serial || !installFiles.length || installingApps) return;
     setInstallingApps(true);
-    setInstallResult('Preparando paquetes e instalando…');
+    setInstallResult(t('workbench.status.installing'));
     try {
       const result = await invoke<string>('install_application_packages', {
         serial,
@@ -210,7 +210,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   };
 
   const scrcpy = async (extraArgs: string[]) => {
-    if (!serial) return setStatus('Selecciona un dispositivo');
+    if (!serial) return setStatus(t('workbench.status.selectDevice'));
     try { setStatus(await invoke<string>('launch_scrcpy', { serial, extraArgs })); }
     catch (error) { setStatus(String(error)); }
   };
@@ -282,7 +282,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     try {
       await invoke('save_app_settings', { settings });
       setAppSettings(settings);
-      setStatus('Ajustes guardados');
+      setStatus(t('workbench.status.settingsSaved'));
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
@@ -294,7 +294,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
       setJavaPath(value.java.path);
-      setStatus(`Ruta de ${tool} guardada`);
+      setStatus(t('workbench.status.toolPathSaved', { tool }));
       if (tool === 'adb') await refreshDevices();
       await refreshTools();
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
@@ -302,14 +302,14 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
   const installTool = async (tool: 'adb' | 'scrcpy') => {
     setBusy(true);
-    setStatus(`Descargando e instalando ${tool}...`);
+    setStatus(t('workbench.status.toolDownloading', { tool }));
     try {
       const value = await invoke<ToolsStatus>('install_or_update_tool', { tool });
       setTools(value);
       setAdbPath(value.adb.path);
       setScrcpyPath(value.scrcpy.path);
       setJavaPath(value.java.path);
-      setStatus(`${tool} instalado o actualizado correctamente`);
+      setStatus(t('workbench.status.toolInstalled', { tool }));
       if (tool === 'adb') await refreshDevices();
       await refreshTools();
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
@@ -414,7 +414,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     const command = willDisable
       ? ['shell', 'pm', 'disable-user', '--user', '0', selectedPackage]
       : ['shell', 'pm', 'enable', '--user', '0', selectedPackage];
-    const result = await run(command, willDisable ? 'Aplicación deshabilitada' : 'Aplicación habilitada');
+    const result = await run(command, willDisable ? t('workbench.status.appDisabled') : t('workbench.status.appEnabled'));
     if (result === undefined) return;
     setAppDetails(current => current ? { ...current, disabled: willDisable } : current);
     setApps(current => current.map(app => app.package_name === selectedPackage ? { ...app, disabled: willDisable } : app));
@@ -435,11 +435,11 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     if (!appDetails) return;
     try {
       const destination = await save({
-        title: 'Guardar APK',
+        title: t('apps.action.saveApk'),
         defaultPath: `${appDetails.package_name}.apk`,
         filters: [{ name: 'Paquete Android', extensions: ['apk'] }],
       });
-      if (destination) await run(['pull', appDetails.apk_path, destination], `APK guardado en ${destination}`);
+      if (destination) await run(['pull', appDetails.apk_path, destination], t('workbench.status.apkSaved', { path: destination }));
     } catch (error) { setStatus(String(error)); }
   };
   const clearApplicationCache = async () => {
@@ -455,12 +455,12 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     setDestructiveBusy(true);
     try {
       if (destructiveAction === 'uninstall') {
-        await run(['uninstall', selectedPackage], 'Aplicación desinstalada');
+        await run(['uninstall', selectedPackage], t('workbench.status.appUninstalled'));
         setSelectedPackage('');
         setAppDetails(null);
         await refreshApps();
       } else {
-        await run(['shell', 'pm', 'clear', selectedPackage], 'Datos de la aplicación eliminados');
+        await run(['shell', 'pm', 'clear', selectedPackage], t('workbench.status.appDataCleared'));
         await refreshAppDetails();
       }
       setDestructiveAction(null);

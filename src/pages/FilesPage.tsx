@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { confirm, open } from '@tauri-apps/plugin-dialog';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { useI18n } from '../locales';
 import { formatBytes } from './workbench/utils';
 import type { FileEntry, FileSortKey, FileView } from './workbench/types';
 import './FilesPage.css';
@@ -14,6 +15,7 @@ export interface FilesPageProps {
 }
 
 export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
+  const { t } = useI18n();
   const [path, setPath] = useState('/sdcard');
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [fileView, setFileView] = useState<FileView>('list');
@@ -65,7 +67,7 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
     try {
       const normalized = normalizeDevicePath(nextPath);
       const value = await invoke<FileEntry[]>('list_directory', { serial, path: normalized });
-      setFiles(value); setPath(normalized); setSelectedFiles([]); setStatus(`${value.length} elementos`);
+      setFiles(value); setPath(normalized); setSelectedFiles([]); setStatus(t('files.status.items', { count: value.length }));
       if (addHistory && normalized !== fileHistory[fileHistoryIndex]) {
         setFileHistory(current => [...current.slice(0, fileHistoryIndex + 1), normalized]);
         setFileHistoryIndex(fileHistoryIndex + 1);
@@ -107,14 +109,14 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
   };
 
   const createDeviceFolder = async () => {
-    const name = window.prompt('Nombre de la nueva carpeta');
+    const name = window.prompt(t('files.prompt.newFolder'));
     if (name?.trim()) await run(['shell', 'mkdir', '-p', `${path}/${name.trim()}`]).then(() => refreshFiles());
   };
 
   const renameSelectedFile = async () => {
     const file = selectedFileEntries[0];
     if (!file) return;
-    const name = window.prompt('Nuevo nombre', file.name);
+    const name = window.prompt(t('files.prompt.rename'), file.name);
     if (name?.trim() && name !== file.name) await run(['shell', 'mv', filePath(file), `${path}/${name.trim()}`]).then(() => refreshFiles());
   };
 
@@ -123,17 +125,17 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
     if (!file) return;
     const extensionIndex = file.is_directory ? -1 : file.name.lastIndexOf('.');
     const suggestedName = extensionIndex > 0
-      ? `${file.name.slice(0, extensionIndex)} - copia${file.name.slice(extensionIndex)}`
-      : `${file.name} - copia`;
-    const name = window.prompt('Nombre de la copia', suggestedName);
+      ? `${file.name.slice(0, extensionIndex)}${t('files.prompt.copySuffix')}${file.name.slice(extensionIndex)}`
+      : `${file.name}${t('files.prompt.copySuffix')}`;
+    const name = window.prompt(t('files.prompt.copyName'), suggestedName);
     if (name?.trim()) await run(['shell', 'cp', '-r', filePath(file), `${path}/${name.trim()}`]).then(() => refreshFiles());
   };
 
   const deleteSelectedFiles = async () => {
     if (!selectedFileEntries.length) return;
     const accepted = await confirm(
-      `Se eliminarán permanentemente ${selectedFileEntries.length} elemento(s) del dispositivo.\n\nEsta acción no se puede deshacer.`,
-      { title: 'Confirmar eliminación', kind: 'warning', okLabel: 'Eliminar', cancelLabel: 'Cancelar' },
+      t('files.confirm.deleteDesc', { count: selectedFileEntries.length }),
+      { title: t('files.confirm.deleteTitle'), kind: 'warning', okLabel: t('common.delete'), cancelLabel: t('common.cancel') },
     );
     if (!accepted) return;
     for (const file of selectedFileEntries) await run(['shell', 'rm', '-rf', filePath(file)]);
@@ -142,7 +144,7 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
 
   const changeSelectedPermissions = async () => {
     if (!selectedFileEntries.length) return;
-    const mode = window.prompt('Permisos octales, por ejemplo 755 o 644', '755');
+    const mode = window.prompt(t('files.prompt.permissions'), '755');
     if (!mode?.match(/^[0-7]{3,4}$/)) return;
     for (const file of selectedFileEntries) await run(['shell', 'chmod', mode, filePath(file)]);
     await refreshFiles();
@@ -166,7 +168,7 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
       ? current.includes(file.name) ? current.filter(name => name !== file.name) : [...current, file.name]
       : [file.name]);
   };
-  const fileType = (file: FileEntry) => file.is_link ? 'Enlace simbólico' : file.is_directory ? 'Carpeta' : 'Archivo';
+  const fileType = (file: FileEntry) => file.is_link ? t('files.type.symlink') : file.is_directory ? t('files.type.folder') : t('files.type.file');
   const fileSize = (file: FileEntry) => file.is_directory || file.is_link ? '-' : formatBytes(file.size);
   const fileIcon = (file: FileEntry) => file.is_link ? 'shortcut' : file.is_directory ? 'folder' : 'draft';
   const pathParts = path.split('/').filter(Boolean);
@@ -180,20 +182,20 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
     <div className="file-explorer">
       <section className="file-material-toolbar">
         <div className="file-navigation">
-          <md-icon-button aria-label="Atrás" title="Atrás" disabled={fileHistoryIndex <= 0 ? true : undefined} onClick={() => goFileHistory(fileHistoryIndex - 1)}><MaterialIcon name="arrow_back" /></md-icon-button>
-          <md-icon-button aria-label="Adelante" title="Adelante" disabled={fileHistoryIndex >= fileHistory.length - 1 ? true : undefined} onClick={() => goFileHistory(fileHistoryIndex + 1)}><MaterialIcon name="arrow_forward" /></md-icon-button>
-          <md-icon-button aria-label="Subir" title="Subir" disabled={path === '/' ? true : undefined} onClick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}><MaterialIcon name="arrow_upward" /></md-icon-button>
-          <md-icon-button aria-label="Recargar" title="Recargar" onClick={() => refreshFiles()}><MaterialIcon name="refresh" /></md-icon-button>
+          <md-icon-button aria-label={t('files.nav.back')} title={t('files.nav.back')} disabled={fileHistoryIndex <= 0 ? true : undefined} onClick={() => goFileHistory(fileHistoryIndex - 1)}><MaterialIcon name="arrow_back" /></md-icon-button>
+          <md-icon-button aria-label={t('files.nav.forward')} title={t('files.nav.forward')} disabled={fileHistoryIndex >= fileHistory.length - 1 ? true : undefined} onClick={() => goFileHistory(fileHistoryIndex + 1)}><MaterialIcon name="arrow_forward" /></md-icon-button>
+          <md-icon-button aria-label={t('files.nav.up')} title={t('files.nav.up')} disabled={path === '/' ? true : undefined} onClick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}><MaterialIcon name="arrow_upward" /></md-icon-button>
+          <md-icon-button aria-label={t('files.nav.refresh')} title={t('files.nav.refresh')} onClick={() => refreshFiles()}><MaterialIcon name="refresh" /></md-icon-button>
         </div>
         <div className={`file-address ${filePathEditing ? 'editing' : ''}`} onClick={() => setFilePathEditing(true)}>
           {filePathEditing
-            ? <md-outlined-text-field autoFocus value={path} aria-label="Ruta" onFocus={(event: any) => event.currentTarget.select()} onBlur={() => setFilePathEditing(false)} onInput={(event: any) => setPath(event.currentTarget.value)} onKeyDown={(event: any) => { if (event.key === 'Enter') { refreshFiles(path, true); setFilePathEditing(false); } if (event.key === 'Escape') setFilePathEditing(false); }} />
+            ? <md-outlined-text-field autoFocus value={path} aria-label={t('files.nav.path')} onFocus={(event: any) => event.currentTarget.select()} onBlur={() => setFilePathEditing(false)} onInput={(event: any) => setPath(event.currentTarget.value)} onKeyDown={(event: any) => { if (event.key === 'Enter') { refreshFiles(path, true); setFilePathEditing(false); } if (event.key === 'Escape') setFilePathEditing(false); }} />
             : <nav className="file-breadcrumbs"><MaterialIcon name="smartphone" /><button onClick={event => { event.stopPropagation(); refreshFiles('/', true); }}>/</button>{pathParts.map((part, index) => <span key={`${part}-${index}`}><MaterialIcon name="chevron_right" /><button onClick={event => { event.stopPropagation(); refreshFiles(`/${pathParts.slice(0, index + 1).join('/')}`, true); }}>{part}</button></span>)}</nav>}
         </div>
         <md-outlined-text-field 
           className="file-search" 
           value={fileFilter} 
-          placeholder={`Buscar en ${currentFolderName}`}
+          placeholder={t('files.search.placeholder', { folder: currentFolderName || '' })}
           type="search" 
           onInput={(event: any) => setFileFilter(event.currentTarget.value)}
         >
@@ -201,28 +203,28 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
         </md-outlined-text-field>
 
         <div className="file-view-switch">
-          <button className={fileView === 'list' ? 'active' : ''} aria-label="Vista en lista" title="Vista en lista" onClick={() => setFileView('list')}><MaterialIcon name="view_list" /></button>
-          <button className={fileView === 'grid' ? 'active' : ''} aria-label="Vista en cuadrícula" title="Vista en cuadrícula" onClick={() => setFileView('grid')}><MaterialIcon name="grid_view" /></button>
+          <button className={fileView === 'list' ? 'active' : ''} aria-label={t('files.view.list')} title={t('files.view.list')} onClick={() => setFileView('list')}><MaterialIcon name="view_list" /></button>
+          <button className={fileView === 'grid' ? 'active' : ''} aria-label={t('files.view.grid')} title={t('files.view.grid')} onClick={() => setFileView('grid')}><MaterialIcon name="grid_view" /></button>
         </div>
       </section>
       
       <section className="file-command-bar">
         <div className="file-primary-actions">
-          <md-filled-tonal-button onClick={createDeviceFolder}><MaterialIcon slot="icon" name="create_new_folder" />Nueva carpeta</md-filled-tonal-button>
-          <md-filled-button onClick={uploadFiles}><MaterialIcon slot="icon" name="upload" />Enviar</md-filled-button>
-          <md-filled-tonal-button disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={downloadSelectedFiles}><MaterialIcon slot="icon" name="download" />Descargar</md-filled-tonal-button>
+          <md-filled-tonal-button onClick={createDeviceFolder}><MaterialIcon slot="icon" name="create_new_folder" />{t('files.action.newFolder')}</md-filled-tonal-button>
+          <md-filled-button onClick={uploadFiles}><MaterialIcon slot="icon" name="upload" />{t('files.action.upload')}</md-filled-button>
+          <md-filled-tonal-button disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={downloadSelectedFiles}><MaterialIcon slot="icon" name="download" />{t('files.action.download')}</md-filled-tonal-button>
         </div>
         <div className="file-selection-actions">
-          <md-icon-button aria-label="Renombrar" title="Renombrar" disabled={selectedFileEntries.length !== 1 ? true : undefined} onClick={renameSelectedFile}><MaterialIcon name="edit" /></md-icon-button>
-          <md-icon-button aria-label="Duplicar" title="Duplicar" disabled={selectedFileEntries.length !== 1 ? true : undefined} onClick={duplicateSelectedFile}><MaterialIcon name="content_copy" /></md-icon-button>
-          <md-icon-button aria-label="Permisos" title="Permisos" disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={changeSelectedPermissions}><MaterialIcon name="admin_panel_settings" /></md-icon-button>
-          <md-icon-button className="danger" aria-label="Eliminar" title="Eliminar" disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={deleteSelectedFiles}><MaterialIcon name="delete" /></md-icon-button>
+          <md-icon-button aria-label={t('files.action.rename')} title={t('files.action.rename')} disabled={selectedFileEntries.length !== 1 ? true : undefined} onClick={renameSelectedFile}><MaterialIcon name="edit" /></md-icon-button>
+          <md-icon-button aria-label={t('files.action.duplicate')} title={t('files.action.duplicate')} disabled={selectedFileEntries.length !== 1 ? true : undefined} onClick={duplicateSelectedFile}><MaterialIcon name="content_copy" /></md-icon-button>
+          <md-icon-button aria-label={t('files.action.permissions')} title={t('files.action.permissions')} disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={changeSelectedPermissions}><MaterialIcon name="admin_panel_settings" /></md-icon-button>
+          <md-icon-button className="danger" aria-label={t('common.delete')} title={t('common.delete')} disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={deleteSelectedFiles}><MaterialIcon name="delete" /></md-icon-button>
         </div>
       </section>
 
       <section className={`file-browser ${fileView}`}>
         {fileView === 'list' && <div className="file-list-table">
-          <div className="file-list-header">{([['name', 'Nombre'], ['type', 'Tipo'], ['size', 'Tamaño'], ['permissions', 'Permisos'], ['modified', 'Modificado']] as [FileSortKey, string][]).map(([key, label]) => <button className={fileSort.key === key ? 'active' : ''} key={key} onClick={() => changeFileSort(key)}>{label}<MaterialIcon name={sortIcon(key)} /></button>)}</div>
+          <div className="file-list-header">{([['name', t('files.sort.name')], ['type', t('files.sort.type')], ['size', t('files.sort.size')], ['permissions', t('files.sort.permissions')], ['modified', t('files.sort.modified')]] as [FileSortKey, string][]).map(([key, label]) => <button className={fileSort.key === key ? 'active' : ''} key={key} onClick={() => changeFileSort(key)}>{label}<MaterialIcon name={sortIcon(key)} /></button>)}</div>
           {filteredFiles.map(file => <button className={`file-list-row ${selectedFiles.includes(file.name) ? 'selected' : ''}`} key={file.name} onClick={event => selectFileEntry(event, file)} onDoubleClick={() => openFileEntry(file)}>
             <span className={`file-name-cell ${file.is_link ? 'symbolic' : ''}`}><b><MaterialIcon name={fileIcon(file)} /></b><span><strong>{file.name}{file.is_link && <small title={file.link_target}> → {file.link_target}</small>}</strong></span></span>
             <span>{fileType(file)}</span><span>{fileSize(file)}</span><code>{file.permissions}</code><span>{file.modified}</span>
@@ -238,9 +240,9 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
             <md-ripple />
           </button>)}
         </div>}
-        {!filteredFiles.length && <div className="file-empty"><MaterialIcon name="folder_off" /><b>Carpeta vacía</b><span>No hay elementos que coincidan con el filtro.</span></div>}
+        {!filteredFiles.length && <div className="file-empty"><MaterialIcon name="folder_off" /><b>{t('files.empty.title')}</b><span>{t('files.empty.desc')}</span></div>}
       </section>
-      <footer className="file-status-bar"><span><MaterialIcon name="folder" />{filteredFiles.length} elementos</span><span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? `${selectedFileEntries.length} seleccionados` : 'Sin selección'}</span></footer>
+      <footer className="file-status-bar"><span><MaterialIcon name="folder" />{t('files.status.items', { count: filteredFiles.length })}</span><span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? t('files.status.selected', { count: selectedFileEntries.length }) : t('files.status.noSelection')}</span></footer>
     </div>
   );
 }

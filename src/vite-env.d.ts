@@ -27,6 +27,7 @@ declare module 'react' {
       'md-elevation': any;
       'md-divider': any;
       'md-circular-progress': any;
+      'md-slider': any;
     }
   }
 }

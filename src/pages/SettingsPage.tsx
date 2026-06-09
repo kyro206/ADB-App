@@ -3,73 +3,7 @@ import type { ToolStatus, ToolsStatus } from './workbench/types';
 import { MaterialIcon } from '../components/MaterialIcon'; // <-- Importado aquí
 import './SettingsPage.css';
 
-// --- SISTEMA DE TRADUCCIONES ---
-const translations = {
-  es: {
-    appearance: 'Apariencia',
-    language: 'Idioma',
-    spanish: 'Español',
-    english: 'English',
-    notInstalled: 'No instalado',
-    updateAvailable: 'Actualización disponible',
-    checkingUpdate: 'Comprobando actualización...',
-    updated: 'Actualizado',
-    checkFailed: 'No se pudo comprobar',
-    source: 'Origen',
-    installedVersion: 'Versión instalada',
-    latestVersion: 'Última versión',
-    savePath: 'Guardar ruta',
-    autoDetect: 'Detección automática',
-    install: 'Instalar',
-    update: 'Actualizar',
-    adbPlaceholder: 'Ruta al ejecutable adb o su carpeta',
-    scrcpyPlaceholder: 'Ruta al ejecutable scrcpy o su carpeta',
-    javaTitle: 'Java para AAB',
-    javaCompatible: 'Compatible',
-    javaNotCompatible: 'Versión no compatible',
-    javaNotDetected: 'No detectado',
-    javaDesc: 'Necesario para procesar archivos .aab con bundletool. Se recomienda instalar la última versión LTS de Eclipse Temurin. Java 11 o superior es obligatorio para bundletool.',
-    javaPlaceholder: 'Ruta a java.exe o su carpeta',
-    downloadTemurin: 'Descargar Temurin LTS',
-    cacheTitle: 'Caché de aplicaciones',
-    cacheDesc: 'Solo almacena localmente los nombres e iconos obtenidos de las aplicaciones.',
-    clearCache: 'Borrar caché',
-    enableCache: 'Habilitar caché',
-    cachePathPlaceholder: 'Ruta personalizada para caché (vacío = por defecto)',
-  },
-  en: {
-    appearance: 'Appearance',
-    language: 'Language',
-    spanish: 'Español',
-    english: 'English',
-    notInstalled: 'Not installed',
-    updateAvailable: 'Update available',
-    checkingUpdate: 'Checking for updates...',
-    updated: 'Up to date',
-    checkFailed: 'Check failed',
-    source: 'Source',
-    installedVersion: 'Installed version',
-    latestVersion: 'Latest version',
-    savePath: 'Save path',
-    autoDetect: 'Auto detect',
-    install: 'Install',
-    update: 'Update',
-    adbPlaceholder: 'Path to adb executable or folder',
-    scrcpyPlaceholder: 'Path to scrcpy executable or folder',
-    javaTitle: 'Java for AAB',
-    javaCompatible: 'Compatible',
-    javaNotCompatible: 'Incompatible version',
-    javaNotDetected: 'Not detected',
-    javaDesc: 'Required to process .aab files with bundletool. Installing the latest LTS version of Eclipse Temurin is recommended. Java 11 or higher is required.',
-    javaPlaceholder: 'Path to java.exe or folder',
-    downloadTemurin: 'Download Temurin LTS',
-    cacheTitle: 'Application Cache',
-    cacheDesc: 'Only stores locally the names and icons obtained from the applications.',
-    clearCache: 'Clear cache',
-    enableCache: 'Enable cache',
-    cachePathPlaceholder: 'Custom cache path (empty = default)',
-  }
-};
+import { useI18n } from '../locales';
 
 // --- COMPONENTES BASE MD3 ---
 
@@ -82,16 +16,16 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ToolState({ tool, checking, t }: { tool: ToolStatus; checking: boolean; t: typeof translations['es'] }) {
+function ToolState({ tool, checking, t }: { tool: ToolStatus; checking: boolean; t: (key: string, params?: Record<string, string | number>) => string }) {
   const state = !tool.available
-    ? t.notInstalled
+    ? t('settings.notInstalled')
     : tool.update_available
-      ? t.updateAvailable
+      ? t('settings.updateAvailable')
       : checking
-        ? t.checkingUpdate
+        ? t('settings.checkingUpdate')
         : tool.update_checked
-          ? t.updated
-          : t.checkFailed;
+          ? t('settings.updated')
+          : t('settings.checkFailed');
 
   return (
     <div className="tool-status">
@@ -100,9 +34,9 @@ function ToolState({ tool, checking, t }: { tool: ToolStatus; checking: boolean;
         <strong>{state}</strong>
       </div>
       <div className="tool-status-details">
-        <span>{t.source}: {tool.source || '-'}</span>
-        <span>{t.installedVersion}: {tool.version || '-'}</span>
-        {tool.latest_version && <span>{t.latestVersion}: {tool.latest_version}</span>}
+        <span>{t('settings.source')}: {tool.source || '-'}</span>
+        <span>{t('settings.installedVersion')}: {tool.version || '-'}</span>
+        {tool.latest_version && <span>{t('settings.latestVersion')}: {tool.latest_version}</span>}
       </div>
     </div>
   );
@@ -119,7 +53,7 @@ type ToolPanelProps = {
   path: string;
   placeholder: string;
   checking: boolean;
-  t: typeof translations['es'];
+  t: (key: string, params?: Record<string, string | number>) => string;
   onPathChange: (path: string) => void;
   onSave: (tool: ConfigurableTool, path: string) => void;
   onInstall: (tool: InstallableTool) => void;
@@ -142,22 +76,22 @@ function ToolPanel(props: ToolPanelProps) {
         />
         <div className="button-row">
           <md-filled-button onClick={() => props.onSave(toolName, props.path)}>
-            {t.savePath}
+            {t('settings.savePath')}
           </md-filled-button>
           <md-outlined-button onClick={() => props.onSave(toolName, '')}>
-            {t.autoDetect}
+            {t('settings.autoDetect')}
           </md-outlined-button>
           
           {props.tool?.install_supported && !props.tool.available && (
             <md-filled-button onClick={() => props.onInstall(toolName)}>
               <MaterialIcon name="download" slot="icon" />
-              {t.install} {shortTitle}
+              {t('settings.install')} {shortTitle}
             </md-filled-button>
           )}
           {props.tool?.install_supported && props.tool.update_available && (
             <md-filled-button onClick={() => props.onInstall(toolName)}>
               <MaterialIcon name="update" slot="icon" />
-              {t.update} {shortTitle}
+              {t('settings.update')} {shortTitle}
             </md-filled-button>
           )}
         </div>
@@ -192,7 +126,7 @@ type SettingsPageProps = {
 
 export function SettingsPage(props: SettingsPageProps) {
   const { theme, language, tools, checkingUpdates } = props;
-  const t = translations[language];
+  const { t } = useI18n();
 
   const handleThemeToggle = () => {
     props.onThemeChange(theme === 'light' ? 'dark' : 'light');
@@ -202,10 +136,10 @@ export function SettingsPage(props: SettingsPageProps) {
     <div className="work-grid">
       
       {/* TARJETA DE APARIENCIA E IDIOMA */}
-      <Panel title={t.appearance}>
+      <Panel title={t('settings.appearance')}>
         <div className="settings-appearance-row">
           <div className="theme-toggle">
-            <span className="muted">{theme === 'light' ? 'Modo Claro' : 'Modo Oscuro'}</span>
+            <span className="muted">{theme === 'light' ? t('settings.theme.light') : t('settings.theme.dark')}</span>
             <md-icon-button onClick={handleThemeToggle}>
               {/* Cambia el icono usando tu propio componente */}
               <MaterialIcon name={theme === 'light' ? 'dark_mode' : 'light_mode'} />
@@ -213,15 +147,15 @@ export function SettingsPage(props: SettingsPageProps) {
           </div>
 
           <md-outlined-select 
-            label={t.language}
+            label={t('settings.language')}
             value={language} 
             onChange={(e: any) => props.onLanguageChange(e.target.value as 'es' | 'en')}
           >
             <md-select-option value="es">
-              <div slot="headline">{t.spanish}</div>
+              <div slot="headline">Español</div>
             </md-select-option>
             <md-select-option value="en">
-              <div slot="headline">{t.english}</div>
+              <div slot="headline">English</div>
             </md-select-option>
           </md-outlined-select>
         </div>
@@ -233,7 +167,7 @@ export function SettingsPage(props: SettingsPageProps) {
         toolName="adb" 
         tool={tools?.adb} 
         path={props.adbPath} 
-        placeholder={t.adbPlaceholder} 
+        placeholder={t('settings.adbPlaceholder')} 
         checking={checkingUpdates} 
         t={t}
         onPathChange={props.onAdbPathChange} 
@@ -246,7 +180,7 @@ export function SettingsPage(props: SettingsPageProps) {
         toolName="scrcpy" 
         tool={tools?.scrcpy} 
         path={props.scrcpyPath} 
-        placeholder={t.scrcpyPlaceholder} 
+        placeholder={t('settings.scrcpyPlaceholder')} 
         checking={checkingUpdates} 
         t={t}
         onPathChange={props.onScrcpyPathChange} 
@@ -255,46 +189,45 @@ export function SettingsPage(props: SettingsPageProps) {
       />
       
       {/* TARJETA DE JAVA */}
-      <Panel title={t.javaTitle}>
+      <Panel title={t('settings.javaTitle')}>
         <div className="tool-status">
           <div className="tool-status-header">
             <MaterialIcon 
               name={tools?.java.available ? 'check_circle' : 'warning'} 
               size={20} 
             />
-            <strong>{tools?.java.available ? t.javaCompatible : tools?.java.path ? t.javaNotCompatible : t.javaNotDetected}</strong>
+            <strong>{tools?.java.available ? t('settings.javaCompatible') : tools?.java.path ? t('settings.javaNotCompatible') : t('settings.javaNotDetected')}</strong>
           </div>
           <div className="tool-status-details">
-            <span>{t.source}: {tools?.java.source || '-'}</span>
-            <span>{t.installedVersion}: {tools?.java.version || '-'}</span>
+            <span>{t('settings.installedVersion')}: {tools?.java.version || '-'}</span>
           </div>
         </div>
         <div className="form-stack">
-          <p className="muted md3-body-medium">{t.javaDesc}</p>
+          <p className="muted md3-body-medium">{t('settings.javaDesc')}</p>
           <md-outlined-text-field 
             value={props.javaPath} 
             onInput={(e: any) => props.onJavaPathChange(e.target.value)} 
-            label={t.javaPlaceholder}
+            label={t('settings.javaPlaceholder')}
             style={{ width: '100%' }}
           />
           <div className="button-row">
-            <md-filled-button onClick={() => props.onSaveToolPath('java', props.javaPath)}>{t.savePath}</md-filled-button>
-            <md-outlined-button onClick={() => props.onSaveToolPath('java', '')}>{t.autoDetect}</md-outlined-button>
+            <md-filled-button onClick={() => props.onSaveToolPath('java', props.javaPath)}>{t('settings.savePath')}</md-filled-button>
+            <md-outlined-button onClick={() => props.onSaveToolPath('java', '')}>{t('settings.autoDetect')}</md-outlined-button>
             <md-text-button href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">
               <MaterialIcon name="open_in_new" slot="icon" />
-              {t.downloadTemurin}
+              {t('settings.downloadTemurin')}
             </md-text-button>
           </div>
         </div>
       </Panel>
       
       {/* TARJETA DE CACHÉ */}
-      <Panel title={t.cacheTitle}>
+      <Panel title={t('settings.cacheTitle')}>
         <div className="form-stack">
-          <p className="muted md3-body-medium">{t.cacheDesc}</p>
+          <p className="muted md3-body-medium">{t('settings.cacheDesc')}</p>
           
           <label className="settings-switch-row">
-            <span className="md3-body-large">{t.enableCache}</span>
+            <span className="md3-body-large">{t('settings.enableCache')}</span>
             <md-switch 
               selected={props.appSettings?.cache_enabled ?? true}
               onChange={(e: any) => {
@@ -305,25 +238,22 @@ export function SettingsPage(props: SettingsPageProps) {
             />
           </label>
 
-          <div className="settings-appearance-row" style={{ marginTop: '8px' }}>
-            <md-outlined-text-field 
-              value={props.appSettings?.cache_path ?? ''} 
-              onInput={(e: any) => {
-                if (props.appSettings) {
-                  props.onSaveAppSettings({ ...props.appSettings, cache_path: e.target.value });
-                }
-              }} 
-              label={t.cachePathPlaceholder}
-              supportingText={props.appSettings?.cache_path ? '' : `Actual: ${props.defaultCacheDir}`}
-              style={{ width: '100%' }}
-              disabled={!(props.appSettings?.cache_enabled ?? true)}
-            />
-          </div>
+          <md-outlined-text-field 
+            value={props.appSettings?.cache_path || props.defaultCacheDir} 
+            onInput={(e: any) => {
+              if (props.appSettings) {
+                props.onSaveAppSettings({ ...props.appSettings, cache_path: e.target.value });
+              }
+            }} 
+            label={t('settings.cachePathPlaceholder')}
+            style={{ width: '100%' }}
+            disabled={!(props.appSettings?.cache_enabled ?? true)}
+          />
 
           <div className="button-row settings-cache-actions" style={{ marginTop: '16px' }}>
             <md-outlined-button onClick={props.onClearCache}>
               <MaterialIcon name="delete" slot="icon" />
-              {t.clearCache}
+              {t('common.clearCache')}
             </md-outlined-button>
           </div>
         </div>
