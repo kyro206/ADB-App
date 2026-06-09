@@ -10,9 +10,10 @@ interface DeviceSelectorProps {
   loadingLabel: string;
   emptyLabel: string;
   onSelect: (serial: string) => void;
+  onDisconnect?: (serial: string) => void;
 }
 
-export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel, emptyLabel, onSelect }: DeviceSelectorProps) {
+export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel, emptyLabel, onSelect, onDisconnect }: DeviceSelectorProps) {
   const { t } = useI18n();
   const anchorRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<any>(null);
@@ -20,7 +21,7 @@ export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel,
   const [open, setOpen] = useState(false);
   const disabled = loading || devices.length === 0;
   const label = selectedDevice?.model || selectedDevice?.serial || (loading ? loadingLabel : emptyLabel);
-  const connectionIcon = selectedDevice?.serial.includes(':') ? 'wifi' : 'smartphone';
+  const connectionIcon = selectedDevice && (selectedDevice.serial.includes(':') || selectedDevice.serial.includes('._tcp')) ? 'wifi' : 'smartphone';
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -54,7 +55,11 @@ export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel,
     const anchor = anchorRef.current;
     if (!menu || !anchor) return;
     menu.anchorElement = anchor;
-    menu.style.width = `${anchor.getBoundingClientRect().width}px`;
+    const width = `${anchor.getBoundingClientRect().width}px`;
+    menu.style.setProperty('--md-menu-container-width', width);
+    menu.style.setProperty('max-width', width);
+    menu.style.setProperty('min-width', width);
+    menu.style.width = width;
     if (menu.open) menu.close();
     else menu.show();
   };
@@ -84,18 +89,35 @@ export function DeviceSelector({ devices, selectedDevice, loading, loadingLabel,
       anchorCorner="end-start"
       menuCorner="start-start"
     >
-      {devices.map(device => <md-menu-item
-        key={device.serial}
-        className="topbar-device-picker__option"
-        data-device-serial={device.serial}
-        selected={selectedDevice?.serial === device.serial || undefined}
-        typeaheadText={`${device.model} ${device.serial}`}
-      >
-        <MaterialIcon slot="start" name={device.serial.includes(':') ? 'wifi' : 'smartphone'} />
-        <div slot="headline">{device.model || device.serial}</div>
-        <div slot="supporting-text">{device.serial} · {device.state}</div>
-        {selectedDevice?.serial === device.serial && <MaterialIcon slot="end" name="check" />}
-      </md-menu-item>)}
+      {devices.map(device => {
+        const isWireless = device.serial.includes(':') || device.serial.includes('._tcp');
+        return <md-menu-item
+          key={device.serial}
+          className="topbar-device-picker__option"
+          data-device-serial={device.serial}
+          selected={selectedDevice?.serial === device.serial || undefined}
+          typeaheadText={`${device.model} ${device.serial}`}
+        >
+          <MaterialIcon slot="start" name={isWireless ? 'wifi' : 'smartphone'} />
+          <div slot="headline">{device.model || device.serial}</div>
+          <div slot="supporting-text">{device.serial} · {device.state}</div>
+          {isWireless ? (
+            <md-icon-button
+              slot="end"
+              onPointerDown={(e: React.PointerEvent) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (onDisconnect) onDisconnect(device.serial);
+              }}
+              title={t('topbar.wireless.disconnect')}
+            >
+              <MaterialIcon name="close" />
+            </md-icon-button>
+          ) : (
+            selectedDevice?.serial === device.serial && <MaterialIcon slot="end" name="check" />
+          )}
+        </md-menu-item>;
+      })}
     </md-menu>
   </div>;
 }

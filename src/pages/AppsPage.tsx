@@ -22,6 +22,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
   const [installOpen, setInstallOpen] = useState(false);
   const [installFiles, setInstallFiles] = useState<string[]>([]);
   const [installResult, setInstallResult] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [installReplace, setInstallReplace] = useState(true);
   const [installGrant, setInstallGrant] = useState(true);
   const [installTest, setInstallTest] = useState(true);
@@ -51,9 +52,13 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
     if (!serial) return;
     setBusy(true);
     try {
+      setLoadError('');
       const value = await invoke<AppSummary[]>('list_apps', { serial });
       setApps(value); setStatus('');
-    } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
+    } catch (error) { 
+      setStatus(String(error)); 
+      setLoadError(String(error));
+    } finally { setBusy(false); }
   };
 
   useEffect(() => {
@@ -266,7 +271,19 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
               <span className="apps-material-tile__copy"><strong>{app.display_name}</strong><small>{app.package_name}</small></span>
               <md-ripple />
             </button>)}
-            {!filteredApps.length && <div className="apps-material-empty"><MaterialIcon name="search_off" /><strong>{t('apps.empty.title')}</strong><span>{t('apps.empty.subtitle')}</span></div>}
+            {!filteredApps.length && (
+              <div className="apps-material-empty">
+                <MaterialIcon name={loadError ? "error_outline" : "search_off"} />
+                <strong>{loadError ? t('common.error') : t('apps.empty.title')}</strong>
+                <span>{loadError || t('apps.empty.subtitle')}</span>
+                {loadError && (
+                  <md-filled-tonal-button style={{ marginTop: '16px' }} onClick={refreshApps}>
+                    <MaterialIcon slot="icon" size='20px' name="refresh" />
+                    {t('apps.action.refresh')}
+                  </md-filled-tonal-button>
+                )}
+              </div>
+            )}
           </div>
         </section>
         <aside className="apps-material-detail">

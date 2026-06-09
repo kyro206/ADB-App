@@ -27,6 +27,7 @@ pub fn run() {
             screenshot::save_screenshot,
             operations::run_device_action,
             operations::connect_wireless_device,
+            operations::disconnect_wireless_device,
             operations::pair_wireless_device,
             operations::generate_wireless_qr,
             operations::pair_wireless_qr,

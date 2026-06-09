@@ -182,7 +182,6 @@ export const es: Record<string, string> = {
 
   // Files
   'files.status.items': '{count} elementos',
-
   'files.status.selected': '{count} seleccionados',
   'files.status.noSelection': 'Sin selección',
   'files.prompt.newFolder': 'Nombre de la nueva carpeta',
@@ -279,8 +278,10 @@ export const es: Record<string, string> = {
   'settings.clearCache': 'Borrar caché',
   'settings.enableCache': 'Habilitar caché',
   'settings.cachePathPlaceholder': 'Ruta de la caché de iconos',
+  'settings.theme': 'Tema',
   'settings.theme.light': 'Modo Claro',
   'settings.theme.dark': 'Modo Oscuro',
+  'settings.theme.auto': 'Automático',
 
   // Dialogs & Layout
   'wireless.status.ready': 'Listo para conectar',
@@ -353,7 +354,9 @@ export const es: Record<string, string> = {
   'topbar.window.close': 'Cerrar',
   'topbar.tcpip.tooltip': 'Pasar la conexión USB actual a Wi-Fi',
   'topbar.wireless.tooltip': 'Conectar o emparejar dispositivo',
+  'topbar.wireless.disconnect': 'Desconectar dispositivo',
 
+  // Estados
   'state.connected': 'Conectado',
   'state.connecting': 'Conectando',
   'state.unauthorized': 'No autorizado',
@@ -361,6 +364,7 @@ export const es: Record<string, string> = {
   'state.recovery': 'Recuperación',
   'state.unknown': 'Desconocido',
 
+  // Tipos de dispositivos
   'device.type.phone': 'Teléfono',
   'device.type.tablet': 'Tablet',
   'device.type.foldable': 'Plegable',
@@ -372,8 +376,7 @@ export const es: Record<string, string> = {
   'device.type.device': 'Dispositivo',
   'device.type.unknown': 'Desconocido',
 
-
-
+  // Errores
   'error.devices.load': 'No se pudieron cargar los dispositivos.',
   'error.capture': 'No se pudo capturar la pantalla.',
   'error.capture.invalidImage': 'ADB devolvió datos de captura en un formato inválido.',

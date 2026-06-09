@@ -127,7 +127,7 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            cache_enabled: true,
+            cache_enabled: false,
             cache_path: String::new(),
         }
     }
@@ -579,6 +579,20 @@ pub async fn connect_wireless_device(endpoint: String) -> Result<String, String>
     }
     let result = adb::run_adb(&["connect", endpoint]).await?;
     if result.ok() && !result.output.to_ascii_lowercase().contains("failed") {
+        Ok(result.output.trim().to_string())
+    } else {
+        Err(result.output.trim().to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn disconnect_wireless_device(endpoint: String) -> Result<String, String> {
+    let endpoint = endpoint.trim();
+    if endpoint.is_empty() {
+        return Err("Please enter a valid device serial".to_string());
+    }
+    let result = adb::run_adb(&["disconnect", endpoint]).await?;
+    if result.ok() {
         Ok(result.output.trim().to_string())
     } else {
         Err(result.output.trim().to_string())

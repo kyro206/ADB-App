@@ -114,14 +114,14 @@ function ToolPanel(props: ToolPanelProps) {
 // --- PÁGINA PRINCIPAL ---
 
 type SettingsPageProps = {
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'auto';
   language: 'es' | 'en';
   tools: ToolsStatus | null;
   checkingUpdates: boolean;
   adbPath: string;
   scrcpyPath: string;
   javaPath: string;
-  onThemeChange: (theme: 'light' | 'dark') => void;
+  onThemeChange: (theme: 'light' | 'dark' | 'auto') => void;
   onLanguageChange: (language: 'es' | 'en') => void;
   onAdbPathChange: (path: string) => void;
   onScrcpyPathChange: (path: string) => void;
@@ -138,22 +138,23 @@ export function SettingsPage(props: SettingsPageProps) {
   const { theme, language, tools, checkingUpdates } = props;
   const { t } = useI18n();
 
-  const handleThemeToggle = () => {
-    props.onThemeChange(theme === 'light' ? 'dark' : 'light');
-  };
-
   return (
     <div className="work-grid">
       
       {/* TARJETA DE APARIENCIA E IDIOMA */}
       <Panel title={t('settings.appearance')}>
         <div className="settings-appearance-row">
-          <div className="theme-toggle">
-            <span className="muted">{theme === 'light' ? t('settings.theme.light') : t('settings.theme.dark')}</span>
-            <md-icon-button onClick={handleThemeToggle}>
-              {/* Cambia el icono usando tu propio componente */}
-              <MaterialIcon name={theme === 'light' ? 'dark_mode' : 'light_mode'} />
-            </md-icon-button>
+          <div className="md3-segmented-button">
+            {[
+              ['light_mode', t('settings.theme.light'), 'light'],
+              ['dark_mode', t('settings.theme.dark'), 'dark'],
+              ['brightness_auto', t('settings.theme.auto'), 'auto']
+            ].map(([icon, label, value]) => (
+              <button key={value} className={theme === value ? 'active' : ''} onClick={() => props.onThemeChange(value as any)}>
+                <MaterialIcon name={icon} />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
 
           <md-outlined-select 

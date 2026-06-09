@@ -278,8 +278,10 @@ export const en = {
   'settings.cacheTitle': 'Application Cache',
   'settings.enableCache': 'Enable cache',
   'settings.cachePathPlaceholder': 'Icons cache path',
+  'settings.theme': 'Theme',
   'settings.theme.light': 'Light Mode',
   'settings.theme.dark': 'Dark Mode',
+  'settings.theme.auto': 'System Default',
 
   // Dialogs & Layout
   'wireless.status.ready': 'Ready to connect',
@@ -352,6 +354,7 @@ export const en = {
   'topbar.window.close': 'Close',
   'topbar.tcpip.tooltip': 'Switch current USB connection to Wi-Fi',
   'topbar.wireless.tooltip': 'Connect or pair device',
+  'topbar.wireless.disconnect': 'Disconnect device',
 
   // States
   'state.connected': 'Connected',
@@ -372,8 +375,6 @@ export const en = {
   'device.type.embedded': 'Embedded',
   'device.type.device': 'Device',
   'device.type.unknown': 'Unknown',
-
-
 
   // Errors
   'error.devices.load': 'Could not load devices.',
@@ -442,5 +443,3 @@ export const en = {
   'apps.permissions.count': '{granted} of {total}',
   'apps.permissions.empty': 'This app declares no permissions.',
 } as const;
-
-export type TranslationKey = keyof typeof en;

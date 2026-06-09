@@ -15,7 +15,7 @@ pub fn initialize(app: &AppHandle) -> Result<(), String> {
     let paths = AppPaths {
         data: app
             .path()
-            .app_data_dir()
+            .app_local_data_dir()
             .map_err(|error| error.to_string())?,
         config: app
             .path()

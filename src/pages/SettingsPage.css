@@ -63,9 +63,14 @@
 /* --- FILA DE APARIENCIA --- */
 .settings-appearance-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 32px;
-  align-items: center;
+  flex-direction: column;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.settings-appearance-row .md3-segmented-button {
+  align-self: stretch;
+  width: 100%;
 }
 
 .theme-toggle {
