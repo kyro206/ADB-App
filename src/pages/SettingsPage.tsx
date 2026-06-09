@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { ToolStatus, ToolsStatus } from './workbench/types';
+import { getVersion } from '@tauri-apps/api/app';
 import { MaterialIcon } from '../components/MaterialIcon'; // <-- Importado aquí
 import './SettingsPage.css';
 
@@ -7,9 +9,9 @@ import { useI18n } from '../locales';
 
 // --- COMPONENTES BASE MD3 ---
 
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+function Panel({ title, children, style, className }: { title: string; children: ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
-    <section className="md3-card">
+    <section className={`md3-card ${className || ''}`} style={style}>
       <h3 className="md3-title">{title}</h3>
       {children}
     </section>
@@ -137,6 +139,11 @@ type SettingsPageProps = {
 export function SettingsPage(props: SettingsPageProps) {
   const { theme, language, tools, checkingUpdates } = props;
   const { t } = useI18n();
+  const [appVersion, setAppVersion] = useState<string>('...');
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion('Unknown'));
+  }, []);
 
   return (
     <div className="work-grid">
@@ -281,6 +288,46 @@ export function SettingsPage(props: SettingsPageProps) {
               }}
             />
           </label>
+        </div>
+      </Panel>
+
+      {/* ACERCA DE */}
+      <Panel title={t('settings.aboutTitle')} style={{ gridColumn: '1 / -1' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center', padding: '16px 0' }}>
+          <img src="/icon.webp" alt="ADB App Logo" style={{ width: '80px', height: '80px', pointerEvents: 'none' }} />
+          <div>
+            <h2 style={{ margin: '0 0 4px 0' }}>ADB App</h2>
+            <span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>v{appVersion}</span>
+          </div>
+          <p style={{ margin: 0, fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', maxWidth: '400px' }}>
+            {t('settings.aboutDisclaimer')}
+          </p>
+          
+          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--md-sys-color-surface-container-high)', padding: '12px 24px', borderRadius: '50px' }}>
+            <span style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>{t('settings.aboutCreator')}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img 
+                src="https://github.com/kyro206.png?size=200" 
+                alt="Kyro206" 
+                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', background: 'var(--md-sys-color-surface-variant)' }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextElementSibling) {
+                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+              <div style={{ display: 'none', width: '32px', height: '32px', borderRadius: '50%', background: 'var(--md-sys-color-surface-variant)', alignItems: 'center', justifyContent: 'center', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                <MaterialIcon name="person" size={20} />
+              </div>
+              <strong style={{ fontSize: '16px' }}>Kyro206</strong>
+            </div>
+          </div>
+          
+          <md-text-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer" style={{ marginTop: '8px' }}>
+            <MaterialIcon name="code" slot="icon" />
+            GitHub
+          </md-text-button>
         </div>
       </Panel>
     </div>
