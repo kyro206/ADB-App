@@ -22,13 +22,16 @@ export function DeviceStateScreen({ serial, loading, children }: DeviceStateScre
     );
   }
 
-  if (loading) {
-    return (
-      <div className="device-state-screen loading">
-        <md-circular-progress indeterminate></md-circular-progress>
+  return (
+    <>
+      {loading && (
+        <div className="device-state-screen loading">
+          <md-circular-progress indeterminate></md-circular-progress>
+        </div>
+      )}
+      <div style={{ display: loading ? 'none' : 'contents' }}>
+        {children}
       </div>
-    );
-  }
-
-  return <>{children}</>;
+    </>
+  );
 }

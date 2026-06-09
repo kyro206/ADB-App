@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { confirm, open } from '@tauri-apps/plugin-dialog';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { PromptDialog } from '../components/dialogs/PromptDialog';
 import { useI18n } from '../locales';
 import { formatBytes } from './workbench/utils';
 import type { FileEntry, FileSortKey, FileView } from './workbench/types';
@@ -26,6 +27,25 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
   const [fileHistory, setFileHistory] = useState<string[]>(['/sdcard']);
   const [fileHistoryIndex, setFileHistoryIndex] = useState(0);
   const [fileThumbnails, setFileThumbnails] = useState<Record<string, string>>({});
+  const [promptConfig, setPromptConfig] = useState<{ open: boolean; title: string; initialValue: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
+
+  const asyncPrompt = (title: string, initialValue: string = '') => {
+    return new Promise<string | null>((resolve) => {
+      setPromptConfig({
+        open: true,
+        title,
+        initialValue,
+        onConfirm: (val) => {
+          setPromptConfig(null);
+          resolve(val);
+        },
+        onCancel: () => {
+          setPromptConfig(null);
+          resolve(null);
+        }
+      });
+    });
+  };
 
   const normalizeDevicePath = (value: string) => {
     const parts: string[] = [];
@@ -109,14 +129,14 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
   };
 
   const createDeviceFolder = async () => {
-    const name = window.prompt(t('files.prompt.newFolder'));
+    const name = await asyncPrompt(t('files.prompt.newFolder'));
     if (name?.trim()) await run(['shell', 'mkdir', '-p', `${path}/${name.trim()}`]).then(() => refreshFiles());
   };
 
   const renameSelectedFile = async () => {
     const file = selectedFileEntries[0];
     if (!file) return;
-    const name = window.prompt(t('files.prompt.rename'), file.name);
+    const name = await asyncPrompt(t('files.prompt.rename'), file.name);
     if (name?.trim() && name !== file.name) await run(['shell', 'mv', filePath(file), `${path}/${name.trim()}`]).then(() => refreshFiles());
   };
 
@@ -127,7 +147,7 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
     const suggestedName = extensionIndex > 0
       ? `${file.name.slice(0, extensionIndex)}${t('files.prompt.copySuffix')}${file.name.slice(extensionIndex)}`
       : `${file.name}${t('files.prompt.copySuffix')}`;
-    const name = window.prompt(t('files.prompt.copyName'), suggestedName);
+    const name = await asyncPrompt(t('files.prompt.copyName'), suggestedName);
     if (name?.trim()) await run(['shell', 'cp', '-r', filePath(file), `${path}/${name.trim()}`]).then(() => refreshFiles());
   };
 
@@ -144,7 +164,7 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
 
   const changeSelectedPermissions = async () => {
     if (!selectedFileEntries.length) return;
-    const mode = window.prompt(t('files.prompt.permissions'), '755');
+    const mode = await asyncPrompt(t('files.action.permissions'), '755');
     if (!mode?.match(/^[0-7]{3,4}$/)) return;
     for (const file of selectedFileEntries) await run(['shell', 'chmod', mode, filePath(file)]);
     await refreshFiles();
@@ -244,6 +264,13 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
         {!filteredFiles.length && <div className="file-empty"><MaterialIcon name="folder_off" /><b>{t('files.empty.title')}</b><span>{t('files.empty.desc')}</span></div>}
       </section>
       <footer className="file-status-bar"><span><MaterialIcon name="folder" />{t('files.status.items', { count: filteredFiles.length })}</span><span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? t('files.status.selected', { count: selectedFileEntries.length }) : t('files.status.noSelection')}</span></footer>
+    <PromptDialog
+      open={promptConfig?.open || false}
+      title={promptConfig?.title || ''}
+      initialValue={promptConfig?.initialValue || ''}
+      onConfirm={(val) => promptConfig?.onConfirm(val)}
+      onCancel={() => promptConfig?.onCancel()}
+    />
     </div>
   );
 }

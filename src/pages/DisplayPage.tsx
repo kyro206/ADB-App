@@ -15,6 +15,7 @@ interface DisplayPageProps {
   height: number; setHeight: Setter<number>;
   density: number; setDensity: Setter<number>;
   timeout: number; setTimeout: Setter<number>;
+  refreshRate: number;
   darkMode: boolean;
   darkModeLoading: boolean;
   suggestions: Suggestion[];
@@ -85,7 +86,7 @@ export function DisplayPage(props: DisplayPageProps) {
       </article>
       <article className="display-panel">
         <header><MaterialIcon name="speed" filled /><div><strong>{t('display.rates.title')}</strong><span>{t('display.rates.desc')}</span></div></header>
-        <div className="display-rates">{details?.supported_refresh_rates_hz?.map(rate => <button className={Math.abs(rate - details.refresh_rate_hz) < .6 ? 'selected' : ''} key={rate} onClick={() => props.onSetRefreshRate(rate)}><MaterialIcon name={Math.abs(rate - details.refresh_rate_hz) < .6 ? 'check_circle' : 'radio_button_unchecked'} />{formatRate(rate)}</button>) || <span>{t('display.rates.empty')}</span>}</div>
+        <div className="display-rates">{details?.supported_refresh_rates_hz?.map(rate => <button className={Math.abs(rate - props.refreshRate) < .6 ? 'selected' : ''} key={rate} onClick={() => props.onSetRefreshRate(rate)}><MaterialIcon name={Math.abs(rate - props.refreshRate) < .6 ? 'check_circle' : 'radio_button_unchecked'} />{formatRate(rate)}</button>) || <span>{t('display.rates.empty')}</span>}</div>
       </article>
     </section>
   </div>;

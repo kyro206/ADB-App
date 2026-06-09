@@ -49,6 +49,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [displayWidth, setDisplayWidth] = useState(0);
   const [displayHeight, setDisplayHeight] = useState(0);
   const [displayDensity, setDisplayDensity] = useState(0);
+  const [displayRefreshRate, setDisplayRefreshRateState] = useState(0);
   const [displayTimeout, setDisplayTimeout] = useState(60);
   const [displayDarkMode, setDisplayDarkMode] = useState(false);
   const [darkModeLoading, setDarkModeLoading] = useState(false);
@@ -158,7 +159,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     try {
       await invoke('save_app_settings', { settings });
       setAppSettings(settings);
-      setStatus(t('workbench.status.settingsSaved'));
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 
@@ -215,6 +215,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     setDisplayWidth(deviceDetails.current_width);
     setDisplayHeight(deviceDetails.current_height);
     setDisplayDensity(deviceDetails.current_density);
+    setDisplayRefreshRateState(deviceDetails.refresh_rate_hz);
     setDisplayTimeout(Math.max(1, Math.round(deviceDetails.screen_off_timeout_ms / 1000)));
     setDisplayDarkMode(deviceDetails.dark_mode_enabled);
   }, [deviceDetails]);
@@ -260,6 +261,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   };
 
   const setDisplayRefreshRate = async (rate: number) => {
+    setDisplayRefreshRateState(rate);
     await run(['shell', 'settings', 'put', 'system', 'peak_refresh_rate', String(rate)]);
     await run(['shell', 'settings', 'put', 'system', 'min_refresh_rate', String(rate)]);
     await refreshDevices();
@@ -269,6 +271,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     details={deviceDetails} deviceType={deviceDetails ? t(`device.type.${deviceDetails.device_type}`) : '-'}
     width={displayWidth} setWidth={setDisplayWidth} height={displayHeight} setHeight={setDisplayHeight}
     density={displayDensity} setDensity={setDisplayDensity} timeout={displayTimeout} setTimeout={setDisplayTimeout}
+    refreshRate={displayRefreshRate}
     darkMode={displayDarkMode} darkModeLoading={darkModeLoading} suggestions={displaySuggestions}
     onToggleDarkMode={toggleDeviceDarkMode} onSetRefreshRate={setDisplayRefreshRate} onReset={resetDisplay} onApply={applyDisplay}
   />;
