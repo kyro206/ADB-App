@@ -40,7 +40,7 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
         value.keyboards.some(keyboard => keyboard.id === current) ? current : value.current_keyboard_id
       );
       
-      setStatus(t('system.status.updated'));
+      setStatus('');
     } catch (error) {
       setStatus(String(error));
     } finally {
@@ -79,15 +79,7 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
     refreshSystemState();
   }, [serial]);
 
-  if (!serial) {
-    return (
-      <div className="md-system-empty">
-        <MaterialIcon name="phonelink_off" size={48} className="md-system-empty-icon" />
-        <h2>{t('system.empty.title')}</h2>
-        <p>{t('system.empty.desc')}</p>
-      </div>
-    );
-  }
+
 
   const userToDeleteObj = systemState?.users.find(u => String(u.id) === userToDelete);
   const selectedKeyboardInfo = systemState?.keyboards.find(k => k.id === selectedKeyboard);

@@ -237,34 +237,7 @@ md-icon-button:hover {
     font-size: 12px;
 }
 
-/* Estado Vacío */
-.md-system-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 400px;
-    padding: 40px;
-    text-align: center;
-    background: var(--surface-container-low, #f7f2fa);
-    border: 2px dashed var(--outline-variant, #cac4d0);
-    border-radius: 28px;
-}
 
-.md-system-empty-icon {
-    color: var(--on-surface-variant, #49454f);
-    margin-bottom: 16px;
-}
-
-.md-system-empty h2 {
-    margin: 0 0 8px 0;
-    font-weight: 500;
-}
-
-.md-system-empty p {
-    margin: 0;
-    color: var(--on-surface-variant, #49454f);
-}
 
 /* Responsive */
 @media (max-width: 1024px) {

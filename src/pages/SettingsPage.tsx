@@ -27,10 +27,20 @@ function ToolState({ tool, checking, t }: { tool: ToolStatus; checking: boolean;
           ? t('settings.updated')
           : t('settings.checkFailed');
 
+  const iconName = !tool.available
+    ? 'error'
+    : tool.update_available
+      ? 'new_releases'
+      : checking
+        ? 'sync'
+        : tool.update_checked
+          ? 'check_circle'
+          : 'help';
+
   return (
     <div className="tool-status">
       <div className="tool-status-header">
-        <MaterialIcon name="check_circle" size={20} />
+        <MaterialIcon name={iconName} size={20} />
         <strong>{state}</strong>
       </div>
       <div className="tool-status-details">
@@ -203,7 +213,6 @@ export function SettingsPage(props: SettingsPageProps) {
           </div>
         </div>
         <div className="form-stack">
-          <p className="muted md3-body-medium">{t('settings.javaDesc')}</p>
           <md-outlined-text-field 
             value={props.javaPath} 
             onInput={(e: any) => props.onJavaPathChange(e.target.value)} 
@@ -223,9 +232,7 @@ export function SettingsPage(props: SettingsPageProps) {
       
       {/* TARJETA DE CACHÉ */}
       <Panel title={t('settings.cacheTitle')}>
-        <div className="form-stack">
-          <p className="muted md3-body-medium">{t('settings.cacheDesc')}</p>
-          
+        <div className="form-stack">          
           <label className="settings-switch-row">
             <span className="md3-body-large">{t('settings.enableCache')}</span>
             <md-switch 

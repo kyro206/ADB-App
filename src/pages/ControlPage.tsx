@@ -32,7 +32,7 @@ export function ControlPage({ serial, run, setStatus, setBusy }: ControlPageProp
   const [rotation, setRotation] = useState(0);
   const [soundMode, setSoundMode] = useState<SoundMode>('NORMAL');
 
-const loadDeviceState = () => {
+  const loadDeviceState = () => {
     if (!serial) return;
 
     invoke<MediaVolumeState>('get_media_volume', { serial }).then(value => {
@@ -102,12 +102,12 @@ const loadDeviceState = () => {
                 <span>{t('control.screenSound.brightness')}</span>
                 <strong>{controlBrightness} / 255</strong>
               </div>
-              <md-slider 
-                min="0" 
-                max="255" 
+              <md-slider
+                min="0"
+                max="255"
                 value={controlBrightness}
                 onInput={(event: any) => setControlBrightness(Number(event.target.value))}
-                onChange={(event: any) => run(['shell', 'settings', 'put', 'system', 'screen_brightness', event.target.value])}
+                onChange={(event: any) => run(['shell', 'settings', 'put', 'system', 'screen_brightness', String(event.target.value)])}
               ></md-slider>
             </label>
 
@@ -117,9 +117,9 @@ const loadDeviceState = () => {
                 <span>{t('control.screenSound.volume')}</span>
                 <strong>{controlVolume} / {controlVolumeMax}</strong>
               </div>
-              <md-slider 
-                min="0" 
-                max={controlVolumeMax} 
+              <md-slider
+                min="0"
+                max={controlVolumeMax}
                 value={controlVolume}
                 onInput={(event: any) => setControlVolume(Number(event.target.value))}
                 onChange={(event: any) => applyMediaVolume(Number(event.target.value))}
@@ -134,12 +134,12 @@ const loadDeviceState = () => {
             <h3>{t('control.orientation.title')}</h3>
             <label className="md3-switch-container">
               <span>{t('control.orientation.auto')}</span>
-              <md-switch 
-                selected={rotationAuto} 
-                onChange={async (event: any) => { 
+              <md-switch
+                selected={rotationAuto}
+                onChange={async (event: any) => {
                   const isAuto = event.target.selected;
-                  setRotationAuto(isAuto); 
-                  await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', isAuto ? '1' : '0']); 
+                  setRotationAuto(isAuto);
+                  await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', isAuto ? '1' : '0']);
                 }}
               ></md-switch>
             </label>
@@ -240,11 +240,11 @@ const loadDeviceState = () => {
             <button onClick={() => sendKey('KEYCODE_APP_SWITCH')}><MaterialIcon name="recent_actors" /><span>{t('control.tv.recent')}</span></button>
             <button onClick={() => sendKey('KEYCODE_MENU')}><MaterialIcon name="menu" /><span>{t('control.tv.menu')}</span></button>
             <button onClick={() => sendKey('KEYCODE_INFO')}><MaterialIcon name="info" /><span>{t('control.tv.info')}</span></button>
-            
+
             <button onClick={() => sendKey('KEYCODE_MEDIA_PREVIOUS')}><MaterialIcon name="skip_previous" filled /><span>{t('control.tv.previous')}</span></button>
             <button onClick={() => sendKey('KEYCODE_MEDIA_PLAY_PAUSE')}><MaterialIcon name="play_pause" filled /><span>{t('control.tv.playPause')}</span></button>
             <button onClick={() => sendKey('KEYCODE_MEDIA_NEXT')}><MaterialIcon name="skip_next" filled /><span>{t('control.tv.next')}</span></button>
-            
+
             <button onClick={() => sendKey('KEYCODE_GUIDE')}><MaterialIcon name="tv" /><span>{t('control.tv.guide')}</span></button>
             <button onClick={() => sendKey('KEYCODE_CHANNEL_DOWN')}><MaterialIcon name="remove" /><span>{t('control.tv.chDown')}</span></button>
             <button onClick={() => sendKey('KEYCODE_CHANNEL_UP')}><MaterialIcon name="add" /><span>{t('control.tv.chUp')}</span></button>

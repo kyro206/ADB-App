@@ -67,7 +67,7 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
     try {
       const normalized = normalizeDevicePath(nextPath);
       const value = await invoke<FileEntry[]>('list_directory', { serial, path: normalized });
-      setFiles(value); setPath(normalized); setSelectedFiles([]); setStatus(t('files.status.items', { count: value.length }));
+      setFiles(value); setPath(normalized); setSelectedFiles([]); setStatus('');
       if (addHistory && normalized !== fileHistory[fileHistoryIndex]) {
         setFileHistory(current => [...current.slice(0, fileHistoryIndex + 1), normalized]);
         setFileHistoryIndex(fileHistoryIndex + 1);

@@ -31,7 +31,8 @@ export const es: Record<string, string> = {
   'common.uninstall': 'Desinstalar',
   'common.copy': 'Copiar valor',
   'common.cannotUndo': 'Esta acción no se puede deshacer',
-
+  'common.device.empty.title': 'No hay un dispositivo conectado',
+  'common.device.empty.desc': 'Selecciona un dispositivo en la barra superior para administrarlo.',
 
   // Inicio
   'home.saveCapture': 'Guardar captura',
@@ -184,6 +185,7 @@ export const es: Record<string, string> = {
 
   // Files
   'files.status.items': '{count} elementos',
+
   'files.status.selected': '{count} seleccionados',
   'files.status.noSelection': 'Sin selección',
   'files.prompt.newFolder': 'Nombre de la nueva carpeta',
@@ -220,13 +222,11 @@ export const es: Record<string, string> = {
   'files.empty.desc': 'No hay elementos que coincidan con el filtro.',
 
   // System
-  'system.status.updated': 'Ajustes del sistema actualizados',
+
   'system.error.noUserName': 'Introduce un nombre para el nuevo usuario',
   'system.status.userCreated': 'Usuario "{name}" creado',
   'system.status.userRemoved': 'Usuario {name} eliminado',
   'system.status.userSwitched': 'Cambiado al usuario {id}',
-  'system.empty.title': 'No hay dispositivo conectado',
-  'system.empty.desc': 'Selecciona un dispositivo para administrar el sistema.',
   'system.users.title': 'Usuarios del sistema',
   'system.users.desc': 'Gestiona los perfiles del dispositivo',
   'system.users.defaultName': 'Usuario {id}',
@@ -262,7 +262,7 @@ export const es: Record<string, string> = {
   'settings.updateAvailable': 'Actualización disponible',
   'settings.checkingUpdate': 'Comprobando actualización...',
   'settings.updated': 'Actualizado',
-  'settings.checkFailed': 'No se pudo comprobar',
+  'settings.checkFailed': 'No se pudo comprobar la última versión',
   'settings.source': 'Origen',
   'settings.installedVersion': 'Versión instalada',
   'settings.latestVersion': 'Última versión',
@@ -272,15 +272,13 @@ export const es: Record<string, string> = {
   'settings.update': 'Actualizar',
   'settings.adbPlaceholder': 'Ruta al ejecutable adb o su carpeta',
   'settings.scrcpyPlaceholder': 'Ruta al ejecutable scrcpy o su carpeta',
-  'settings.javaTitle': 'Java para AAB',
+  'settings.javaTitle': 'Java 11+ para la instalación de .aab',
   'settings.javaCompatible': 'Compatible',
   'settings.javaNotCompatible': 'Versión no compatible',
   'settings.javaNotDetected': 'No detectado',
-  'settings.javaDesc': 'Necesario para procesar archivos .aab con bundletool. Se recomienda instalar la última versión LTS de Eclipse Temurin. Java 11 o superior es obligatorio para bundletool.',
   'settings.javaPlaceholder': 'Ruta a java.exe o su carpeta',
   'settings.downloadTemurin': 'Descargar Temurin LTS',
   'settings.cacheTitle': 'Caché de aplicaciones',
-  'settings.cacheDesc': 'Solo guarda de forma local los nombres e iconos obtenidos de las aplicaciones.',
   'settings.clearCache': 'Borrar caché',
   'settings.enableCache': 'Habilitar caché',
   'settings.cachePathPlaceholder': 'Ruta de la caché de iconos',
@@ -376,7 +374,7 @@ export const es: Record<string, string> = {
   'device.type.foldable': 'Plegable',
   'device.type.watch': 'Reloj',
   'device.type.tv': 'TV',
-  'device.type.automotive': 'Automotriz',
+  'device.type.automotive': 'Coche',
   'device.type.desktop': 'Escritorio',
   'device.type.embedded': 'Embebido',
   'device.type.device': 'Dispositivo',
@@ -389,14 +387,10 @@ export const es: Record<string, string> = {
   'error.capture.invalidImage': 'ADB devolvió datos de captura en un formato inválido.',
 
   // Workbench
-  'workbench.status.ready': 'Listo',
-  'workbench.status.success': 'Acción completada',
   'workbench.status.selectDevice': 'Selecciona un dispositivo',
-  'workbench.status.appsLoaded': '{count} aplicaciones',
   'workbench.status.metadataLoading': 'Cargando nombres e iconos de {count} aplicaciones pendientes...',
   'workbench.status.metadataProgress': 'Nombres e iconos procesados: {processed} / {total}',
-  'workbench.status.metadataDone': '{loaded} nombres e iconos guardados en caché',
-  'workbench.status.metadataFailed': 'Metadatos cargados: {loaded}. No se pudieron cargar: {failed}.',
+  'workbench.status.metadataFailed': 'No se pudieron cargar los metadatos de {failed} apps.',
   'workbench.status.installing': 'Preparando paquetes e instalando...',
   'workbench.status.appDisabled': 'Aplicación deshabilitada',
   'workbench.status.appEnabled': 'Aplicación habilitada',

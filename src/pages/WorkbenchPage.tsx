@@ -9,11 +9,12 @@ import { DestructiveActionDialog, type DestructiveAppAction } from '../component
 import { DisplayPage } from './DisplayPage';
 import { MirroringPage } from './MirroringPage';
 import {ControlPage} from './ControlPage';
-import { AppsView } from './workbench/AppsView';
+import { AppsPage } from './AppsPage';
 import { FilesPage } from './FilesPage';
 import { SystemPage } from './SystemPage';
 import { SettingsPage } from './SettingsPage';
 import { WorkbenchShell } from './workbench/WorkbenchShell';
+import { DeviceStateScreen } from '../components/layout/DeviceStateScreen';
 import { words } from './workbench/utils';
 import type { AppDetailsInfo, AppFilter, AppPermissionInfo, AppSummary, MirrorMode, ToolsStatus, WorkTab } from './workbench/types';
 import './WorkbenchPage.css';
@@ -27,15 +28,8 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const { language, setLanguage, t } = useI18n();
   const { theme, setTheme } = useTheme();
   const serial = selectedDevice?.serial ?? '';
-  const [status, setStatus] = useState(t('workbench.status.ready'));
+  const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [apps, setApps] = useState<AppSummary[]>([]);
-  const [filter, setFilter] = useState('');
-  const [appFilter, setAppFilter] = useState<AppFilter>('user');
-  const [selectedPackage, setSelectedPackage] = useState('');
-  const [appDetails, setAppDetails] = useState<AppDetailsInfo | null>(null);
-  const [metadataLoading, setMetadataLoading] = useState(false);
-  const [detailsLoading, setDetailsLoading] = useState(false);
   const [destructiveAction, setDestructiveAction] = useState<DestructiveAppAction | null>(null);
   const [destructiveBusy, setDestructiveBusy] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
@@ -82,7 +76,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [cameraHeight, setCameraHeight] = useState('');
   const [cameras, setCameras] = useState<string[]>([]);
 
-  const run = async (args: string[], success = t('workbench.status.success')) => {
+  const run = async (args: string[], success = '') => {
     if (!serial) { setStatus(t('workbench.status.selectDevice')); return; }
     setBusy(true);
     try {
@@ -90,123 +84,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       setStatus(output || success);
       return output;
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
-  };
-
-  const refreshApps = async () => {
-    if (!serial) return;
-    setBusy(true);
-    try {
-      const value = await invoke<AppSummary[]>('list_apps', { serial });
-      setApps(value); setStatus(t('workbench.status.appsLoaded', { count: value.length }));
-    } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
-  };
-
-  const refreshAppDetails = async (packageName = selectedPackage) => {
-    if (!serial || !packageName) return;
-    setDetailsLoading(true);
-    try {
-      const value = await invoke<AppDetailsInfo>('get_app_details', { serial, packageName });
-      const summary = apps.find(app => app.package_name === packageName);
-      setAppDetails(current => current?.package_name === packageName
-        ? { ...value, display_name: summary && summary.display_name !== summary.package_name ? summary.display_name : value.display_name, icon_data_url: summary?.icon_data_url || value.icon_data_url }
-        : current);
-      setApps(current => current.map(app => app.package_name === packageName ? {
-        ...app,
-        display_name: value.display_name !== value.package_name ? value.display_name : app.display_name,
-        disabled: value.disabled,
-        system_app: value.system_app,
-        icon_data_url: value.icon_data_url || app.icon_data_url,
-      } : app));
-    } catch (error) { setStatus(String(error)); } finally { setDetailsLoading(false); }
-  };
-
-  const selectApplication = async (app: AppSummary) => {
-    setSelectedPackage(app.package_name);
-    setAppDetails({
-      ...app,
-      version_name: '-',
-      version_code: '-',
-      target_sdk: '-',
-      min_sdk: '-',
-      installer: '-',
-      data_dir: '-',
-      code_size_bytes: -1,
-      data_size_bytes: -1,
-      cache_size_bytes: -1,
-      background_mode: 'optimized',
-      permissions: [],
-    });
-    void refreshAppDetails(app.package_name);
-  };
-
-  const loadVisibleMetadata = async () => {
-    if (!serial || !appsNeedingMetadata.length || metadataLoading) return;
-    setMetadataLoading(true);
-    setStatus(t('workbench.status.metadataLoading', { count: appsNeedingMetadata.length }));
-    let loaded = 0;
-    let failed = 0;
-    try {
-      for (let start = 0; start < appsNeedingMetadata.length; start += 3) {
-        if (appSettings && !appSettings.cache_enabled && tabRef.current !== 'apps') {
-          break;
-        }
-        const batch = appsNeedingMetadata.slice(start, start + 3);
-        const results = await Promise.allSettled(batch.map(app => invoke<AppSummary>('enrich_app_summary', {
-          serial, packageName: app.package_name, apkPath: app.apk_path, systemApp: app.system_app, disabled: app.disabled,
-        })));
-        const summaries = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
-        loaded += summaries.length;
-        failed += results.length - summaries.length;
-        setApps(current => current.map(app => summaries.find(summary => summary.package_name === app.package_name) || app));
-        setAppDetails(current => {
-          if (!current) return current;
-          const summary = summaries.find(item => item.package_name === current.package_name);
-          return summary ? { ...current, display_name: summary.display_name, icon_data_url: summary.icon_data_url } : current;
-        });
-        setStatus(t('workbench.status.metadataProgress', { processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length }));
-      }
-      setStatus(failed ? t('workbench.status.metadataFailed', { loaded, failed }) : t('workbench.status.metadataDone', { loaded }));
-    } finally { setMetadataLoading(false); }
-  };
-
-  const chooseInstallFiles = async () => {
-    try {
-      const selected = await open({
-        title: t('apps.action.install'),
-        multiple: true,
-        directory: false,
-        filters: [{ name: 'Paquetes Android', extensions: ['apk', 'apks', 'apkm', 'xapk', 'zip', 'aab'] }],
-      });
-      const selectedFiles = Array.isArray(selected) ? selected : selected ? [selected] : [];
-      if (selectedFiles.length) {
-        setInstallFiles(current => [...new Set([...current, ...selectedFiles])]);
-        setInstallResult('');
-      }
-    } catch (error) { setInstallResult(String(error)); }
-  };
-
-  const installSelectedApps = async () => {
-    if (!serial || !installFiles.length || installingApps) return;
-    setInstallingApps(true);
-    setInstallResult(t('workbench.status.installing'));
-    try {
-      const result = await invoke<string>('install_application_packages', {
-        serial,
-        files: installFiles,
-        options: {
-          replace_existing: installReplace,
-          grant_runtime_permissions: installGrant,
-          allow_test_packages: installTest,
-          bypass_low_target_sdk_block: installBypass,
-        },
-      });
-      setInstallResult(result);
-      await refreshApps();
-    } catch (error) {
-      setInstallResult(String(error));
-    } finally {
-      setInstallingApps(false);
-    }
   };
 
   const scrcpy = async (extraArgs: string[]) => {
@@ -408,98 +285,8 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     onToggleDarkMode={toggleDeviceDarkMode} onSetRefreshRate={setDisplayRefreshRate} onReset={resetDisplay} onApply={applyDisplay}
   />;
 
-  const toggleAppEnabled = async () => {
-    if (!appDetails) return;
-    const willDisable = !appDetails.disabled;
-    const command = willDisable
-      ? ['shell', 'pm', 'disable-user', '--user', '0', selectedPackage]
-      : ['shell', 'pm', 'enable', '--user', '0', selectedPackage];
-    const result = await run(command, willDisable ? t('workbench.status.appDisabled') : t('workbench.status.appEnabled'));
-    if (result === undefined) return;
-    setAppDetails(current => current ? { ...current, disabled: willDisable } : current);
-    setApps(current => current.map(app => app.package_name === selectedPackage ? { ...app, disabled: willDisable } : app));
+    await refreshDevices();
   };
-  const setBackgroundMode = async (mode: 'unrestricted' | 'optimized' | 'restricted') => {
-    if (!selectedPackage) return;
-    const values = mode === 'unrestricted' ? ['allow', 'allow'] : mode === 'restricted' ? ['ignore', 'ignore'] : ['default', 'default'];
-    await run(['shell', 'cmd', 'appops', 'set', selectedPackage, 'RUN_ANY_IN_BACKGROUND', values[0]]);
-    await run(['shell', 'cmd', 'appops', 'set', selectedPackage, 'RUN_IN_BACKGROUND', values[1]]);
-    await refreshAppDetails();
-  };
-  const togglePermission = async (permission: AppPermissionInfo) => {
-    if (!selectedPackage) return;
-    await run(['shell', 'pm', permission.granted ? 'revoke' : 'grant', selectedPackage, permission.name]);
-    await refreshAppDetails();
-  };
-  const exportApk = async () => {
-    if (!appDetails) return;
-    try {
-      const destination = await save({
-        title: t('apps.action.saveApk'),
-        defaultPath: `${appDetails.package_name}.apk`,
-        filters: [{ name: 'Paquete Android', extensions: ['apk'] }],
-      });
-      if (destination) await run(['pull', appDetails.apk_path, destination], t('workbench.status.apkSaved', { path: destination }));
-    } catch (error) { setStatus(String(error)); }
-  };
-  const clearApplicationCache = async () => {
-    try {
-      setStatus(await invoke<string>('clear_application_cache'));
-      setApps(current => current.map(app => ({ ...app, display_name: app.package_name, icon_data_url: '' })));
-      setAppDetails(current => current ? { ...current, display_name: current.package_name, icon_data_url: '' } : current);
-    } catch (error) { setStatus(String(error)); }
-  };
-
-  const performDestructiveAppAction = async () => {
-    if (!destructiveAction || !selectedPackage) return;
-    setDestructiveBusy(true);
-    try {
-      if (destructiveAction === 'uninstall') {
-        await run(['uninstall', selectedPackage], t('workbench.status.appUninstalled'));
-        setSelectedPackage('');
-        setAppDetails(null);
-        await refreshApps();
-      } else {
-        await run(['shell', 'pm', 'clear', selectedPackage], t('workbench.status.appDataCleared'));
-        await refreshAppDetails();
-      }
-      setDestructiveAction(null);
-    } finally {
-      setDestructiveBusy(false);
-    }
-  };
-
-  const materialAppsPage = <div className="apps-material-host">
-    <AppsView
-      apps={apps}
-      filteredApps={filteredApps}
-      filter={filter}
-      appFilter={appFilter}
-      selectedPackage={selectedPackage}
-      details={appDetails}
-      metadataLoading={metadataLoading}
-      detailsLoading={detailsLoading}
-      busy={busy}
-      onFilterChange={setFilter}
-      onAppFilterChange={setAppFilter}
-      onSelect={selectApplication}
-      onCloseDetail={() => { setSelectedPackage(''); setAppDetails(null); }}
-      onLoadMetadata={loadVisibleMetadata}
-      onRefresh={refreshApps}
-      onInstall={() => setInstallOpen(true)}
-      onOpen={() => run(['shell', 'monkey', '-p', selectedPackage, '1'])}
-      onStop={() => run(['shell', 'am', 'force-stop', selectedPackage])}
-      onUninstall={() => setDestructiveAction('uninstall')}
-      onToggleEnabled={toggleAppEnabled}
-      onClearData={() => setDestructiveAction('clear-data')}
-      onClearCache={async () => { await run(['shell', 'run-as', selectedPackage, 'sh', '-c', 'rm -rf cache/* code_cache/* 2>/dev/null || true']); await refreshAppDetails(); }}
-      onExport={exportApk}
-      onBackgroundMode={setBackgroundMode}
-      onTogglePermission={togglePermission}
-    />
-    <DestructiveActionDialog action={destructiveAction} appName={appDetails?.display_name || selectedPackage} packageName={selectedPackage} iconDataUrl={appDetails?.icon_data_url || ''} busy={destructiveBusy} onClose={() => setDestructiveAction(null)} onConfirm={performDestructiveAppAction} />
-    <InstallationDialog open={installOpen} files={installFiles} installing={installingApps} result={installResult} options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }} canInstall={Boolean(serial && installFiles.length)} onClose={() => setInstallOpen(false)} onChooseFiles={chooseInstallFiles} onRemoveFile={file => setInstallFiles(current => current.filter(value => value !== file))} onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)} onInstall={installSelectedApps} />
-  </div>;
 
   const mirroring = <MirroringPage
     serial={serial} tools={tools} mode={mirrorMode} setMode={setMirrorMode}
@@ -519,13 +306,15 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
 const settings = <SettingsPage theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={setTheme} onLanguageChange={setLanguage} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} appSettings={appSettings} onSaveAppSettings={saveAppSettings} defaultCacheDir={defaultCacheDir} />;
 
-const pages: Record<WorkTab, ReactNode> = {
-    display,
-    mirroring,
-    control: <ControlPage serial={serial} run={run} setStatus={setStatus} setBusy={setBusy} />,
-    apps: materialAppsPage,
-    files: <FilesPage serial={serial} setStatus={setStatus} setBusy={setBusy} run={run} />,
-    system: <SystemPage serial={serial} setStatus={setStatus} />,
+  const wrap = (content: ReactNode, loading?: boolean) => <DeviceStateScreen serial={serial} loading={loading}>{serial ? content : null}</DeviceStateScreen>;
+
+  const pages: Record<WorkTab, ReactNode> = {
+    display: wrap(display),
+    mirroring: wrap(mirroring),
+    control: wrap(<ControlPage serial={serial!} run={run} setStatus={setStatus} setBusy={setBusy} />),
+    apps: wrap(<AppsPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} tab={tab} appSettings={appSettings} />, tab === 'apps' && busy),
+    files: wrap(<FilesPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} />),
+    system: wrap(<SystemPage serial={serial!} setStatus={setStatus} />),
     settings,
   };
   return <WorkbenchShell title={t(`nav.${tab}`)} busy={busy} status={status}>{pages[tab]}</WorkbenchShell>;
