@@ -156,8 +156,13 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const saveAppSettings = async (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean }) => {
     setBusy(true);
     try {
-      await invoke('save_app_settings', { settings });
+      const oldPath = await invoke<string | null>('save_app_settings', { settings });
       setAppSettings(settings);
+      
+      if (oldPath) {
+        await refreshTools();
+        await invoke('close_app', { oldDataDir: oldPath });
+      }
     } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
   };
 

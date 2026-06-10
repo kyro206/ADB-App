@@ -136,10 +136,23 @@ impl Default for AppSettings {
 }
 
 pub fn read_settings() -> AppSettings {
-    fs::read_to_string(settings_path())
+    let mut settings: AppSettings = fs::read_to_string(settings_path())
         .ok()
         .and_then(|value| serde_json::from_str(&value).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+
+    if !settings.cache_path.trim().is_empty() {
+        let path = std::path::Path::new(&settings.cache_path);
+        if !path.exists() {
+            settings.cache_path = String::new();
+            if let Ok(serialized) = serde_json::to_string_pretty(&settings) {
+                let _ = fs::create_dir_all(crate::app_paths::config_dir());
+                let _ = fs::write(settings_path(), serialized);
+            }
+        }
+    }
+
+    settings
 }
 
 #[tauri::command]
@@ -148,25 +161,94 @@ pub fn get_app_settings() -> AppSettings {
 }
 
 #[tauri::command]
-pub fn save_app_settings(settings: AppSettings) -> Result<(), String> {
+pub async fn save_app_settings(settings: AppSettings) -> Result<Option<String>, String> {
+    let old_settings = read_settings();
+    let old_data_dir = crate::app_paths::data_dir();
+
     fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
     let serialized = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
     fs::write(settings_path(), serialized).map_err(|error| error.to_string())?;
+
+    let path_changed = old_settings.cache_path != settings.cache_path;
+
+    if path_changed {
+        let _ = crate::adb::run_adb(&["kill-server"]).await;
+        #[cfg(windows)]
+        let _ = crate::process::command("taskkill").args(["/F", "/IM", "scrcpy.exe"]).output();
+        #[cfg(not(windows))]
+        let _ = crate::process::command("killall").arg("scrcpy").output();
+
+        crate::app_paths::update_base_path(
+            if !settings.cache_path.trim().is_empty() {
+                Some(&settings.cache_path)
+            } else {
+                None
+            }
+        );
+
+        let new_data_dir = crate::app_paths::data_dir();
+
+        if old_data_dir != new_data_dir && old_data_dir.exists() {
+            fs::create_dir_all(&new_data_dir).map_err(|e| e.to_string())?;
+            if let Err(e) = move_directory_contents(&old_data_dir, &new_data_dir) {
+                eprintln!("Error moving directory: {}", e);
+            }
+        }
+        
+        return Ok(Some(old_data_dir.to_string_lossy().into_owned()));
+    }
+
+    Ok(None)
+}
+
+#[tauri::command]
+pub async fn close_app(app: tauri::AppHandle, old_data_dir: String) -> Result<(), String> {
+    let old_dir_path = std::path::PathBuf::from(old_data_dir);
+    use tauri::Manager;
+    for (_, window) in app.webview_windows() {
+        let _ = window.close();
+    }
+
+    for _ in 0..20 {
+        if !old_dir_path.exists() || std::fs::remove_dir_all(&old_dir_path).is_ok() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    app.exit(0);
+    Ok(())
+}
+
+fn move_directory_contents(src: &Path, dst: &Path) -> Result<(), String> {
+    if !src.exists() { return Ok(()); }
+    let mut stack = vec![(src.to_path_buf(), dst.to_path_buf())];
+    while let Some((s, d)) = stack.pop() {
+        if !d.exists() {
+            fs::create_dir_all(&d).map_err(|e| format!("Failed to create dir {}: {}", d.display(), e))?;
+        }
+        for entry in fs::read_dir(&s).map_err(|e| format!("Failed to read dir {}: {}", s.display(), e))? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let file_type = entry.file_type().map_err(|e| e.to_string())?;
+            let target = d.join(entry.file_name());
+            if file_type.is_dir() {
+                stack.push((entry.path(), target));
+            } else {
+                let _ = fs::copy(entry.path(), &target);
+            }
+        }
+    }
+    let _ = fs::remove_dir_all(src);
     Ok(())
 }
 
 fn application_cache_dir() -> PathBuf {
-    let settings = read_settings();
-    if !settings.cache_path.trim().is_empty() {
-        PathBuf::from(settings.cache_path.trim()).join("app-icons")
-    } else {
-        crate::app_paths::cache_dir().join("app-icons")
-    }
+    crate::app_paths::cache_dir().join("app-icons")
 }
 
 #[tauri::command]
 pub fn get_default_cache_dir() -> String {
-    crate::app_paths::cache_dir().join("app-icons").to_string_lossy().to_string()
+    crate::app_paths::default_data_dir().to_string_lossy().to_string()
 }
 
 fn app_summary_cache_path(package_name: &str, apk_path: &str) -> PathBuf {

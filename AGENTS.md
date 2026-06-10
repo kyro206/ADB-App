@@ -12,4 +12,6 @@ Estás trabajando en una aplicación de escritorio usando Tauri v2, Rust en el b
 
 Los textos se guardan en src/locales, tienes que añadirlos en formato TypeScript, cuando añadas un texto añadelo, cuando lo quites a no ser que sea común, quitalo, trata siempre de usar comunes
 
+Nunca debes usar la consola para advertir de errores, siempre tienes que ponerlo en el estado
+
 Recuerda siempre al final ver que compila y pasa los tests

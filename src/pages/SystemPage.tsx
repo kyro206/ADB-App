@@ -93,7 +93,6 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
             <MaterialIcon name="group" filled size={24} />
             <div>
               <h3>{t('system.users.title')}</h3>
-              <p>{t('system.users.desc')}</p>
             </div>
           </header>
 
@@ -151,7 +150,6 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
             <MaterialIcon name="settings_suggest" filled size={24} />
             <div>
               <h3>{t('system.settings.title')}</h3>
-              <p>{t('system.settings.desc')}</p>
             </div>
           </header>
 
@@ -191,7 +189,6 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
             <MaterialIcon name="keyboard" filled size={24} />
             <div>
               <h3>{t('system.ime.title')}</h3>
-              <p>{t('system.ime.desc')}</p>
             </div>
           </header>
 
@@ -228,7 +225,7 @@ export function SystemPage({ serial, setStatus }: SystemPageProps) {
             )}
           </div>
 
-          <footer className="md-system-footer-actions" style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--outline-variant)' }}>
+          <footer className="md-system-footer-actions" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--outline-variant)' }}>
             <md-filled-tonal-button 
               disabled={!selectedKeyboardInfo || systemLoading || undefined} 
               onClick={() => selectedKeyboardInfo && applySystemAction(

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { ToolStatus, ToolsStatus } from './workbench/types';
 import { getVersion } from '@tauri-apps/api/app';
-import { MaterialIcon } from '../components/MaterialIcon'; // <-- Importado aquí
+import { MaterialIcon } from '../components/MaterialIcon';
+import { open } from '@tauri-apps/plugin-dialog';
 import './SettingsPage.css';
 
 import { useI18n } from '../locales';
@@ -85,7 +86,16 @@ function ToolPanel(props: ToolPanelProps) {
           onInput={(e: any) => props.onPathChange(e.target.value)}
           label={props.placeholder}
           style={{ width: '100%' }}
-        />
+        >
+          <md-icon-button slot="trailing-icon" onClick={async () => {
+            const selected = await open({ directory: true, multiple: false });
+            if (selected && typeof selected === 'string') {
+              props.onPathChange(selected);
+            }
+          }}>
+            <MaterialIcon name="folder_open" />
+          </md-icon-button>
+        </md-outlined-text-field>
         <div className="button-row">
           <md-filled-button onClick={() => props.onSave(toolName, props.path)}>
             {t('settings.savePath')}
@@ -140,10 +150,17 @@ export function SettingsPage(props: SettingsPageProps) {
   const { theme, language, tools, checkingUpdates } = props;
   const { t } = useI18n();
   const [appVersion, setAppVersion] = useState<string>('...');
+  const [localCachePath, setLocalCachePath] = useState<string | null>(null);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('Unknown'));
   }, []);
+
+  useEffect(() => {
+    if (props.appSettings && localCachePath === null) {
+      setLocalCachePath(props.appSettings.cache_path);
+    }
+  }, [props.appSettings, localCachePath]);
 
   return (
     <div className="work-grid">
@@ -226,7 +243,16 @@ export function SettingsPage(props: SettingsPageProps) {
             onInput={(e: any) => props.onJavaPathChange(e.target.value)} 
             label={t('settings.javaPlaceholder')}
             style={{ width: '100%' }}
-          />
+          >
+            <md-icon-button slot="trailing-icon" onClick={async () => {
+              const selected = await open({ directory: true, multiple: false });
+              if (selected && typeof selected === 'string') {
+                props.onJavaPathChange(selected);
+              }
+            }}>
+              <MaterialIcon name="folder_open" />
+            </md-icon-button>
+          </md-outlined-text-field>
           <div className="button-row">
             <md-filled-button onClick={() => props.onSaveToolPath('java', props.javaPath)}>{t('settings.savePath')}</md-filled-button>
             <md-outlined-button onClick={() => props.onSaveToolPath('java', '')}>{t('settings.autoDetect')}</md-outlined-button>
@@ -254,23 +280,48 @@ export function SettingsPage(props: SettingsPageProps) {
           </label>
 
           <md-outlined-text-field 
-            value={props.appSettings?.cache_path || props.defaultCacheDir} 
-            onInput={(e: any) => {
-              if (props.appSettings) {
-                props.onSaveAppSettings({ ...props.appSettings, cache_path: e.target.value });
-              }
-            }} 
+            value={localCachePath || props.appSettings?.cache_path || props.defaultCacheDir} 
+            onInput={(e: any) => setLocalCachePath(e.target.value)} 
             label={t('settings.cachePathPlaceholder')}
             style={{ width: '100%' }}
-            disabled={!(props.appSettings?.cache_enabled ?? true)}
-          />
+          >
+            <md-icon-button slot="trailing-icon" onClick={async () => {
+              const selected = await open({ directory: true, multiple: false });
+              if (selected && typeof selected === 'string') {
+                setLocalCachePath(selected);
+              }
+            }}>
+              <MaterialIcon name="folder_open" />
+            </md-icon-button>
+          </md-outlined-text-field>
 
           <div className="button-row settings-cache-actions" style={{ marginTop: '16px' }}>
+            <md-filled-button onClick={() => {
+              if (props.appSettings && localCachePath !== null) {
+                props.onSaveAppSettings({ ...props.appSettings, cache_path: localCachePath });
+              }
+            }}>
+              {t('settings.savePath')}
+            </md-filled-button>
+
+            <md-outlined-button onClick={() => {
+              if (props.appSettings) {
+                setLocalCachePath('');
+                props.onSaveAppSettings({ ...props.appSettings, cache_path: '' });
+              }
+            }}>
+              {t('common.reset')}
+            </md-outlined-button>
+
             <md-outlined-button onClick={props.onClearCache}>
               <MaterialIcon name="delete" slot="icon" />
               {t('common.clearCache')}
             </md-outlined-button>
           </div>
+          <p style={{ fontSize: '13px', color: 'var(--md-sys-color-error)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0 0 0' }}>
+            <MaterialIcon name="info" size={16} />
+            {t('settings.cacheRestartWarning')}
+          </p>
         </div>
       </Panel>
 

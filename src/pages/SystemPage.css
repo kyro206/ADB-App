@@ -45,12 +45,6 @@
     font-weight: 500;
 }
 
-.md-system-header p {
-    margin: 0;
-    color: var(--on-surface-variant, #49454f);
-    font-size: 13px;
-}
-
 /* Grids compartidos */
 .md-system-grid {
     display: grid;
@@ -230,13 +224,6 @@ md-icon-button:hover {
     font-size: 14px;
     font-weight: 500;
 }
-
-.md-setting-row p {
-    margin: 4px 0 0 0;
-    color: var(--on-surface-variant, #49454f);
-    font-size: 12px;
-}
-
 
 
 /* Responsive */

@@ -10,17 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "ADB App",
-        "width": 1180,
-        "height": 760,
-        "minWidth": 920,
-        "minHeight": 620,
-        "decorations": false,
-        "transparent": true
-      }
-    ],
     "security": {
       "csp": null
     }

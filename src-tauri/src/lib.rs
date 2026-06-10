@@ -1,3 +1,5 @@
+
+
 mod adb;
 mod app_paths;
 mod commands;
@@ -16,22 +18,35 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             app_paths::initialize(&app.handle())?;
+            let settings = crate::commands::operations::read_settings();
+            crate::app_paths::update_base_path(
+                if !settings.cache_path.trim().is_empty() {
+                    Some(&settings.cache_path)
+                } else {
+                    None
+                }
+            );
+
+            let builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+                .title("ADB App")
+                .inner_size(1180.0, 760.0)
+                .min_inner_size(920.0, 620.0)
+                .decorations(false)
+                .transparent(true)
+                .data_directory(crate::app_paths::data_dir());
+
+            let window = builder.build().map_err(|e| e.to_string())?;
+
             #[cfg(target_os = "windows")]
             {
-                use tauri::Manager;
-                use window_vibrancy::apply_mica;
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = apply_mica(&window, None);
-                }
+                let _ = window_vibrancy::apply_mica(&window, None);
             }
+
             #[cfg(target_os = "macos")]
             {
-                use tauri::Manager;
-                use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = apply_vibrancy(&window, NSVisualEffectMaterial::Sidebar, None, None);
-                }
+                let _ = window_vibrancy::apply_vibrancy(&window, window_vibrancy::NSVisualEffectMaterial::Sidebar, None, None);
             }
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
@@ -69,6 +84,7 @@ pub fn run() {
             operations::clear_application_cache,
             operations::get_app_settings,
             operations::save_app_settings,
+            operations::close_app,
             operations::get_default_cache_dir,
             operations::list_directory,
             operations::pull_file,
