@@ -301,7 +301,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     display: wrap(display),
     mirroring: wrap(mirroring),
     control: wrap(<ControlPage serial={serial!} run={run} setStatus={setStatus} setBusy={setBusy} />),
-    apps: wrap(<AppsPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} tab={tab} appSettings={appSettings} />, tab === 'apps' && busy),
+    apps: wrap(<AppsPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} scrcpy={scrcpy} tab={tab} appSettings={appSettings} />, tab === 'apps' && busy),
     files: wrap(<FilesPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} tab={tab} />),
     system: wrap(<SystemPage serial={serial!} setStatus={setStatus} />),
     settings,

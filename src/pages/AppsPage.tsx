@@ -11,7 +11,7 @@ import { MaterialIcon } from '../components/MaterialIcon';
 import { appTone, formatBytes } from './workbench/utils';
 import './AppsPage.css';
 
-export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: { serial: string; setStatus: (s: string) => void; setBusy: (b: boolean) => void; run: (args: string[], success?: string) => Promise<string | undefined>; tab: string; appSettings: AppSettings | null; }) {
+export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSettings }: { serial: string; setStatus: (s: string) => void; setBusy: (b: boolean) => void; run: (args: string[], success?: string) => Promise<string | undefined>; scrcpy?: (args: string[]) => Promise<void>; tab: string; appSettings: AppSettings | null; }) {
   const { t } = useI18n();
   
   const [apps, setApps] = useState<AppSummary[]>([]);
@@ -69,6 +69,10 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
       loadVisibleMetadata();
     }
   }, [appSettings?.cache_enabled, appsNeedingMetadata.length, metadataLoading, attemptedMetadata]);
+
+  useEffect(() => {
+    setAttemptedMetadata(false);
+  }, [filter]);
 
   const refreshAppDetails = async (packageName = selectedPackage) => {
     if (!serial || !packageName) return;
@@ -241,6 +245,16 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
     }
   };
 
+  const openAppInScrcpy = async (pkg: string) => {
+    setStatus(t('workbench.status.launchingApp', { pkg }));
+    try {
+      await invoke<string>('run_device_action', { serial, args: ['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'] });
+      if (scrcpy) await scrcpy([]);
+    } catch (e) {
+      setStatus(String(e));
+    }
+  };
+
   const filters: Array<['user' | 'all' | 'system' | 'disabled', string, string]> = [
     ['user', t('apps.filter.user'), 'person'], ['all', t('apps.filter.all'), 'apps'], ['system', t('apps.filter.system'), 'settings'], ['disabled', t('apps.filter.disabled'), 'block'],
   ];
@@ -273,7 +287,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
             {filters.map(([value, label, icon]) => <button key={value} className={filter === value ? 'active' : ''} onClick={() => setFilter(value)}><MaterialIcon name={icon} filled={filter === value} /><span>{label}</span><strong>{count(value)}</strong><md-ripple /></button>)}
           </nav>
           <div className="apps-material-grid">
-            {filteredApps.map(app => <button className={`apps-material-tile ${selectedPackage === app.package_name ? 'selected' : ''}`} key={app.package_name} onClick={() => selectApplication(app)}>
+            {filteredApps.map(app => <button className={`apps-material-tile ${selectedPackage === app.package_name ? 'selected' : ''}`} key={app.package_name} onClick={() => selectApplication(app)} onDoubleClick={() => openAppInScrcpy(app.package_name)}>
               <div className={`apps-material-status-icon ${app.disabled ? 'disabled' : ''}`} title={app.disabled ? t('apps.status.disabled') : app.system_app ? t('apps.status.system') : t('apps.status.user')}>
                 <MaterialIcon name={app.disabled ? 'block' : app.system_app ? 'settings' : 'person'} />
               </div>     
@@ -287,15 +301,19 @@ export function AppsPage({ serial, setStatus, setBusy, run, tab, appSettings }: 
         <aside className="apps-material-detail">
           {!appDetails ? <div className="apps-material-empty detail"><MaterialIcon name="touch_app" /><strong>{t('apps.detail.empty.title')}</strong><span>{t('apps.detail.empty.subtitle')}</span></div> : <>
             <md-text-button className="apps-material-back" onClick={() => { setSelectedPackage(''); setAppDetails(null); }}><MaterialIcon slot="icon" name="arrow_back" />{t('nav.apps')}</md-text-button>
-            <header className="apps-material-detail__hero">
+            <header className="apps-material-detail__hero" style={{ position: 'relative' }}>
               <span className="app-icon-frame">{appDetails.icon_data_url ? <img src={appDetails.icon_data_url} alt="" /> : <span className={`app-fallback ${appTone(appDetails.package_name)}`}>{appDetails.display_name.slice(0, 2).toUpperCase()}</span>}</span>
-              <div>
+              <div style={{ flex: 1, minWidth: 0, paddingRight: '130px' }}>
                 <h2>{appDetails.display_name}</h2>
                 <p>{appDetails.package_name}</p>
                 <div className={`apps-material-status-icon ${appDetails.disabled ? 'disabled' : ''}`} title={appDetails.disabled ? t('apps.status.disabled') : appDetails.system_app ? t('apps.detail.type.system') : t('apps.detail.type.user')}>
                   <MaterialIcon name={appDetails.disabled ? 'block' : appDetails.system_app ? 'settings' : 'person'} />
                 </div>
               </div>
+              <md-text-button onClick={() => openAppInScrcpy(appDetails.package_name)} style={{ position: 'absolute', top: 0, right: 0 }}>
+                <MaterialIcon slot="icon" name="desktop_windows" />
+                {t('apps.action.openScrcpy')}
+              </md-text-button>
             </header>
             
             <section className="apps-material-section">
