@@ -36,6 +36,7 @@ export interface DeviceDetails {
   total_ram_mb: number;
   used_ram_mb: number;
   battery_level_percent: number;
+  battery_health: string;
   total_storage_mb: number;
   used_storage_mb: number;
   dark_mode_enabled: boolean;

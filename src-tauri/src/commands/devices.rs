@@ -65,6 +65,7 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
             total_ram_mb: -1,
             used_ram_mb: -1,
             battery_level_percent: -1,
+            battery_health: "-".to_string(),
             total_storage_mb: -1,
             used_storage_mb: -1,
             dark_mode_enabled: false,

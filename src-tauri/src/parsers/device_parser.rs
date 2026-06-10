@@ -103,6 +103,35 @@ pub fn parse_battery_level(output: &str) -> i32 {
         .min(100.0) as i32
 }
 
+/// Parse battery health from `dumpsys battery` output.
+pub fn parse_battery_health(output: &str) -> String {
+    let bsoh_re = Regex::new(r"(?im)^\s*mSavedBatteryBsoh:\s*(\d+)").unwrap();
+    let asoc_re = Regex::new(r"(?im)^\s*mSavedBatteryAsoc:\s*(\d+)").unwrap();
+    let health_re = Regex::new(r"(?im)^\s*health:\s*(\d+)").unwrap();
+
+    if let Some(caps) = bsoh_re.captures(output).or_else(|| asoc_re.captures(output)) {
+        if let Ok(val) = caps.get(1).unwrap().as_str().parse::<i32>() {
+            if val > 0 && val <= 100 {
+                return format!("{}%", val);
+            }
+        }
+    }
+
+    if let Some(caps) = health_re.captures(output) {
+        match caps.get(1).unwrap().as_str() {
+            "2" => return "good".to_string(),
+            "3" => return "overheat".to_string(),
+            "4" => return "dead".to_string(),
+            "5" => return "over_voltage".to_string(),
+            "6" => return "failure".to_string(),
+            "7" => return "cold".to_string(),
+            _ => return "unknown".to_string(),
+        }
+    }
+
+    "unknown".to_string()
+}
+
 /// Parse Android's `dumpsys meminfo` summary, falling back to `/proc/meminfo`.
 pub fn parse_memory(output: &str) -> (i64, i64) {
     let dumpsys_total_re = Regex::new(r"(?im)^\s*Total RAM:\s*([\d,]+)K\b").unwrap();
@@ -404,6 +433,7 @@ pub fn build_device_details(
     let properties = parse_properties(getprop_output);
     let (total_ram_mb, used_ram_mb) = parse_memory(meminfo_output);
     let battery_level = parse_battery_level(battery_output);
+    let battery_health = parse_battery_health(battery_output);
     let (total_storage_mb, used_storage_mb) = parse_storage(storage_output);
     let (pw, ph, cw, ch) = parse_wm_size(wm_size_output);
     let (pd, cd) = parse_wm_density(wm_density_output);
@@ -515,6 +545,7 @@ pub fn build_device_details(
         total_ram_mb,
         used_ram_mb,
         battery_level_percent: battery_level,
+        battery_health,
         total_storage_mb,
         used_storage_mb,
         dark_mode_enabled: dark_mode,

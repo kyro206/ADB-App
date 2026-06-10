@@ -15,8 +15,8 @@ function Surface({ children, className = '' }: { children: ReactNode; className?
   return <section className={`material-surface ${className}`}>{children}</section>;
 }
 
-function Metric({ icon, title, value, total, progress }: { icon: string; title: string; value: string; total: string; progress: number }) {
-  return <Surface className="home-metric"><MaterialIcon name={icon} /><div><span>{title}</span><strong>{value}</strong><small>Total: {total}</small><md-linear-progress value={Math.max(0, Math.min(1, progress / 100))} /></div></Surface>;
+function Metric({ icon, title, value, subLabel, subValue, progress }: { icon: string; title: string; value: string; subLabel: string; subValue: string; progress: number }) {
+  return <Surface className="home-metric"><MaterialIcon name={icon} /><div><span>{title}</span><strong>{value}</strong><small>{subLabel}: {subValue}</small><md-linear-progress value={Math.max(0, Math.min(1, progress / 100))} /></div></Surface>;
 }
 
 export function HomePage() {
@@ -99,9 +99,9 @@ export function HomePage() {
       </Surface>
 
       <div className="home-metrics">
-        <Metric icon="battery_android_full" title={t('home.field.battery')} value={dd?.battery_level_percent != null && dd.battery_level_percent >= 0 ? `${dd.battery_level_percent}%` : '-'} total="100%" progress={dd?.battery_level_percent || 0} />
-        <Metric icon="memory" title={t('home.ram.inUse')} value={dd ? formatMemory(dd.used_ram_mb) : '-'} total={dd ? formatMemory(dd.total_ram_mb) : '-'} progress={dd?.total_ram_mb ? dd.used_ram_mb * 100 / dd.total_ram_mb : 0} />
-        <Metric icon="hard_drive" title={t('home.storage.inUse')} value={dd ? formatStorage(dd.used_storage_mb) : '-'} total={dd ? formatStorage(dd.total_storage_mb) : '-'} progress={dd?.total_storage_mb ? dd.used_storage_mb * 100 / dd.total_storage_mb : 0} />
+        <Metric icon="battery_android_full" title={t('home.field.battery')} value={dd?.battery_level_percent != null && dd.battery_level_percent >= 0 ? `${dd.battery_level_percent}%` : '-'} subLabel={t('home.battery.health')} subValue={dd?.battery_health ? (dd.battery_health.includes('%') ? dd.battery_health : t(`battery.health.${dd.battery_health}` as any)) : '-'} progress={dd?.battery_level_percent || 0} />
+        <Metric icon="memory" title={t('home.ram.inUse')} value={dd ? formatMemory(dd.used_ram_mb) : '-'} subLabel={t('home.field.total')} subValue={dd ? formatMemory(dd.total_ram_mb) : '-'} progress={dd?.total_ram_mb ? dd.used_ram_mb * 100 / dd.total_ram_mb : 0} />
+        <Metric icon="hard_drive" title={t('home.storage.inUse')} value={dd ? formatStorage(dd.used_storage_mb) : '-'} subLabel={t('home.field.total')} subValue={dd ? formatStorage(dd.total_storage_mb) : '-'} progress={dd?.total_storage_mb ? dd.used_storage_mb * 100 / dd.total_storage_mb : 0} />
       </div>
 
       {/* Nueva Sección de Datos Estilo Lista Material 3 */}

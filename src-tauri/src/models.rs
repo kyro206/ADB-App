@@ -39,6 +39,7 @@ pub struct DeviceDetails {
     pub total_ram_mb: i64,
     pub used_ram_mb: i64,
     pub battery_level_percent: i32,
+    pub battery_health: String,
     pub total_storage_mb: i64,
     pub used_storage_mb: i64,
     pub dark_mode_enabled: bool,

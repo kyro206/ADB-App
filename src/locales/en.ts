@@ -48,7 +48,16 @@ export const en = {
   'home.field.product': 'Product',
   'home.field.architecture': 'Architecture',
   'home.field.battery': 'Battery',
-  'home.ram.inUse': 'RAM in use',
+  'home.field.total': 'Total',
+  'home.battery.health': 'Health',
+  'battery.health.good': 'Good',
+  'battery.health.overheat': 'Overheated',
+  'battery.health.dead': 'Dead',
+  'battery.health.over_voltage': 'Over voltage',
+  'battery.health.failure': 'Failure',
+  'battery.health.cold': 'Cold',
+  'battery.health.unknown': 'Unknown',
+  'home.ram.inUse': 'RAM in Use',
   'home.storage.inUse': 'Storage in use',
   'home.summary.empty': 'Select a connected device to view its summary',
   'home.preview.title': 'Preview',
@@ -446,3 +455,5 @@ export const en = {
   'apps.permissions.count': '{granted} of {total}',
   'apps.permissions.empty': 'This app declares no permissions.',
 } as const;
+
+export type TranslationKey = keyof typeof en;
