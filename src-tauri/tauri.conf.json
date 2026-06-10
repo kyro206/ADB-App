@@ -14,14 +14,6 @@
       "csp": null
     }
   },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://kyro206.github.io/ADB-App/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4RDkxQUNFQTVCRkJBNEQKUldSTnVyK2x6aHJaNkVOZFFNQ29pcTduSTdDTlV6MHZteHNrbGpmMzBJdHlBRVhNd25EMDdtQXoK"
-    }
-  },
   "bundle": {
     "active": true,
     "targets": ["msi", "nsis", "dmg", "app", "deb", "rpm"],

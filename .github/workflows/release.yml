@@ -1,0 +1,195 @@
+name: "Compilar y publicar releases de ADB App"
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            args: "--bundles deb"
+            name: "linux-x64"
+            ext: "deb"
+
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            args: "--bundles msi"
+            name: "windows-x64"
+            ext: "msi"
+
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            args: "--bundles msi"
+            name: "windows-arm64"
+            ext: "msi"
+
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            args: "--bundles dmg"
+            name: "macos-x64"
+            ext: "dmg"
+
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            args: "--bundles dmg"
+            name: "macos-arm64"
+            ext: "dmg"
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Configurar Rust y Target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Instalar dependencias de Linux (Gtk / WebKit)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Instalar dependencias del Frontend
+        run: bun install
+
+      - name: Compilar aplicación con Tauri v2
+        uses: tauri-apps/tauri-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.event.release.tag_name }}
+          includeRelease: false # Lo deshabilitamos para renombrar los archivos manualmente antes de subirlos
+          args: --target ${{ matrix.target }} ${{ matrix.args }}
+
+      - name: Organizar y Renombrar Artefactos (Bash para Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p final-artifacts
+          FILE_BIN=$(find src-tauri/target/ -type f -name "*.${{ matrix.ext }}" | head -n 1)
+          FILE_SIG=$(find src-tauri/target/ -type f -name "*.${{ matrix.ext }}.sig" | head -n 1)
+          cp "$FILE_BIN" "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}"
+          cp "$FILE_SIG" "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}.sig"
+
+      - name: Organizar y Renombrar Artefactos (PowerShell para Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path final-artifacts
+          $fileBin = Get-ChildItem -Path src-tauri/target/ -Filter "*.${{ matrix.ext }}" -Recurse | Select-Object -First 1
+          $fileSig = Get-ChildItem -Path src-tauri/target/ -Filter "*.${{ matrix.ext }}.sig" -Recurse | Select-Object -First 1
+          Copy-Item $fileBin.FullName -Destination "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}"
+          Copy-Item $fileSig.FullName -Destination "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}.sig"
+
+      - name: Subir al almacenamiento temporal de la Action
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-build-${{ matrix.name }}
+          path: final-artifacts/*
+          retention-days: 1
+
+  publish-release:
+    needs: build-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar todos los artefactos compilados
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Aplanar estructura de carpetas
+        run: |
+          mkdir -p deploy-assets
+          find all-artifacts/ -type f -exec cp {} deploy-assets/ \;
+          ls -lh deploy-assets/
+
+      - name: Subir Instaladores a la Release de GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            deploy-assets/*.deb
+            deploy-assets/*.msi
+            deploy-assets/*.dmg
+
+      - name: Generar y Actualizar latest.json (Solo si NO es Prerelease)
+        if: github.event.release.prerelease == false
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+          REPO_NAME: ${{ github.repository }}
+          RELEASE_NOTES: ${{ github.event.release.body }}
+        run: |
+          node -e '
+          const fs = require("fs");
+          const path = require("path");
+          
+          const tag = process.env.TAG_NAME;
+          const repo = process.env.REPO_NAME;
+          const baseUrl = `https://github.com/${repo}/releases/download/${tag}`;
+          
+          function getSignature(filename) {
+            const sigPath = path.join("deploy-assets", `${filename}.sig`);
+            if (fs.existsSync(sigPath)) {
+              return fs.readFileSync(sigPath, "utf8").trim();
+            }
+            return null;
+          }
+          
+          const latestJson = {
+            version: tag,
+            notes: process.env.RELEASE_NOTES || "Nueva actualización disponible.",
+            pub_date: new Date().toISOString(),
+            platforms: {}
+          };
+          
+          const map = [
+            { key: "windows-x86_64", file: "ADB-App-windows-x64.msi" },
+            { key: "windows-aarch64", file: "ADB-App-windows-arm64.msi" },
+            { key: "linux-x86_64", file: "ADB-App-linux-x64.deb" },
+            { key: "darwin-x86_64", file: "ADB-App-macos-x64.dmg" },
+            { key: "darwin-aarch64", file: "ADB-App-macos-arm64.dmg" }
+          ];
+          
+          map.forEach(item => {
+            const sig = getSignature(item.file);
+            if (sig) {
+              latestJson.platforms[item.key] = {
+                signature: sig,
+                url: `${baseUrl}/${item.file}`
+              };
+            }
+          });
+          
+          fs.writeFileSync("latest.json", JSON.stringify(latestJson, null, 2));
+          console.log("Archivo latest.json generado con éxito.");
+          '
+
+      - name: Desplegar latest.json en la rama gh-pages (Solo si NO es Prerelease)
+        if: github.event.release.prerelease == false
+        run: |
+          git clone --branch gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-repo
+          cp latest.json gh-pages-repo/latest.json
+          cd gh-pages-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add latest.json
+          git commit -m "Actualizar updater endpoint para la versión ${TAG_NAME}"
+          git push origin gh-pages

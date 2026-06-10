@@ -1,37 +1,9 @@
 import { AppLayout } from './components/layout/AppLayout';
 import { MaterialWebEnhancer } from './components/MaterialWebEnhancer';
 import { useEffect } from 'react';
-import { useI18n } from './locales';
-import { check } from '@tauri-apps/plugin-updater';
-import { ask } from '@tauri-apps/plugin-dialog';
-import { relaunch } from '@tauri-apps/plugin-process';
 
 function App() {
-  const { t } = useI18n();
-
   useEffect(() => {
-    const checkForUpdates = async () => {
-      try {
-        const update = await check();
-        if (update) {
-          const yes = await ask(
-            t('updater.availableMessage', { version: update.version }),
-            { 
-              title: t('updater.availableTitle'),
-              kind: 'info',
-              okLabel: t('updater.updateNow'),
-              cancelLabel: t('updater.later')
-            }
-          );
-          if (yes) {
-            await update.downloadAndInstall();
-            await relaunch();
-          }
-        }
-      } catch (error) {}
-    };
-    checkForUpdates();
-
     // 1. Desactivar el menú contextual (clic derecho)
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
