@@ -134,45 +134,96 @@ fn system_path(tool: &str) -> Option<PathBuf> {
         .filter(|path| path.is_file())
 }
 
-fn java_from_windows_registry() -> Option<PathBuf> {
+fn common_directories(tool: &str) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    #[cfg(windows)]
+    {
+        if tool == "java" {
+            dirs.extend(vec![
+                PathBuf::from(r"C:\Program Files\Eclipse Adoptium"),
+                PathBuf::from(r"C:\Program Files\Java"),
+                PathBuf::from(r"C:\Program Files\Microsoft"),
+                PathBuf::from(r"C:\Program Files\Android\Android Studio\jbr"),
+            ]);
+        } else if tool == "adb" {
+            if let Ok(localappdata) = env::var("LOCALAPPDATA") {
+                dirs.push(PathBuf::from(localappdata).join(r"Android\Sdk\platform-tools"));
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if tool == "java" {
+            dirs.extend(vec![
+                PathBuf::from("/Library/Java/JavaVirtualMachines"),
+                PathBuf::from("/System/Library/Java/JavaVirtualMachines"),
+            ]);
+        } else if tool == "adb" {
+            if let Ok(home) = env::var("HOME") {
+                dirs.push(PathBuf::from(home).join("Library/Android/sdk/platform-tools"));
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if tool == "java" {
+            dirs.extend(vec![
+                PathBuf::from("/usr/lib/jvm"),
+            ]);
+        } else if tool == "adb" {
+            if let Ok(home) = env::var("HOME") {
+                dirs.push(PathBuf::from(home).join("Android/Sdk/platform-tools"));
+            }
+        }
+    }
+
+    dirs
+}
+
+fn tool_from_windows_registry(tool: &str) -> Option<PathBuf> {
     if !cfg!(windows) {
         return None;
     }
-    let keys = [
-        r"HKLM\SOFTWARE\Eclipse Adoptium\JDK",
-        r"HKLM\SOFTWARE\Eclipse Adoptium\JRE",
-        r"HKLM\SOFTWARE\JavaSoft\JDK",
-        r"HKLM\SOFTWARE\JavaSoft\Java Runtime Environment",
-    ];
-    for key in keys {
-        let versions = crate::process::command("reg")
-            .args(["query", key])
-            .output()
-            .ok()
-            .filter(|output| output.status.success())
-            .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
-            .unwrap_or_default();
-        for version_key in versions
-            .lines()
-            .map(str::trim)
-            .filter(|line| line.starts_with("HKEY"))
-        {
-            for value_name in ["Path", "JavaHome"] {
-                let output = crate::process::command("reg")
-                    .args(["query", version_key, "/v", value_name])
-                    .output()
-                    .ok()
-                    .filter(|output| output.status.success())
-                    .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
-                    .unwrap_or_default();
-                if let Some(path) = output
-                    .lines()
-                    .find(|line| line.contains("REG_SZ"))
-                    .and_then(|line| line.split("REG_SZ").nth(1))
-                    .map(str::trim)
-                    .and_then(|path| normalize_candidate("java", path))
-                {
-                    return Some(path);
+    if tool == "java" {
+        let keys = [
+            r"HKLM\SOFTWARE\Eclipse Adoptium\JDK",
+            r"HKLM\SOFTWARE\Eclipse Adoptium\JRE",
+            r"HKLM\SOFTWARE\JavaSoft\JDK",
+            r"HKLM\SOFTWARE\JavaSoft\Java Runtime Environment",
+        ];
+        for key in keys {
+            let versions = crate::process::command("reg")
+                .args(["query", key])
+                .output()
+                .ok()
+                .filter(|output| output.status.success())
+                .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
+                .unwrap_or_default();
+            for version_key in versions
+                .lines()
+                .map(str::trim)
+                .filter(|line| line.starts_with("HKEY"))
+            {
+                for value_name in ["Path", "JavaHome"] {
+                    let output = crate::process::command("reg")
+                        .args(["query", version_key, "/v", value_name])
+                        .output()
+                        .ok()
+                        .filter(|output| output.status.success())
+                        .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
+                        .unwrap_or_default();
+                    if let Some(path) = output
+                        .lines()
+                        .find(|line| line.contains("REG_SZ"))
+                        .and_then(|line| line.split("REG_SZ").nth(1))
+                        .map(str::trim)
+                        .and_then(|path| normalize_candidate("java", path))
+                    {
+                        return Some(path);
+                    }
                 }
             }
         }
@@ -180,40 +231,56 @@ fn java_from_windows_registry() -> Option<PathBuf> {
     None
 }
 
-fn java_from_common_directories() -> Option<PathBuf> {
-    if !cfg!(windows) {
-        return None;
-    }
-    let roots = [
-        PathBuf::from(r"C:\Program Files\Eclipse Adoptium"),
-        PathBuf::from(r"C:\Program Files\Java"),
-        PathBuf::from(r"C:\Program Files\Microsoft"),
-        PathBuf::from(r"C:\Program Files\Android\Android Studio\jbr"),
-    ];
-    for root in roots {
-        if let Some(path) = normalize_candidate("java", root.to_string_lossy().as_ref()) {
+fn detect_tool_path(tool: &str) -> Option<PathBuf> {
+    let env_candidate = match tool {
+        "java" => env::var("JAVA_HOME").ok(),
+        "adb" => env::var("ANDROID_HOME")
+            .ok()
+            .map(|p| PathBuf::from(p).join("platform-tools").to_string_lossy().to_string()),
+        _ => None,
+    };
+
+    if let Some(val) = env_candidate {
+        if let Some(path) = normalize_candidate(tool, &val) {
             return Some(path);
         }
-        let Ok(entries) = fs::read_dir(root) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            if let Some(path) = normalize_candidate("java", entry.path().to_string_lossy().as_ref())
-            {
-                return Some(path);
+    }
+
+    if let Some(path) = system_path(tool) {
+        return Some(path);
+    }
+
+    if let Some(path) = tool_from_windows_registry(tool) {
+        return Some(path);
+    }
+
+    for root in common_directories(tool) {
+        if let Some(path) = normalize_candidate(tool, root.to_string_lossy().as_ref()) {
+            return Some(path);
+        }
+        if let Ok(entries) = fs::read_dir(root) {
+            for entry in entries.flatten() {
+                let candidate_path = entry.path();
+                #[cfg(target_os = "macos")]
+                {
+                    if tool == "java" {
+                        if let Some(path) = normalize_candidate(
+                            tool,
+                            candidate_path.join("Contents/Home").to_string_lossy().as_ref(),
+                        ) {
+                            return Some(path);
+                        }
+                    }
+                }
+
+                if let Some(path) = normalize_candidate(tool, candidate_path.to_string_lossy().as_ref()) {
+                    return Some(path);
+                }
             }
         }
     }
-    None
-}
 
-fn detected_java_path() -> Option<PathBuf> {
-    env::var("JAVA_HOME")
-        .ok()
-        .and_then(|path| normalize_candidate("java", &path))
-        .or_else(|| system_path("java"))
-        .or_else(java_from_windows_registry)
-        .or_else(java_from_common_directories)
+    None
 }
 
 pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
@@ -221,10 +288,7 @@ pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
         .or_else(|| {
             (tool != "java" && managed_executable(tool).is_file()).then(|| managed_executable(tool))
         })
-        .or_else(|| match tool {
-            "java" => detected_java_path(),
-            _ => system_path(tool),
-        })
+        .or_else(|| detect_tool_path(tool))
 }
 
 fn version_for(tool: &str, path: &Path) -> String {

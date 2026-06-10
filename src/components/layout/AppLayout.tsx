@@ -13,6 +13,12 @@ export function AppLayout() {
 
   useEffect(() => {
     refreshDevices();
+    const platform = navigator.platform.toLowerCase();
+    if (platform.includes('win')) {
+      document.documentElement.classList.add('platform-windows');
+    } else if (platform.includes('mac')) {
+      document.documentElement.classList.add('platform-macos');
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

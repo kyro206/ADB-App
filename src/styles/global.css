@@ -151,3 +151,29 @@ input:focus, select:focus, textarea:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Mica/Vibrancy Effect (Windows & macOS) */
+html.platform-windows,
+html.platform-windows body,
+html.platform-windows #root,
+html.platform-macos,
+html.platform-macos body,
+html.platform-macos #root {
+  background: transparent !important;
+}
+
+html.platform-windows .app-layout,
+html.platform-windows .app-layout__body,
+html.platform-windows .topbar,
+html.platform-windows .sidebar,
+html.platform-macos .app-layout,
+html.platform-macos .app-layout__body,
+html.platform-macos .topbar,
+html.platform-macos .sidebar {
+  background: transparent !important;
+}
+
+html.platform-windows .app-layout__content,
+html.platform-macos .app-layout__content {
+  background: var(--bg) !important;
+}
