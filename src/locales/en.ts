@@ -303,9 +303,8 @@ export const en = {
   // Dialogs & Layout
   'wireless.status.ready': 'Ready to connect',
   'wireless.status.generatingQr': 'Generating secure QR code...',
-  'wireless.status.scanQr': 'Scan the QR and tap Pair',
-  'wireless.title': 'Connect device',
-  'wireless.subtitle': 'Connect or pair via Wireless Debugging.',
+  'wireless.status.scanQr': 'Scan the QR with your device',
+  'wireless.title': 'Pair device via wireless debugging',
   'wireless.tab.connect': 'Connect',
   'wireless.tab.code': 'Code',
   'wireless.tab.qr': 'QR',
@@ -320,7 +319,7 @@ export const en = {
   'wireless.pair.success': 'Device paired',
   'wireless.action.pair': 'Pair',
   'wireless.qr.alt': 'QR code for ADB pairing',
-  'wireless.qr.desc': 'Scan the code from Wireless Debugging. No technical details needed.',
+  'wireless.qr.desc': 'Scan the code from Wireless Debugging.',
   'wireless.qr.pending': 'Waiting for device...',
 
   'install.option.replace': 'Replace if already installed',

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useDevices } from '../../context/DeviceContext';
 import { useI18n } from '../../locales';
@@ -20,33 +20,73 @@ export function WirelessDialog({ open, onClose }: { open: boolean; onClose: () =
   const [pairCode, setPairCode] = useState('');
   const [qrPayload, setQrPayload] = useState<WirelessQrPayload | null>(null);
 
+  const modeRef = useRef(mode);
+  const openRef = useRef(open);
+  const genIdRef = useRef(0);
+
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { openRef.current = open; }, [open]);
+
   const run = async (command: string, payload: Record<string, unknown>, pending: string, success: string) => {
     setBusy(true); setStatus(pending);
-    try { setStatus(await invoke<string>(command, payload) || success); await refreshDevices(); }
+    try { 
+      setStatus(await invoke<string>(command, payload) || success); 
+      await refreshDevices(); 
+      onClose();
+    }
     catch (error) { setStatus(String(error)); }
     finally { setBusy(false); }
   };
   
   const generateQr = async () => {
+    const currentGen = ++genIdRef.current;
     setBusy(true); setStatus(t('wireless.status.generatingQr'));
-    try { setQrPayload(await invoke<WirelessQrPayload>('generate_wireless_qr')); setStatus(t('wireless.status.scanQr')); }
-    catch (error) { setStatus(String(error)); }
-    finally { setBusy(false); }
+    let payload: WirelessQrPayload | null = null;
+    try { 
+      payload = await invoke<WirelessQrPayload>('generate_wireless_qr');
+      if (modeRef.current === 'qr' && openRef.current && currentGen === genIdRef.current) {
+        setQrPayload(payload); 
+      }
+    }
+    catch (error) { 
+      if (modeRef.current === 'qr' && openRef.current && currentGen === genIdRef.current) {
+        setStatus(String(error)); 
+        setBusy(false); 
+      }
+      return; 
+    }
+    
+    if (payload && modeRef.current === 'qr' && openRef.current && currentGen === genIdRef.current) {
+      setStatus(t('wireless.status.scanQr'));
+      try {
+        await invoke<string>('pair_wireless_qr', { serviceName: payload.service_name, password: payload.password });
+        await refreshDevices();
+        if (openRef.current && currentGen === genIdRef.current) onClose();
+      } catch (error) {
+        // Auto-refresh if it failed (timeout) and we are still in QR mode
+        if (modeRef.current === 'qr' && openRef.current && currentGen === genIdRef.current) {
+          generateQr();
+        }
+      }
+    }
   };
 
   // Efecto para autogenerar el código QR al entrar en la pestaña correspondiente
   useEffect(() => {
     if (open && status === '') setStatus(t('wireless.status.ready'));
-    if (mode === 'qr' && !qrPayload) {
+    if (mode === 'qr' && !qrPayload && !busy) {
       generateQr();
     }
-  }, [mode, qrPayload, open, status, t]);
+  }, [mode, qrPayload, open, status, busy, t]);
 
-  return <AppModal open={open} onClose={onClose} title={t('wireless.title')} subtitle={t('wireless.subtitle')}>
+  return <AppModal open={open} onClose={onClose} title={t('wireless.title')}>
     <md-tabs className="wireless-tabs">
       <md-primary-tab active={mode === 'connect' || undefined} onClick={() => setMode('connect')}>{t('wireless.tab.connect')}</md-primary-tab>
       <md-primary-tab active={mode === 'pair' || undefined} onClick={() => setMode('pair')}>{t('wireless.tab.code')}</md-primary-tab>
-      <md-primary-tab active={mode === 'qr' || undefined} onClick={() => setMode('qr')}>{t('wireless.tab.qr')}</md-primary-tab>
+      <md-primary-tab active={mode === 'qr' || undefined} onClick={() => {
+        if (mode === 'qr') generateQr();
+        else setMode('qr');
+      }}>{t('wireless.tab.qr')}</md-primary-tab>
     </md-tabs>
     
     {mode === 'connect' && <section className="wireless-form">
@@ -68,10 +108,6 @@ export function WirelessDialog({ open, onClose }: { open: boolean; onClose: () =
       </div>
       <div>
         <p>{t('wireless.qr.desc')}</p>
-        <div className="wireless-qr__actions">
-          {/* Se ha eliminado el botón de Generar QR */}
-          <md-filled-button disabled={!qrPayload || busy || undefined} onClick={() => qrPayload && run('pair_wireless_qr', { serviceName: qrPayload.service_name, password: qrPayload.password }, t('wireless.qr.pending'), t('wireless.pair.success'))}>{t('wireless.action.pair')}</md-filled-button>
-        </div>
       </div>
     </section>}
     

@@ -69,6 +69,9 @@ export function TopBar() {
       <div className="topbar__drag-zone" data-tauri-drag-region />
       {platform !== 'macos' && windowControls}
     </header>
-    <WirelessDialog open={wirelessOpen} onClose={() => setWirelessOpen(false)} />
+    <WirelessDialog open={wirelessOpen} onClose={() => {
+      setWirelessOpen(false);
+      refreshDevices();
+    }} />
   </>;
 }

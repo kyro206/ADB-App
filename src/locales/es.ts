@@ -303,9 +303,8 @@ export const es: Record<string, string> = {
   // Dialogs & Layout
   'wireless.status.ready': 'Listo para conectar',
   'wireless.status.generatingQr': 'Generando código QR seguro...',
-  'wireless.status.scanQr': 'Escanea el QR y pulsa Emparejar',
-  'wireless.title': 'Conectar dispositivo',
-  'wireless.subtitle': 'Conecta o empareja mediante Depuración inalámbrica.',
+  'wireless.status.scanQr': 'Escanea el QR con tu dispositivo',
+  'wireless.title': 'Conexión mediante depuración inalámbrica',
   'wireless.tab.connect': 'Conectar',
   'wireless.tab.code': 'Código',
   'wireless.tab.qr': 'QR',
@@ -320,7 +319,7 @@ export const es: Record<string, string> = {
   'wireless.pair.success': 'Dispositivo emparejado',
   'wireless.action.pair': 'Emparejar',
   'wireless.qr.alt': 'Código QR para emparejar ADB',
-  'wireless.qr.desc': 'Escanea el código desde Depuración inalámbrica. No necesitas introducir datos técnicos.',
+  'wireless.qr.desc': 'Escanea el código desde Depuración inalámbrica.',
   'wireless.qr.pending': 'Esperando al dispositivo...',
 
   'install.option.replace': 'Reemplazar si ya está instalada',
