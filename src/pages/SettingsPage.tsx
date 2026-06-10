@@ -131,8 +131,8 @@ type SettingsPageProps = {
   onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
   onInstallTool: (tool: InstallableTool) => void;
   onClearCache: () => void;
-  appSettings: { cache_enabled: boolean; cache_path: string } | null;
-  onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string }) => void;
+  appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean } | null;
+  onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean }) => void;
   defaultCacheDir: string;
 };
 

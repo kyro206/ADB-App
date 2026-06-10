@@ -205,7 +205,7 @@ export const en = {
   'files.action.newFolder': 'New folder',
   'files.action.upload': 'Upload',
   'files.action.download': 'Download',
-  'files.action.open': 'Open file',
+  'files.action.open': 'Open folder',
   'files.action.rename': 'Rename',
   'files.action.duplicate': 'Duplicate',
   'files.action.permissions': 'Permissions',

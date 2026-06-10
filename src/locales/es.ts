@@ -205,7 +205,7 @@ export const es: Record<string, string> = {
   'files.action.newFolder': 'Nueva carpeta',
   'files.action.upload': 'Subir',
   'files.action.download': 'Descargar',
-  'files.action.open': 'Abrir archivo',
+  'files.action.open': 'Abrir carpeta',
   'files.action.rename': 'Renombrar',
   'files.action.duplicate': 'Duplicar',
   'files.action.permissions': 'Permisos',

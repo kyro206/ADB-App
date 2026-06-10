@@ -72,7 +72,7 @@ export function HomePage() {
     }
   }, [savingScreenshot, screenshot, t]);
 
-  const performPowerAction = async (label: string, args: string[]) => {
+  const performPowerAction = async (_label: string, args: string[]) => {
     if (!selectedDevice || powerBusy) return;
     setPowerBusy(true); setPowerOpen(false);
     try { await invoke<string>('run_device_action', { serial: selectedDevice.serial, args }); window.setTimeout(refreshDevices, 4000); }

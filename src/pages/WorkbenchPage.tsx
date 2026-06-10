@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { open, save } from '@tauri-apps/plugin-dialog';
 import { useDevices } from '../context/DeviceContext';
 import { useI18n } from '../locales';
 import { useTheme } from '../context/ThemeContext';
@@ -147,14 +146,14 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
   const refreshSettings = async () => {
     try {
-      const value = await invoke<{ cache_enabled: boolean; cache_path: string }>('get_app_settings');
+      const value = await invoke<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean }>('get_app_settings');
       const defaultDir = await invoke<string>('get_default_cache_dir');
       setAppSettings(value);
       setDefaultCacheDir(defaultDir);
     } catch (error) { setStatus(String(error)); }
   };
 
-  const saveAppSettings = async (settings: { cache_enabled: boolean; cache_path: string }) => {
+  const saveAppSettings = async (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean }) => {
     setBusy(true);
     try {
       await invoke('save_app_settings', { settings });
@@ -303,7 +302,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     mirroring: wrap(mirroring),
     control: wrap(<ControlPage serial={serial!} run={run} setStatus={setStatus} setBusy={setBusy} />),
     apps: wrap(<AppsPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} tab={tab} appSettings={appSettings} />, tab === 'apps' && busy),
-    files: wrap(<FilesPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} />),
+    files: wrap(<FilesPage serial={serial!} setStatus={setStatus} setBusy={setBusy} run={run} tab={tab} />),
     system: wrap(<SystemPage serial={serial!} setStatus={setStatus} />),
     settings,
   };

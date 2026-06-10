@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useState, useRef, type MouseEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { confirm, open } from '@tauri-apps/plugin-dialog';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { PromptDialog } from '../components/dialogs/PromptDialog';
+import { ContextMenu } from '../components/layout/ContextMenu';
 import { useI18n } from '../locales';
 import { formatBytes } from './workbench/utils';
 import type { FileEntry, FileSortKey, FileView } from './workbench/types';
@@ -13,9 +15,10 @@ export interface FilesPageProps {
   setStatus: (status: string) => void;
   setBusy: (busy: boolean) => void;
   run: (args: string[], success?: string) => Promise<any>;
+  tab: string;
 }
 
-export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
+export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPageProps) {
   const { t } = useI18n();
   const [path, setPath] = useState('/sdcard');
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -28,6 +31,11 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
   const [fileHistoryIndex, setFileHistoryIndex] = useState(0);
   const [fileThumbnails, setFileThumbnails] = useState<Record<string, string>>({});
   const [promptConfig, setPromptConfig] = useState<{ open: boolean; title: string; initialValue: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
+  const [osDragHover, setOsDragHover] = useState(false);
+  
+  const pathRef = useRef(path);
+  useEffect(() => { pathRef.current = path; }, [path]);
 
   const asyncPrompt = (title: string, initialValue: string = '') => {
     return new Promise<string | null>((resolve) => {
@@ -106,13 +114,25 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
     setFileHistoryIndex(index);
   };
 
+  const uploadLocalPaths = async (paths: string[]) => {
+    if (!paths.length) return;
+    setBusy(true);
+    try {
+      for (const localPath of paths) {
+        await run(['push', localPath, pathRef.current]);
+      }
+      await refreshFiles(pathRef.current);
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const uploadFiles = async () => {
     const selected = await open({ multiple: true, directory: false });
     const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
-    for (const localPath of paths) {
-      await run(['push', localPath, path]);
-    }
-    if (paths.length) await refreshFiles();
+    await uploadLocalPaths(paths);
   };
 
   const downloadSelectedFiles = async () => {
@@ -176,6 +196,35 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
   }, [serial]);
 
   useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let isMounted = true;
+
+    if (tab === 'files') {
+      getCurrentWebview().onDragDropEvent((event) => {
+        if (event.payload.type === 'over' || event.payload.type === 'enter') {
+          setOsDragHover(true);
+        } else if (event.payload.type === 'leave') {
+          setOsDragHover(false);
+        } else if (event.payload.type === 'drop') {
+          setOsDragHover(false);
+          const paths = (event.payload as any).paths || [];
+          if (paths && paths.length > 0) {
+            uploadLocalPaths(paths);
+          }
+        }
+      }).then((fn) => {
+        unlisten = fn;
+        if (!isMounted) unlisten();
+      });
+    }
+
+    return () => {
+      isMounted = false;
+      if (unlisten) unlisten();
+    };
+  }, [tab]);
+
+  useEffect(() => {
     if (fileView !== 'grid' || !serial) return;
     filteredFiles.filter(file => !file.is_directory && !file.is_link && file.size <= 5 * 1024 * 1024 && /\.(png|jpe?g|webp|gif)$/i.test(file.name) && !fileThumbnails[filePath(file)]).slice(0, 12).forEach(file => {
       const remotePath = filePath(file);
@@ -188,6 +237,13 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
       ? current.includes(file.name) ? current.filter(name => name !== file.name) : [...current, file.name]
       : [file.name]);
   };
+
+  const handleContextMenu = (e: React.MouseEvent, file: FileEntry) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!selectedFiles.includes(file.name)) setSelectedFiles([file.name]);
+    setContextMenu({ x: e.clientX, y: e.clientY, file });
+  };
   const fileType = (file: FileEntry) => file.is_link ? t('files.type.symlink') : file.is_directory ? t('files.type.folder') : t('files.type.file');
   const fileSize = (file: FileEntry) => file.is_directory || file.is_link ? '-' : formatBytes(file.size);
   const fileIcon = (file: FileEntry) => file.is_link ? 'shortcut' : file.is_directory ? 'folder' : 'draft';
@@ -199,7 +255,8 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
   const currentFolderName = path === '/' ? 'root' : path.split('/').pop();
 
   return (
-    <div className="file-explorer">
+    <div className={`file-explorer ${osDragHover ? 'os-drag-hover' : ''}`}>
+      {osDragHover && <div className="file-os-drag-overlay"><MaterialIcon name="upload_file" /><span>{t('files.action.upload')}</span></div>}
       <section className="file-material-toolbar">
         <div className="file-navigation">
           <md-icon-button aria-label={t('files.nav.back')} title={t('files.nav.back')} disabled={fileHistoryIndex <= 0 ? true : undefined} onClick={() => goFileHistory(fileHistoryIndex - 1)}><MaterialIcon name="arrow_back" /></md-icon-button>
@@ -210,7 +267,23 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
         <div className={`file-address ${filePathEditing ? 'editing' : ''}`} onClick={() => setFilePathEditing(true)}>
           {filePathEditing
             ? <md-outlined-text-field autoFocus value={path} aria-label={t('files.nav.path')} onFocus={(event: any) => event.currentTarget.select()} onBlur={() => setFilePathEditing(false)} onInput={(event: any) => setPath(event.currentTarget.value)} onKeyDown={(event: any) => { if (event.key === 'Enter') { refreshFiles(path, true); setFilePathEditing(false); } if (event.key === 'Escape') setFilePathEditing(false); }} />
-            : <nav className="file-breadcrumbs"><MaterialIcon name="smartphone" /><button onClick={event => { event.stopPropagation(); refreshFiles('/', true); }}>/</button>{pathParts.map((part, index) => <span key={`${part}-${index}`}><MaterialIcon name="chevron_right" /><button onClick={event => { event.stopPropagation(); refreshFiles(`/${pathParts.slice(0, index + 1).join('/')}`, true); }}>{part}</button></span>)}</nav>}
+            : <nav className="file-breadcrumbs">
+                <MaterialIcon name="smartphone" />
+                <button 
+                  onClick={event => { event.stopPropagation(); refreshFiles('/', true); }}
+                >/</button>
+                {pathParts.map((part, index) => {
+                  const breadcrumbPath = `/${pathParts.slice(0, index + 1).join('/')}`;
+                  return (
+                    <span key={`${part}-${index}`}>
+                      <MaterialIcon name="chevron_right" />
+                      <button 
+                        onClick={event => { event.stopPropagation(); refreshFiles(breadcrumbPath, true); }}
+                      >{part}</button>
+                    </span>
+                  );
+                })}
+              </nav>}
         </div>
         <md-outlined-text-field 
           className="file-search" 
@@ -246,15 +319,37 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
       <section className={`file-browser ${fileView}`}>
         {fileView === 'list' && <div className="file-list-table">
           <div className="file-list-header">{([['name', t('files.sort.name')], ['type', t('files.sort.type')], ['size', t('files.sort.size')], ['permissions', t('files.sort.permissions')], ['modified', t('files.sort.modified')]] as [FileSortKey, string][]).map(([key, label]) => <button className={fileSort.key === key ? 'active' : ''} key={key} onClick={() => changeFileSort(key)}>{label}<MaterialIcon name={sortIcon(key)} /></button>)}</div>
-          {filteredFiles.map(file => <button className={`file-list-row ${selectedFiles.includes(file.name) ? 'selected' : ''}`} key={file.name} onClick={event => selectFileEntry(event, file)} onDoubleClick={() => openFileEntry(file)}>
+          {filteredFiles.map(file => <button 
+            className={`file-list-row ${selectedFiles.includes(file.name) ? 'selected' : ''}`} 
+            key={file.name} 
+            onClick={event => selectFileEntry(event, file)} 
+            onDoubleClick={() => openFileEntry(file)}
+            onContextMenu={e => handleContextMenu(e, file)}
+          >
             <span className={`file-name-cell ${file.is_link ? 'symbolic' : ''}`}><b><MaterialIcon name={fileIcon(file)} /></b><span><strong>{file.name}{file.is_link && <small title={file.link_target}> → {file.link_target}</small>}</strong></span></span>
             <span>{fileType(file)}</span><span>{fileSize(file)}</span><code>{file.permissions}</code><span>{file.modified}</span>
             <md-ripple />
           </button>)}
         </div>}
         {fileView === 'grid' && <div className="file-grid-view">
-          {filteredFiles.map(file => <button className={`file-grid-card ${selectedFiles.includes(file.name) ? 'selected' : ''}`} key={file.name} onClick={event => selectFileEntry(event, file)} onDoubleClick={() => openFileEntry(file)}>
-            {file.is_link ? <span className="file-grid-symbolic"><MaterialIcon name="shortcut" /><strong>{file.name}</strong><small title={file.link_target}> → {file.link_target}</small></span> : <span className="file-grid-preview">{fileThumbnails[filePath(file)] ? <img src={fileThumbnails[filePath(file)]} alt="" /> : <MaterialIcon name={fileIcon(file)} />}</span>}
+          {filteredFiles.map(file => <button 
+            className={`file-grid-card ${selectedFiles.includes(file.name) ? 'selected' : ''}`} 
+            key={file.name} 
+            onClick={event => selectFileEntry(event, file)} 
+            onDoubleClick={() => openFileEntry(file)}
+            onContextMenu={e => handleContextMenu(e, file)}
+          >
+            {file.is_link ? (
+              <span className="file-grid-symbolic">
+                <MaterialIcon name="shortcut" />
+                <strong>{file.name}</strong>
+                <small title={file.link_target}> → {file.link_target}</small>
+              </span>
+            ) : (
+              <span className="file-grid-preview">
+                {fileThumbnails[filePath(file)] ? <img src={fileThumbnails[filePath(file)]} alt="" loading="lazy" /> : <MaterialIcon name={fileIcon(file)} size={48} />}
+              </span>
+            )}
             {!file.is_link && <strong title={file.name}>{file.name}</strong>}
             <span>{fileType(file)} · {fileSize(file)}</span>
             <code>{file.permissions}</code>
@@ -264,13 +359,31 @@ export function FilesPage({ serial, setStatus, setBusy, run }: FilesPageProps) {
         {!filteredFiles.length && <div className="file-empty"><MaterialIcon name="folder_off" /><b>{t('files.empty.title')}</b><span>{t('files.empty.desc')}</span></div>}
       </section>
       <footer className="file-status-bar"><span><MaterialIcon name="folder" />{t('files.status.items', { count: filteredFiles.length })}</span><span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? t('files.status.selected', { count: selectedFileEntries.length }) : t('files.status.noSelection')}</span></footer>
-    <PromptDialog
-      open={promptConfig?.open || false}
-      title={promptConfig?.title || ''}
-      initialValue={promptConfig?.initialValue || ''}
-      onConfirm={(val) => promptConfig?.onConfirm(val)}
-      onCancel={() => promptConfig?.onCancel()}
-    />
+      {promptConfig && (
+        <PromptDialog
+          open={promptConfig.open}
+          title={promptConfig.title}
+          initialValue={promptConfig.initialValue}
+          onConfirm={promptConfig.onConfirm}
+          onCancel={promptConfig.onCancel}
+        />
+      )}
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            { icon: 'open_in_new', label: t('files.action.open'), onClick: () => openFileEntry(contextMenu.file), disabled: !contextMenu.file.is_directory && !contextMenu.file.is_link },
+            { icon: 'download', label: t('files.action.download'), onClick: () => setTimeout(downloadSelectedFiles, 10), disabled: contextMenu.file.is_directory },
+            { icon: 'edit', label: t('files.action.rename'), onClick: () => setTimeout(renameSelectedFile, 10) },
+            { icon: 'content_copy', label: t('files.action.duplicate'), onClick: () => setTimeout(duplicateSelectedFile, 10) },
+            { icon: 'admin_panel_settings', label: t('files.action.permissions'), onClick: () => setTimeout(changeSelectedPermissions, 10) },
+            { icon: 'delete', label: t('common.delete'), onClick: () => setTimeout(deleteSelectedFiles, 10), danger: true }
+          ]}
+        />
+      )}
     </div>
   );
 }
