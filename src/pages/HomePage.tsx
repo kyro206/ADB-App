@@ -57,7 +57,7 @@ export function HomePage() {
     }
   }, [selectedDevice, appName]);
 
-  const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : t('common.noData');
+  const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : '-';
 
   const captureScreenshot = useCallback(async () => {
     if (!selectedDevice || selectedDevice.state !== 'device') return;

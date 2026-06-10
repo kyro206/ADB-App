@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 
 
@@ -496,7 +496,7 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
 mod tests {
     use super::{
         adb_platform_tools_version,
-        is_newer_version, update_available,
+        is_newer_version,
     };
 
     #[test]

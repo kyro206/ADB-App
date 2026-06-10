@@ -97,6 +97,7 @@ pub fn run() {
             operations::check_tool_updates,
             operations::set_tool_path,
             operations::install_or_update_tool,
+            operations::set_window_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

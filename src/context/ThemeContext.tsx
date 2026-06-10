@@ -27,12 +27,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loaded) return;
     
-    const applyTheme = () => {
+    const applyTheme = async () => {
+      let resolvedTheme = theme;
       if (theme === 'auto') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-      } else {
-        document.documentElement.setAttribute('data-theme', theme);
+        resolvedTheme = isDark ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', resolvedTheme);
+      
+      try {
+        await invoke('set_window_theme', { theme: resolvedTheme });
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        await getCurrentWindow().setTheme(resolvedTheme === 'dark' ? 'dark' : 'light');
+      } catch (e) {
+        // Ignorar el error si falla el seteo del tema de ventana
       }
     };
 

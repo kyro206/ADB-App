@@ -16,7 +16,6 @@ export const en = {
   'main.tcpip': 'Connect USB over TCP/IP',
 
   // Common
-  'common.noData': 'No data',
   'common.none': 'none',
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',

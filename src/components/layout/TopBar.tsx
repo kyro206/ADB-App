@@ -59,7 +59,7 @@ export function TopBar() {
       <div className="topbar__drag-zone" data-tauri-drag-region />
       <div className="topbar__device-section" onDoubleClick={event => event.stopPropagation()}>
         <button className="topbar__tcpip" disabled={!selectedDevice || selectedDevice.state !== 'device' || (selectedDevice.serial.includes(':') || selectedDevice.serial.includes('._tcp')) || tcpipBusy} onClick={connectUsbOverTcpip} title={t('topbar.tcpip.tooltip')}><MaterialIcon name="usb" /><MaterialIcon name="arrow_forward" /><MaterialIcon name="wifi" /></button>
-        <DeviceSelector devices={devices} selectedDevice={selectedDevice} loading={loading} loadingLabel={t('common.loading')} emptyLabel={t('common.noData')} onSelect={selectDevice} onDisconnect={async (serial) => {
+        <DeviceSelector devices={devices} selectedDevice={selectedDevice} loading={loading} loadingLabel={t('common.loading')} emptyLabel={t('common.device.empty.title')} onSelect={selectDevice} onDisconnect={async (serial) => {
           await invoke('disconnect_wireless_device', { endpoint: serial });
           await refreshDevices();
         }} />

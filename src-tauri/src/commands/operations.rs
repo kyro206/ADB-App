@@ -219,6 +219,19 @@ pub async fn save_app_settings(settings: AppSettings) -> Result<Option<String>, 
 }
 
 #[tauri::command]
+pub fn set_window_theme(window: tauri::Window, theme: String) {
+    #[cfg(target_os = "windows")]
+    {
+        let is_dark = match theme.as_str() {
+            "dark" => Some(true),
+            "light" => Some(false),
+            _ => None,
+        };
+        let _ = window_vibrancy::apply_mica(&window, is_dark);
+    }
+}
+
+#[tauri::command]
 pub async fn close_app(app: tauri::AppHandle, old_data_dir: String) -> Result<(), String> {
     let old_dir_path = std::path::PathBuf::from(old_data_dir);
     use tauri::Manager;

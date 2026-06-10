@@ -16,7 +16,6 @@ export const es: Record<string, string> = {
   'main.tcpip': 'Conectar USB por TCP/IP',
 
   // Comunes
-  'common.noData': 'Sin datos',
   'common.none': 'ninguno',
   'common.cancel': 'Cancelar',
   'common.confirm': 'Confirmar',
