@@ -19,14 +19,28 @@ export default defineConfig(async () => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
+        protocol: "ws",
+        host,
+        port: 1421,
+      }
       : undefined,
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+  },
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@material/web')) return 'material';
+            if (id.includes('@tauri-apps')) return 'tauri';
+            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+            return 'vendor-other';
+          }
+        }
+      }
+    }
   },
 }));
