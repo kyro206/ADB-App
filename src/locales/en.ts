@@ -49,6 +49,7 @@ export const en = {
   'home.field.architecture': 'Architecture',
   'home.field.battery': 'Battery',
   'home.field.total': 'Total',
+  'home.action.shizuku': 'Start Shizuku',
   'home.battery.health': 'Health',
   'battery.health.good': 'Good',
   'battery.health.overheat': 'Overheated',

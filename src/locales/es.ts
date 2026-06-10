@@ -49,6 +49,7 @@ export const es: Record<string, string> = {
   'home.field.architecture': 'Arquitectura',
   'home.field.battery': 'Batería',
   'home.field.total': 'Total',
+  'home.action.shizuku': 'Iniciar Shizuku',
   'home.battery.health': 'Salud',
   'battery.health.good': 'Buena',
   'battery.health.overheat': 'Sobrecalentada',

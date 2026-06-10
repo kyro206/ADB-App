@@ -27,6 +27,7 @@ export function HomePage() {
   const [savingScreenshot, setSavingScreenshot] = useState(false);
   const [powerOpen, setPowerOpen] = useState(false);
   const [powerBusy, setPowerBusy] = useState(false);
+  const [shizukuStatus, setShizukuStatus] = useState<'idle' | 'busy' | 'success' | 'error'>('idle');
   const [deviceName, setDeviceName] = useState('ADB App');
   const dd = deviceDetails;
 
@@ -80,8 +81,23 @@ export function HomePage() {
     finally { setPowerBusy(false); }
   };
 
+  const startShizuku = async () => {
+    if (!selectedDevice || selectedDevice.state !== 'device' || shizukuStatus === 'busy') return;
+    setShizukuStatus('busy');
+    try {
+      await invoke('run_device_action', { serial: selectedDevice.serial, args: ['shell', 'sh', '/sdcard/Android/data/moe.shizuku.privileged.api/start.sh'] });
+      setShizukuStatus('success');
+    } catch (e) {
+      setShizukuStatus('error');
+    } finally {
+      setTimeout(() => setShizukuStatus('idle'), 2000);
+    }
+  };
+
   const facts = [
-    ['check_circle', t('home.field.state'), stateLabel], ['devices', t('home.field.deviceType'), dd ? t(`device.type.${dd.device_type}`) : '-'],
+    ['check_circle', t('home.field.state'), stateLabel], 
+    ['android', "Android", dd ? `${dd.android_version} (API ${dd.api_level})` : '-'],
+    ['devices', t('home.field.deviceType'), dd ? t(`device.type.${dd.device_type}`) : '-'],
     ['tablet_android', t('home.field.model'), dd?.model || '-'], ['factory', t('home.field.manufacturer'), dd?.manufacturer || '-'],
     ['verified', t('home.field.brand'), dd?.brand || '-'], ['developer_board', t('home.field.architecture'), dd?.architecture || '-'],
     ['inventory_2', t('home.field.product'), dd?.product_name || '-'], ['tag', t('home.field.codename'), dd?.codename || '-'],
@@ -93,7 +109,12 @@ export function HomePage() {
     <div className="home-material__content">
       <Surface className="home-hero">
         <div><h2>{deviceName}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
-          <div className="home-chips"><md-assist-chip label={stateLabel} /><md-assist-chip label={dd ? `Android ${dd.android_version} · API ${dd.api_level}` : t('common.noData')} /></div>
+          <div className="home-popular-actions" style={{ marginTop: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <md-filled-tonal-button disabled={!selectedDevice || selectedDevice.state !== 'device' || shizukuStatus === 'busy' || undefined} onClick={startShizuku}>
+              <MaterialIcon slot="icon" name={shizukuStatus === 'success' ? 'check' : shizukuStatus === 'error' ? 'close' : shizukuStatus === 'busy' ? 'sync' : 'adb'} className={shizukuStatus === 'busy' ? 'home-spin' : ''} />
+              {t('home.action.shizuku')}
+            </md-filled-tonal-button>
+          </div>
         </div>
         <div className="home-hero__actions"><md-filled-tonal-icon-button aria-label={t('home.power.options')} title={t('home.power.options')} disabled={!selectedDevice || powerBusy || undefined} onClick={() => setPowerOpen(true)}><MaterialIcon name="power_settings_new" /></md-filled-tonal-icon-button></div>
       </Surface>
