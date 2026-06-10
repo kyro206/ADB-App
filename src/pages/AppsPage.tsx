@@ -48,6 +48,8 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
   const appsNeedingMetadata = useMemo(() => filteredApps.filter(app => !app.icon_data_url), [filteredApps]);
   const tabRef = useRef(tab);
   useEffect(() => { tabRef.current = tab; }, [tab]);
+  const filterRef = useRef(filter);
+  useEffect(() => { filterRef.current = filter; }, [filter]);
 
   const refreshApps = async () => {
     if (!serial) return;
@@ -108,6 +110,8 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
       cache_size_bytes: -1,
       background_mode: 'optimized',
       permissions: [],
+      install_date: '-',
+      update_date: '-',
     });
     void refreshAppDetails(app.package_name);
   };
@@ -118,9 +122,10 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
     setStatus(t('workbench.status.metadataLoading', { count: appsNeedingMetadata.length }));
     let loaded = 0;
     let failed = 0;
+    const currentFilter = filterRef.current;
     try {
       for (let start = 0; start < appsNeedingMetadata.length; start += 3) {
-        if (appSettings && !appSettings.cache_enabled && tabRef.current !== 'apps') {
+        if (filterRef.current !== currentFilter) {
           break;
         }
         const batch = appsNeedingMetadata.slice(start, start + 3);
@@ -343,7 +348,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
                 <section className="apps-material-section">
                   <header><span className="apps-material-section__title"><MaterialIcon name="info" /><h3>{t('apps.detail.info')}</h3></span></header>
                   <dl className="apps-material-info">
-                    <div><dt>{t('apps.info.version')}</dt><dd>{appDetails.version_name} ({appDetails.version_code})</dd></div><div><dt>{t('apps.info.targetSdk')}</dt><dd>{appDetails.target_sdk}</dd></div><div><dt>{t('apps.info.minSdk')}</dt><dd>{appDetails.min_sdk}</dd></div><div><dt>{t('apps.info.installer')}</dt><dd>{appDetails.installer}</dd></div><div><dt>{t('apps.info.apkSize')}</dt><dd>{formatBytes(appDetails.code_size_bytes)}</dd></div><div><dt>{t('apps.info.dataSize')}</dt><dd>{formatBytes(appDetails.data_size_bytes)}</dd></div><div><dt>{t('apps.info.cacheSize')}</dt><dd>{formatBytes(appDetails.cache_size_bytes)}</dd></div><div className="wide"><dt>{t('apps.info.apkPath')}</dt><dd>{appDetails.apk_path}</dd></div>
+                    <div><dt>{t('apps.info.version')}</dt><dd>{appDetails.version_name} ({appDetails.version_code})</dd></div><div><dt>{t('apps.info.installDate')}</dt><dd>{appDetails.install_date}</dd></div><div><dt>{t('apps.info.updateDate')}</dt><dd>{appDetails.update_date}</dd></div><div><dt>{t('apps.info.targetSdk')}</dt><dd>{appDetails.target_sdk}</dd></div><div><dt>{t('apps.info.minSdk')}</dt><dd>{appDetails.min_sdk}</dd></div><div><dt>{t('apps.info.installer')}</dt><dd>{appDetails.installer}</dd></div><div><dt>{t('apps.info.apkSize')}</dt><dd>{formatBytes(appDetails.code_size_bytes)}</dd></div><div><dt>{t('apps.info.dataSize')}</dt><dd>{formatBytes(appDetails.data_size_bytes)}</dd></div><div><dt>{t('apps.info.cacheSize')}</dt><dd>{formatBytes(appDetails.cache_size_bytes)}</dd></div><div className="wide"><dt>{t('apps.info.apkPath')}</dt><dd>{appDetails.apk_path}</dd></div>
                   </dl>
                 </section>
 

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 type Theme = 'dark' | 'light' | 'auto';
 
@@ -10,13 +11,21 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('adb-app-theme');
-    return (saved === 'light' || saved === 'dark' || saved === 'auto') ? saved as Theme : 'auto';
-  });
+  const [theme, setThemeState] = useState<Theme>('auto');
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('adb-app-theme', theme);
+    invoke<{ theme: string }>('get_app_settings').then(settings => {
+      let t: Theme = 'auto';
+      if (settings.theme === '1') t = 'dark';
+      else if (settings.theme === '0') t = 'light';
+      setThemeState(t);
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
     
     const applyTheme = () => {
       if (theme === 'auto') {
@@ -35,11 +44,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       mediaQuery.addEventListener('change', listener);
       return () => mediaQuery.removeEventListener('change', listener);
     }
-  }, [theme]);
+  }, [theme, loaded]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
   };
+
+  if (!loaded) return null;
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

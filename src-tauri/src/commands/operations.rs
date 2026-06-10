@@ -57,6 +57,8 @@ pub struct AppDetailsInfo {
     pub background_mode: String,
     pub permissions: Vec<AppPermissionInfo>,
     pub icon_data_url: String,
+    pub install_date: String,
+    pub update_date: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -114,7 +116,7 @@ fn package_set(output: &str) -> HashSet<String> {
 }
 
 fn settings_path() -> PathBuf {
-    crate::app_paths::config_dir().join("app_settings.json")
+    crate::app_paths::config_dir().join("settings.json")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,6 +125,11 @@ pub struct AppSettings {
     pub cache_enabled: bool,
     pub cache_path: String,
     pub kill_adb_on_exit: bool,
+    pub theme: String,
+    pub language: String,
+    pub adb_path: String,
+    pub scrcpy_path: String,
+    pub java_path: String,
 }
 
 impl Default for AppSettings {
@@ -131,6 +138,11 @@ impl Default for AppSettings {
             cache_enabled: false,
             cache_path: String::new(),
             kill_adb_on_exit: true,
+            theme: String::new(),
+            language: String::new(),
+            adb_path: String::new(),
+            scrcpy_path: String::new(),
+            java_path: String::new(),
         }
     }
 }
@@ -160,14 +172,19 @@ pub fn get_app_settings() -> AppSettings {
     read_settings()
 }
 
+pub fn write_settings_sync(settings: &AppSettings) -> Result<(), String> {
+    fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
+    let serialized = serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?;
+    fs::write(settings_path(), serialized).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn save_app_settings(settings: AppSettings) -> Result<Option<String>, String> {
     let old_settings = read_settings();
     let old_data_dir = crate::app_paths::data_dir();
 
-    fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
-    let serialized = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
-    fs::write(settings_path(), serialized).map_err(|error| error.to_string())?;
+    write_settings_sync(&settings)?;
 
     let path_changed = old_settings.cache_path != settings.cache_path;
 
@@ -550,6 +567,23 @@ fn dump_value(output: &str, key: &str) -> String {
         .map(|value| value.trim_matches(['\'', '"', ',']).to_string())
         .filter(|value| !value.is_empty() && value != "null")
         .unwrap_or_else(|| "-".to_string())
+}
+
+fn dump_date_value(output: &str, key: &str) -> String {
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if let Some(value) = trimmed.strip_prefix(&format!("{key}=")) {
+            let mut parts = value.split_whitespace();
+            if let Some(date) = parts.next() {
+                if let Some(time) = parts.next() {
+                    let time_without_seconds = time.rsplit_once(':').map(|(h_m, _)| h_m).unwrap_or(time);
+                    return format!("{} {}", date, time_without_seconds);
+                }
+                return date.to_string();
+            }
+        }
+    }
+    "-".to_string()
 }
 
 fn display_name_from_dump(output: &str, fallback: &str) -> String {
@@ -1329,6 +1363,8 @@ pub async fn get_app_details(
         background_mode: background_mode.to_string(),
         permissions: parse_permissions(&dump.output),
         icon_data_url: String::new(),
+        install_date: dump_date_value(&dump.output, "firstInstallTime"),
+        update_date: dump_date_value(&dump.output, "lastUpdateTime"),
     })
 }
 

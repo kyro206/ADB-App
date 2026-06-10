@@ -39,7 +39,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     });
   }, [tab]);
   const [tools, setTools] = useState<ToolsStatus | null>(null);
-  const [appSettings, setAppSettings] = useState<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean } | null>(null);
+  const [appSettings, setAppSettings] = useState<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string } | null>(null);
   const [defaultCacheDir, setDefaultCacheDir] = useState('');
   const [toolUpdatesChecking, setToolUpdatesChecking] = useState(false);
   const [adbPath, setAdbPath] = useState('');
@@ -146,14 +146,14 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
   const refreshSettings = async () => {
     try {
-      const value = await invoke<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean }>('get_app_settings');
+      const value = await invoke<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string }>('get_app_settings');
       const defaultDir = await invoke<string>('get_default_cache_dir');
       setAppSettings(value);
       setDefaultCacheDir(defaultDir);
     } catch (error) { setStatus(String(error)); }
   };
 
-  const saveAppSettings = async (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean }) => {
+  const saveAppSettings = async (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string }) => {
     setBusy(true);
     try {
       const oldPath = await invoke<string | null>('save_app_settings', { settings });
@@ -206,13 +206,16 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   useEffect(() => {
     if (tab === 'settings') {
       refreshTools();
-      refreshSettings();
     }
     if (tab === 'mirroring') {
       refreshTools();
       refreshMirrorData();
     }
   }, [tab, serial]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    refreshSettings();
+  }, []);
 
   useEffect(() => {
     if (!deviceDetails) return;
@@ -298,7 +301,26 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     onRefreshData={refreshMirrorData} onLaunch={launchMirror} onDirectLaunch={args => scrcpy(words(args))}
   />;
 
-  const settings = <SettingsPage theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={setTheme} onLanguageChange={setLanguage} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} appSettings={appSettings} onSaveAppSettings={saveAppSettings} defaultCacheDir={defaultCacheDir} />;
+  const handleThemeChange = async (newTheme: 'light' | 'dark' | 'auto') => {
+    setTheme(newTheme);
+    if (appSettings) {
+      let val = '';
+      if (newTheme === 'dark') val = '1';
+      else if (newTheme === 'light') val = '0';
+      const updated = { ...appSettings, theme: val };
+      await saveAppSettings(updated);
+    }
+  };
+
+  const handleLanguageChange = async (newLang: 'en' | 'es') => {
+    setLanguage(newLang);
+    if (appSettings) {
+      const updated = { ...appSettings, language: newLang };
+      await saveAppSettings(updated);
+    }
+  };
+
+  const settings = <SettingsPage theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} appSettings={appSettings} onSaveAppSettings={saveAppSettings} defaultCacheDir={defaultCacheDir} />;
 
   const wrap = (content: ReactNode, loading?: boolean) => <DeviceStateScreen serial={serial} loading={loading}>{serial ? content : null}</DeviceStateScreen>;
 

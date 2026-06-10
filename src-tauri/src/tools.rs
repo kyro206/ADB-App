@@ -5,13 +5,7 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ToolConfig {
-    pub adb_path: String,
-    pub scrcpy_path: String,
-    pub java_path: String,
-}
+
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolStatus {
@@ -33,9 +27,7 @@ pub struct ToolsStatus {
     pub java: ToolStatus,
 }
 
-fn config_path() -> PathBuf {
-    crate::app_paths::config_dir().join("tools.json")
-}
+
 
 pub(crate) fn managed_dir(tool: &str) -> PathBuf {
     crate::app_paths::data_dir()
@@ -62,11 +54,8 @@ pub(crate) fn managed_executable(tool: &str) -> PathBuf {
     }
 }
 
-pub fn read_config() -> ToolConfig {
-    fs::read_to_string(config_path())
-        .ok()
-        .and_then(|value| serde_json::from_str(&value).ok())
-        .unwrap_or_default()
+pub fn read_config() -> crate::commands::operations::AppSettings {
+    crate::commands::operations::read_settings()
 }
 
 pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
@@ -78,12 +67,7 @@ pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
         "java" => config.java_path = normalized,
         _ => return Err(format!("Unknown tool: {tool}")),
     }
-    fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
-    fs::write(
-        config_path(),
-        serde_json::to_string_pretty(&config).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
+    crate::commands::operations::write_settings_sync(&config)?;
     Ok(tools_status())
 }
 
@@ -504,12 +488,7 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
         "scrcpy" => config.scrcpy_path.clear(),
         _ => {}
     }
-    fs::create_dir_all(crate::app_paths::config_dir()).map_err(|error| error.to_string())?;
-    fs::write(
-        config_path(),
-        serde_json::to_string_pretty(&config).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
+    crate::commands::operations::write_settings_sync(&config)?;
     Ok(tools_status())
 }
 

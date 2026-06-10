@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { en, TranslationKey } from './en';
 import { es } from './es';
 
@@ -15,15 +16,27 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('adb-app-language');
-    if (saved === 'en' || saved === 'es') return saved;
-    return navigator.language.startsWith('es') ? 'es' : 'en';
-  });
+  const [language, setLanguageState] = useState<Language>('en');
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    invoke<{ language: string }>('get_app_settings').then(settings => {
+      let lang: Language;
+      if (settings.language === 'en' || settings.language === 'es') {
+        lang = settings.language;
+      } else {
+        lang = navigator.language.startsWith('es') ? 'es' : 'en';
+      }
+      setLanguageState(lang);
+      setLoaded(true);
+    }).catch(() => {
+      setLanguageState(navigator.language.startsWith('es') ? 'es' : 'en');
+      setLoaded(true);
+    });
+  }, []);
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('adb-app-language', lang);
   }, []);
 
   const t = useCallback((key: TranslationKey | string, params?: Record<string, string | number>): string => {
@@ -36,6 +49,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
     return result;
   }, [language]);
+
+  if (!loaded) return null;
 
   return (
     <I18nContext.Provider value={{ language, setLanguage, t }}>
