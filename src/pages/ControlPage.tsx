@@ -42,19 +42,19 @@ export function ControlPage({ serial, run, setStatus, setBusy }: ControlPageProp
       setControlVolumeMax(value.maximum);
     }).catch(() => undefined);
 
-    run(['shell', 'settings', 'get', 'system', 'screen_brightness']).then(res => {
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'screen_brightness'] }).then(res => {
       if (res && !isNaN(Number(res))) setControlBrightness(Number(res.trim()));
     });
 
-    run(['shell', 'settings', 'get', 'system', 'accelerometer_rotation']).then(res => {
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'accelerometer_rotation'] }).then(res => {
       if (res) setRotationAuto(res.trim() === '1');
     });
 
-    run(['shell', 'settings', 'get', 'system', 'user_rotation']).then(res => {
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'user_rotation'] }).then(res => {
       if (res && !isNaN(Number(res))) setRotation(Number(res.trim()));
     });
 
-    run(['shell', 'settings', 'get', 'global', 'mode_ringer']).then(res => {
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'global', 'mode_ringer'] }).then(res => {
       const mode = res?.trim();
       if (mode === '0') setSoundMode('SILENT');
       else if (mode === '1') setSoundMode('VIBRATE');

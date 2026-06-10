@@ -346,43 +346,36 @@ export function SettingsPage(props: SettingsPageProps) {
 
       {/* ACERCA DE */}
       <Panel title={t('settings.aboutTitle')} style={{ gridColumn: '1 / -1' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center', padding: '16px 0' }}>
-          <img src="/icon.webp" style={{ width: '80px', height: '80px', pointerEvents: 'none' }} />
-          <div>
-            <h2 style={{ margin: '0 0 4px 0' }}>{appName}</h2>
-            <span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>v{appVersion}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '20px', textAlign: 'left', padding: '16px 0' }}>
+          
+          {/* Cabecera (Icono, Nombre, Versión, Botón GitHub) */}
+          <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <img src="/icon.webp" style={{ width: '64px', height: '64px', pointerEvents: 'none' }} alt="ADB App" />
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <h2 style={{ margin: '0 0 2px 0', fontSize: '24px', lineHeight: '1.2' }}>{appName}</h2>
+                <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: '14px' }}>{appVersion}</span>
+              </div>
+            </div>
+            <md-filled-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer">
+              <MaterialIcon name="code" slot="icon" />
+              GitHub
+            </md-filled-button>
           </div>
-          <p style={{ margin: 0, fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', maxWidth: '400px' }}>
+
+          {/* Aviso de responsabilidad */}
+          <p style={{ fontSize: '13px', color: 'var(--md-sys-color-error)', display: 'flex', alignItems: 'center', gap: '6px', margin: '0 0 8px 0' }}>
+            <MaterialIcon name="warning" size={16} />
             {t('settings.aboutDisclaimer')}
           </p>
           
-          <a
-            href="https://github.com/kyro206"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ 
-              marginTop: '16px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              background: 'var(--md-sys-color-surface-container-high)', 
-              padding: '12px 24px', 
-              borderRadius: '50px',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              transition: 'background 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-highest)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'}
-          >
-            <span style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>
-              {t('settings.aboutCreator')}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Creador */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+            <div style={{ position: 'relative' }}>
               <img 
                 src="https://github.com/kyro206.png?size=200" 
                 alt="Kyro206" 
-                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', background: 'var(--md-sys-color-surface-variant)' }}
+                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', background: 'var(--md-sys-color-surface-variant)' }}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   if (e.currentTarget.nextElementSibling) {
@@ -390,17 +383,51 @@ export function SettingsPage(props: SettingsPageProps) {
                   }
                 }}
               />
-              <div style={{ display: 'none', width: '32px', height: '32px', borderRadius: '50%', background: 'var(--md-sys-color-surface-variant)', alignItems: 'center', justifyContent: 'center', color: 'var(--md-sys-color-on-surface-variant)' }}>
-                <MaterialIcon name="person" size={20} />
+              <div style={{ display: 'none', width: '40px', height: '40px', borderRadius: '50%', background: 'var(--md-sys-color-surface-variant)', alignItems: 'center', justifyContent: 'center', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                <MaterialIcon name="person" size={24} />
               </div>
-              <strong style={{ fontSize: '16px', color: 'var(--md-sys-color-on-surface)' }}>Kyro206</strong>
             </div>
-          </a>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                {t('settings.aboutCreator')}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <strong style={{ fontSize: '15px', color: 'var(--md-sys-color-on-surface)' }}>Kyro206</strong>
+                <a href="https://github.com/kyro206" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', color: 'var(--md-sys-color-primary)', textDecoration: 'none' }} title="GitHub Profile">
+                  <MaterialIcon name="open_in_new" size={16} />
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Licencias de uso */}
+          <div style={{ width: '100%' }}>
+            <h4 style={{ margin: '0 0 12px 0', color: 'var(--md-sys-color-on-surface)', fontSize: '16px' }}>{t('settings.aboutLicenses')}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <a href="https://android.googlesource.com/platform/packages/modules/adb/" target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', background: 'var(--md-sys-color-surface-container-low)', padding: '12px', borderRadius: '12px', border: '1px solid var(--md-sys-color-outline-variant)', transition: 'background 0.2s ease', color: 'inherit' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <strong style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface)' }}>ADB</strong>
+                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', display: 'flex' }}><MaterialIcon name="open_in_new" size={16} /></span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>Apache License 2.0</span>
+              </a>
+              <a href="https://github.com/Genymobile/scrcpy" target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', background: 'var(--md-sys-color-surface-container-low)', padding: '12px', borderRadius: '12px', border: '1px solid var(--md-sys-color-outline-variant)', transition: 'background 0.2s ease', color: 'inherit' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <strong style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface)' }}>scrcpy</strong>
+                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', display: 'flex' }}><MaterialIcon name="open_in_new" size={16} /></span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>Apache License 2.0</span>
+              </a>
+              <a href="https://github.com/google/bundletool" target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', background: 'var(--md-sys-color-surface-container-low)', padding: '12px', borderRadius: '12px', border: '1px solid var(--md-sys-color-outline-variant)', transition: 'background 0.2s ease', color: 'inherit' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <strong style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface)' }}>Bundletool</strong>
+                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', display: 'flex' }}><MaterialIcon name="open_in_new" size={16} /></span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>Apache License 2.0</span>
+              </a>
+            </div>
+          </div>
           
-          <md-text-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer" style={{ marginTop: '8px' }}>
-            <MaterialIcon name="code" slot="icon" />
-            GitHub
-          </md-text-button>
         </div>
       </Panel>
     </div>

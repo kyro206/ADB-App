@@ -49,7 +49,6 @@ export function DisplayPage(props: DisplayPageProps) {
   const canApply = Boolean(details && props.width && props.height && props.density && props.timeout);
   return <div className="display-page">
     <section className="display-info-grid">
-      <InfoCard icon="devices" label={t('display.info.type')} value={details ? props.deviceType : '-'} />
       <InfoCard icon="screenshot_monitor" label={t('display.info.currentRes')} value={details ? `${details.current_width} × ${details.current_height}` : '-'} />
       <InfoCard icon="aspect_ratio" label={t('display.info.physicalRes')} value={details ? `${details.physical_width} × ${details.physical_height}` : '-'} />
       <InfoCard icon="density_medium" label={t('display.info.physicalDensity')} value={details?.physical_density ? `${details.physical_density} dpi` : '-'} />
@@ -75,8 +74,8 @@ export function DisplayPage(props: DisplayPageProps) {
 
     <section className="display-actions">
       <div><MaterialIcon name="tune" /><span>{t('display.action.desc')}</span></div>
-      <md-outlined-button disabled={!details || undefined} onClick={props.onReset}><span slot="icon"><MaterialIcon name="restart_alt" /></span>{t('common.reset')}</md-outlined-button>
-      <md-filled-button disabled={!canApply || undefined} onClick={props.onApply}><span slot="icon"><MaterialIcon name="check" /></span>{t('common.apply')}</md-filled-button>
+      <md-outlined-button disabled={!details || undefined} onClick={props.onReset}><span slot="icon"><MaterialIcon name="restart_alt" size={22} /></span>{t('common.reset')}</md-outlined-button>
+      <md-filled-button disabled={!canApply || undefined} onClick={props.onApply}><span slot="icon"><MaterialIcon name="check" filled size={22} /></span>{t('common.apply')}</md-filled-button>
     </section>
 
     <section className="display-bottom-grid">

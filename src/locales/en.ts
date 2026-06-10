@@ -70,7 +70,6 @@ export const en = {
   'home.power.confirm.title': 'Confirm power action',
 
   // Display
-  'display.info.type': 'Type',
   'display.info.currentRes': 'Current resolution',
   'display.info.physicalRes': 'Physical resolution',
   'display.info.physicalDensity': 'Physical density',
@@ -296,6 +295,7 @@ export const en = {
   'settings.aboutTitle': 'About',
   'settings.aboutDisclaimer': 'The creator is not responsible for any damage or data loss caused to the device through the use of this application. Use at your own risk.',
   'settings.aboutCreator': 'Created by',
+  'settings.aboutLicenses': 'Licenses',
   'settings.theme.light': 'Light Mode',
   'settings.theme.dark': 'Dark Mode',
   'settings.theme.auto': 'System Default',

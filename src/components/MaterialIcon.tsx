@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 export function MaterialIcon({
   name,
   filled = false,
-  size, // <-- Nueva propiedad para el tamaño
+  size,
   className = '',
   slot,
   title,

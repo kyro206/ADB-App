@@ -66,15 +66,15 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
   }, [tab, serial]);
 
   useEffect(() => {
-    if (appSettings && !appSettings.cache_enabled && appsNeedingMetadata.length > 0 && !metadataLoading && !attemptedMetadata) {
+    if (tab === 'apps' && appSettings && !appSettings.cache_enabled && appsNeedingMetadata.length > 0 && !metadataLoading && !attemptedMetadata) {
       setAttemptedMetadata(true);
       loadVisibleMetadata();
     }
-  }, [appSettings?.cache_enabled, appsNeedingMetadata.length, metadataLoading, attemptedMetadata]);
+  }, [tab, appSettings?.cache_enabled, appsNeedingMetadata.length, metadataLoading, attemptedMetadata]);
 
   useEffect(() => {
     setAttemptedMetadata(false);
-  }, [filter]);
+  }, [filter, tab]);
 
   const refreshAppDetails = async (packageName = selectedPackage) => {
     if (!serial || !packageName) return;
@@ -125,7 +125,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
     const currentFilter = filterRef.current;
     try {
       for (let start = 0; start < appsNeedingMetadata.length; start += 3) {
-        if (filterRef.current !== currentFilter) {
+        if (filterRef.current !== currentFilter || tabRef.current !== 'apps') {
           break;
         }
         const batch = appsNeedingMetadata.slice(start, start + 3);

@@ -2,7 +2,7 @@ export const es: Record<string, string> = {
   // Navegación
   'nav.home': 'Inicio',
   'nav.display': 'Pantalla',
-  'nav.mirroring': 'Espejo',
+  'nav.mirroring': 'Mirroring',
   'nav.control': 'Control',
   'nav.apps': 'Apps',
   'nav.files': 'Archivos',
@@ -70,7 +70,6 @@ export const es: Record<string, string> = {
   'home.power.confirm.title': 'Confirmar acción de energía',
 
   // Display
-  'display.info.type': 'Tipo',
   'display.info.currentRes': 'Resolución actual',
   'display.info.physicalRes': 'Resolución física',
   'display.info.physicalDensity': 'Densidad física',
@@ -296,6 +295,7 @@ export const es: Record<string, string> = {
   'settings.aboutTitle': 'Acerca de',
   'settings.aboutDisclaimer': 'El creador no se responsabiliza de ningún daño o pérdida de datos causado en el dispositivo a través del uso de esta aplicación. Úsala bajo tu propio riesgo.',
   'settings.aboutCreator': 'Creado por',
+  'settings.aboutLicenses': 'Licencias de Uso',
   'settings.theme.light': 'Modo Claro',
   'settings.theme.dark': 'Modo Oscuro',
   'settings.theme.auto': 'Automático',
