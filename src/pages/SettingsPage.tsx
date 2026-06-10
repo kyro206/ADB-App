@@ -354,8 +354,28 @@ export function SettingsPage(props: SettingsPageProps) {
             {t('settings.aboutDisclaimer')}
           </p>
           
-          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--md-sys-color-surface-container-high)', padding: '12px 24px', borderRadius: '50px' }}>
-            <span style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>{t('settings.aboutCreator')}</span>
+          <a
+            href="https://github.com/kyro206"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ 
+              marginTop: '16px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              background: 'var(--md-sys-color-surface-container-high)', 
+              padding: '12px 24px', 
+              borderRadius: '50px',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              transition: 'background 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-highest)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'}
+          >
+            <span style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+              {t('settings.aboutCreator')}
+            </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <img 
                 src="https://github.com/kyro206.png?size=200" 
@@ -371,9 +391,9 @@ export function SettingsPage(props: SettingsPageProps) {
               <div style={{ display: 'none', width: '32px', height: '32px', borderRadius: '50%', background: 'var(--md-sys-color-surface-variant)', alignItems: 'center', justifyContent: 'center', color: 'var(--md-sys-color-on-surface-variant)' }}>
                 <MaterialIcon name="person" size={20} />
               </div>
-              <strong style={{ fontSize: '16px' }}>Kyro206</strong>
+              <strong style={{ fontSize: '16px', color: 'var(--md-sys-color-on-surface)' }}>Kyro206</strong>
             </div>
-          </div>
+          </a>
           
           <md-text-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer" style={{ marginTop: '8px' }}>
             <MaterialIcon name="code" slot="icon" />
