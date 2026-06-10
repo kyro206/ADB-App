@@ -12,7 +12,7 @@
 <br />
 
 <div align="center">
-  <img src="ruta-de-tu-captura.png" alt="ADB App Screenshot" width="800" style="border-radius: 12px;">
+  <img src="screenshot.webp" alt="ADB App Screenshot" width="800" style="border-radius: 12px;">
 </div>
 
 <br />
