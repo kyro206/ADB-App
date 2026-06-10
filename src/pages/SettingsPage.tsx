@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { ToolStatus, ToolsStatus } from './workbench/types';
-import { getVersion } from '@tauri-apps/api/app';
+import { getVersion, getName } from '@tauri-apps/api/app';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { open } from '@tauri-apps/plugin-dialog';
 import './SettingsPage.css';
@@ -150,10 +150,12 @@ export function SettingsPage(props: SettingsPageProps) {
   const { theme, language, tools, checkingUpdates } = props;
   const { t } = useI18n();
   const [appVersion, setAppVersion] = useState<string>('...');
+  const [appName, setAppName] = useState('ADB App');
   const [localCachePath, setLocalCachePath] = useState<string | null>(null);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('Unknown'));
+    getName().then(setAppName).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -345,9 +347,9 @@ export function SettingsPage(props: SettingsPageProps) {
       {/* ACERCA DE */}
       <Panel title={t('settings.aboutTitle')} style={{ gridColumn: '1 / -1' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center', padding: '16px 0' }}>
-          <img src="/icon.webp" alt="ADB App Logo" style={{ width: '80px', height: '80px', pointerEvents: 'none' }} />
+          <img src="/icon.webp" style={{ width: '80px', height: '80px', pointerEvents: 'none' }} />
           <div>
-            <h2 style={{ margin: '0 0 4px 0' }}>ADB App</h2>
+            <h2 style={{ margin: '0 0 4px 0' }}>{appName}</h2>
             <span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>v{appVersion}</span>
           </div>
           <p style={{ margin: 0, fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', maxWidth: '400px' }}>

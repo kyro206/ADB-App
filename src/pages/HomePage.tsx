@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
+import { getName } from '@tauri-apps/api/app';
 import { useDevices, type DeviceDetails } from '../context/DeviceContext';
 import { useI18n } from '../locales';
 import { MaterialIcon } from '../components/MaterialIcon';
@@ -28,8 +29,16 @@ export function HomePage() {
   const [powerOpen, setPowerOpen] = useState(false);
   const [powerBusy, setPowerBusy] = useState(false);
   const [shizukuStatus, setShizukuStatus] = useState<'idle' | 'busy' | 'success' | 'error'>('idle');
+  const [appName, setAppName] = useState('ADB App');
   const [deviceName, setDeviceName] = useState('ADB App');
   const dd = deviceDetails;
+
+  useEffect(() => {
+    getName().then(name => {
+      setAppName(name);
+      setDeviceName(name);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (selectedDevice?.serial && selectedDevice.state === 'device') {
@@ -40,13 +49,13 @@ export function HomePage() {
         if (name && name.trim() !== 'null') {
           setDeviceName(name.trim());
         } else {
-          setDeviceName('ADB App');
+          setDeviceName(appName);
         }
-      }).catch(() => setDeviceName('ADB App'));
+      }).catch(() => setDeviceName(appName));
     } else {
-      setDeviceName('ADB App');
+      setDeviceName(appName);
     }
-  }, [selectedDevice]);
+  }, [selectedDevice, appName]);
 
   const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : t('common.noData');
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getName } from '@tauri-apps/api/app';
 import { useDevices } from '../../context/DeviceContext';
 import { useI18n } from '../../locales';
 import { WirelessDialog } from '../dialogs/WirelessDialog';
@@ -23,10 +24,12 @@ export function TopBar() {
   const [wirelessOpen, setWirelessOpen] = useState(false);
   const [tcpipBusy, setTcpipBusy] = useState(false);
   const [maximized, setMaximized] = useState(false);
+  const [appName, setAppName] = useState('ADB App');
   const platform = detectPlatform();
   const appWindow = getCurrentWindow();
 
   useEffect(() => {
+    getName().then(setAppName).catch(() => {});
     void appWindow.isMaximized().then(setMaximized);
     const unlisten = appWindow.onResized(() => void appWindow.isMaximized().then(setMaximized));
     return () => { void unlisten.then(stop => stop()); };
@@ -52,7 +55,7 @@ export function TopBar() {
   return <>
     <header className={`topbar topbar--${platform}`} data-tauri-drag-region onDoubleClick={() => appWindow.toggleMaximize()}>
       {platform === 'macos' && windowControls}
-      <div className="topbar__identity" data-tauri-drag-region><img src="/icon.webp" alt="" /><h1 data-tauri-drag-region>ADB App</h1></div>
+      <div className="topbar__identity" data-tauri-drag-region><img src="/icon.webp" alt="" /><h1 data-tauri-drag-region>{appName}</h1></div>
       <div className="topbar__drag-zone" data-tauri-drag-region />
       <div className="topbar__device-section" onDoubleClick={event => event.stopPropagation()}>
         <button className="topbar__tcpip" disabled={!selectedDevice || selectedDevice.state !== 'device' || (selectedDevice.serial.includes(':') || selectedDevice.serial.includes('._tcp')) || tcpipBusy} onClick={connectUsbOverTcpip} title={t('topbar.tcpip.tooltip')}><MaterialIcon name="usb" /><MaterialIcon name="arrow_forward" /><MaterialIcon name="wifi" /></button>

@@ -53,7 +53,44 @@ jobs:
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
+        
+      - name: Sincronizar versiones de Tauri y Cargo con el Tag
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            const tag = "${{ github.event.release.tag_name }}";
+            const version = tag.replace(/^v/, "");
+            
+            // Detecta de forma segura si es una Pre-release (Beta/Alpha)
+            const isPrerelease = "${{ github.event.release.prerelease }}" === "true";
 
+            // 1. Sincronizar tauri.conf.json
+            const tauriPath = "src-tauri/tauri.conf.json";
+            if (fs.existsSync(tauriPath)) {
+              const config = JSON.parse(fs.readFileSync(tauriPath, "utf8"));
+              config.version = version;
+              
+              // Si es una pre-release, renombra el producto visualmente
+              if (isPrerelease) {
+                config.productName = "ADB App Preview";
+                console.log("⚠️ Detectada Pre-release. Cambiando productName a: ADB App Preview");
+              }
+              
+              fs.writeFileSync(tauriPath, JSON.stringify(config, null, 2));
+              console.log("✓ tauri.conf.json sincronizado a la versión: " + version);
+            }
+
+            // 2. Sincronizar Cargo.toml
+            const cargoPath = "src-tauri/Cargo.toml";
+            if (fs.existsSync(cargoPath)) {
+              let cargoContent = fs.readFileSync(cargoPath, "utf8");
+              cargoContent = cargoContent.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
+              fs.writeFileSync(cargoPath, cargoContent);
+              console.log("✓ Cargo.toml sincronizado a la versión: " + version);
+            }
+          '
+          
       - name: Configurar Bun
         uses: oven-sh/setup-bun@v2
         with:
