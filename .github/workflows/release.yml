@@ -119,6 +119,7 @@ jobs:
         with:
           tagName: ${{ github.event.release.tag_name }}
           includeRelease: false # Lo deshabilitamos para renombrar los archivos manualmente antes de subirlos
+          tauriScript: bun run tauri
           args: --target ${{ matrix.target }} ${{ matrix.args }}
 
       - name: Organizar y Renombrar Artefactos (Bash para Linux/macOS)
