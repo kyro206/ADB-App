@@ -198,7 +198,7 @@ jobs:
           REPO_NAME: ${{ github.repository }}
           RELEASE_NOTES: ${{ github.event.release.body }}
         run: |
-          bun -e '
+          node -e '
           const fs = require("fs");
           const path = require("path");
           
