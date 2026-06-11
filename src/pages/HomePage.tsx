@@ -31,6 +31,7 @@ export function HomePage() {
   const [shizukuStatus, setShizukuStatus] = useState<'idle' | 'busy' | 'success' | 'error'>('idle');
   const [appName, setAppName] = useState('ADB App');
   const [deviceName, setDeviceName] = useState('ADB App');
+  const [bootDate, setBootDate] = useState<{ short: string, full: string } | null>(null);
   const dd = deviceDetails;
 
   useEffect(() => {
@@ -56,6 +57,28 @@ export function HomePage() {
       setDeviceName(appName);
     }
   }, [selectedDevice, appName]);
+
+  useEffect(() => {
+    if (selectedDevice?.serial && selectedDevice.state === 'device') {
+      invoke<string>('run_device_action', {
+        serial: selectedDevice.serial,
+        args: ['shell', 'cat', '/proc/uptime']
+      }).then(out => {
+        const seconds = parseFloat(out.split(' ')[0]);
+        if (!isNaN(seconds)) {
+          const date = new Date(Date.now() - seconds * 1000);
+          setBootDate({
+            short: date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }).replace(',', ''),
+            full: date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'medium' })
+          });
+        } else {
+          setBootDate(null);
+        }
+      }).catch(() => setBootDate(null));
+    } else {
+      setBootDate(null);
+    }
+  }, [selectedDevice]);
 
   const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : '-';
 
@@ -103,14 +126,14 @@ export function HomePage() {
     }
   };
 
-  const facts = [
+  const facts: Array<[string, string, string] | [string, string, string, string]> = [
     ['check_circle', t('home.field.state'), stateLabel],
     ['android', "Android", dd ? `${dd.android_version} (API ${dd.api_level})` : '-'],
     ['devices', t('home.field.deviceType'), dd ? t(`device.type.${dd.device_type}`) : '-'],
     ['tablet_android', t('home.field.model'), dd?.model || '-'], ['factory', t('home.field.manufacturer'), dd?.manufacturer || '-'],
     ['verified', t('home.field.brand'), dd?.brand || '-'], ['developer_board', t('home.field.architecture'), dd?.architecture || '-'],
     ['inventory_2', t('home.field.product'), dd?.product_name || '-'], ['tag', t('home.field.codename'), dd?.codename || '-'],
-    ['fingerprint', t('home.field.serial'), dd?.serial || '-'],
+    ['fingerprint', t('home.field.serial'), dd?.serial || '-'], ['schedule', t('home.field.uptime'), bootDate?.short || '-', bootDate?.full || '-'],
   ];
 
   return <main className="home-material">
@@ -137,27 +160,30 @@ export function HomePage() {
       {/* Nueva Sección de Datos Estilo Lista Material 3 */}
       <section className="home-facts">
         <div className="home-facts__list">
-          {facts.map(([icon, label, value]) => (
-            <div className="home-facts__item" key={label}>
-              <div className="home-facts__item-leading">
-                <MaterialIcon name={icon} />
+          {facts.map(([icon, label, value, fullValue]) => {
+            const copyValue = fullValue ?? value;
+            return (
+              <div className="home-facts__item" key={label}>
+                <div className="home-facts__item-leading">
+                  <MaterialIcon name={icon} />
+                </div>
+                <div className="home-facts__item-content">
+                  <span className="home-facts__item-label">{label}</span>
+                  <strong className="home-facts__item-value" title={copyValue}>{value}</strong>
+                </div>
+                <button
+                  className="home-facts__item-copy"
+                  title={t('common.copy')}
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    navigator.clipboard.writeText(copyValue);
+                  }}
+                >
+                  <MaterialIcon name="content_copy" />
+                </button>
               </div>
-              <div className="home-facts__item-content">
-                <span className="home-facts__item-label">{label}</span>
-                <strong className="home-facts__item-value" title={value}>{value}</strong>
-              </div>
-              <button
-                className="home-facts__item-copy"
-                title={t('common.copy')}
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  navigator.clipboard.writeText(value);
-                }}
-              >
-                <MaterialIcon name="content_copy" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>

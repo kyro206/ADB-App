@@ -4,6 +4,7 @@ import { confirm, open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { PromptDialog } from '../components/dialogs/PromptDialog';
+import { PermissionsDialog } from '../components/dialogs/PermissionsDialog';
 import { ContextMenu } from '../components/layout/ContextMenu';
 import { useI18n } from '../locales';
 import { formatBytes } from './workbench/utils';
@@ -31,6 +32,7 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
   const [fileHistoryIndex, setFileHistoryIndex] = useState(0);
   const [fileThumbnails, setFileThumbnails] = useState<Record<string, string>>({});
   const [promptConfig, setPromptConfig] = useState<{ open: boolean; title: string; initialValue: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
+  const [permissionsConfig, setPermissionsConfig] = useState<{ open: boolean; title: string; initialMode: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
   const [osDragHover, setOsDragHover] = useState(false);
   
@@ -49,6 +51,24 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
         },
         onCancel: () => {
           setPromptConfig(null);
+          resolve(null);
+        }
+      });
+    });
+  };
+
+  const asyncPermissions = (title: string, initialMode: string = '755') => {
+    return new Promise<string | null>((resolve) => {
+      setPermissionsConfig({
+        open: true,
+        title,
+        initialMode,
+        onConfirm: (val) => {
+          setPermissionsConfig(null);
+          resolve(val);
+        },
+        onCancel: () => {
+          setPermissionsConfig(null);
           resolve(null);
         }
       });
@@ -184,7 +204,29 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
 
   const changeSelectedPermissions = async () => {
     if (!selectedFileEntries.length) return;
-    const mode = await asyncPrompt(t('files.action.permissions'), '755');
+    
+    let initialMode = '755';
+    if (selectedFileEntries.length === 1) {
+      const p = selectedFileEntries[0].permissions;
+      if (p && p.length >= 10) {
+        let owner = 0, group = 0, others = 0;
+        if (p[1] === 'r') owner += 4;
+        if (p[2] === 'w') owner += 2;
+        if (p[3] === 'x' || p[3] === 's') owner += 1;
+        
+        if (p[4] === 'r') group += 4;
+        if (p[5] === 'w') group += 2;
+        if (p[6] === 'x' || p[6] === 's') group += 1;
+        
+        if (p[7] === 'r') others += 4;
+        if (p[8] === 'w') others += 2;
+        if (p[9] === 'x' || p[9] === 't') others += 1;
+        
+        initialMode = `${owner}${group}${others}`;
+      }
+    }
+
+    const mode = await asyncPermissions(t('files.action.permissions'), initialMode);
     if (!mode?.match(/^[0-7]{3,4}$/)) return;
     for (const file of selectedFileEntries) await run(['shell', 'chmod', mode, filePath(file)]);
     await refreshFiles();
@@ -366,6 +408,15 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
           initialValue={promptConfig.initialValue}
           onConfirm={promptConfig.onConfirm}
           onCancel={promptConfig.onCancel}
+        />
+      )}
+      {permissionsConfig && (
+        <PermissionsDialog
+          open={permissionsConfig.open}
+          title={permissionsConfig.title}
+          initialMode={permissionsConfig.initialMode}
+          onConfirm={permissionsConfig.onConfirm}
+          onCancel={permissionsConfig.onCancel}
         />
       )}
 

@@ -46,6 +46,7 @@ export const es: Record<string, string> = {
   'home.field.codename': 'Nombre clave',
   'home.field.product': 'Producto',
   'home.field.architecture': 'Arquitectura',
+  'home.field.uptime': 'Encendido desde',
   'home.field.battery': 'Batería',
   'home.field.total': 'Total',
   'home.action.shizuku': 'Iniciar Shizuku',
@@ -203,6 +204,13 @@ export const es: Record<string, string> = {
   'files.sort.modified': 'Modificado',
   'files.empty.title': 'Carpeta vacía',
   'files.empty.desc': 'No hay elementos que coincidan con el filtro.',
+  'files.permissions.read': 'Lectura',
+  'files.permissions.write': 'Escritura',
+  'files.permissions.execute': 'Ejecución',
+  'files.permissions.owner': 'Propietario',
+  'files.permissions.group': 'Grupo',
+  'files.permissions.others': 'Otros',
+  'files.permissions.octal': 'Valor octal',
 
   // System
 

@@ -120,13 +120,15 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
   const loadVisibleMetadata = async () => {
     if (!serial || !appsNeedingMetadata.length || metadataLoading) return;
     setMetadataLoading(true);
-    setStatus(t('workbench.status.metadataLoading', { count: appsNeedingMetadata.length }));
+    if (tabRef.current === 'apps') {
+      setStatus(t('workbench.status.metadataLoading', { count: appsNeedingMetadata.length }));
+    }
     let loaded = 0;
     let failed = 0;
     const currentFilter = filterRef.current;
     try {
       for (let start = 0; start < appsNeedingMetadata.length; start += 3) {
-        if (filterRef.current !== currentFilter || tabRef.current !== 'apps') {
+        if (filterRef.current !== currentFilter || (!appSettings?.cache_enabled && tabRef.current !== 'apps')) {
           break;
         }
         const batch = appsNeedingMetadata.slice(start, start + 3);
@@ -142,9 +144,13 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
           const summary = summaries.find(item => item.package_name === current.package_name);
           return summary ? { ...current, display_name: summary.display_name, icon_data_url: summary.icon_data_url } : current;
         });
-        setStatus(t('workbench.status.metadataProgress', { processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length }));
+        if (tabRef.current === 'apps') {
+          setStatus(t('workbench.status.metadataProgress', { processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length }));
+        }
       }
-      setStatus(failed ? t('workbench.status.metadataFailed', { failed }) : '');
+      if (tabRef.current === 'apps') {
+        setStatus(failed ? t('workbench.status.metadataFailed', { failed }) : '');
+      }
     } finally { setMetadataLoading(false); }
   };
 

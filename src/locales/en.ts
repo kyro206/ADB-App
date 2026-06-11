@@ -46,6 +46,7 @@ export const en = {
   'home.field.codename': 'Codename',
   'home.field.product': 'Product',
   'home.field.architecture': 'Architecture',
+  'home.field.uptime': 'Boot time',
   'home.field.battery': 'Battery',
   'home.field.total': 'Total',
   'home.action.shizuku': 'Start Shizuku',
@@ -202,7 +203,14 @@ export const en = {
   'files.sort.permissions': 'Permissions',
   'files.sort.modified': 'Modified',
   'files.empty.title': 'Empty folder',
-  'files.empty.desc': 'No items match the filter.',
+  'files.empty.desc': 'There are no items matching the filter.',
+  'files.permissions.read': 'Read',
+  'files.permissions.write': 'Write',
+  'files.permissions.execute': 'Execute',
+  'files.permissions.owner': 'Owner',
+  'files.permissions.group': 'Group',
+  'files.permissions.others': 'Others',
+  'files.permissions.octal': 'Octal value',
 
   // System
 

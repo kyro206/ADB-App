@@ -109,89 +109,111 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.release.prerelease == false
     steps:
-      - name: Descargar archivos compilados del Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p deploy-assets
-          gh release download ${{ github.event.release.tag_name }} --dir deploy-assets --repo ${{ github.repository }}
+      - name: Renombrar Assets y Generar latest.json con Action
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { repo, owner } = context.repo;
+            const release = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag: context.payload.release.tag_name
+            });
 
-      - name: Generar y Actualizar latest.json
-        env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
-          REPO_NAME: ${{ github.repository }}
-          RELEASE_NOTES: ${{ github.event.release.body }}
-        run: |
-          node -e '
-          const fs = require("fs");
-          const path = require("path");
+            const version = release.data.tag_name.replace(/^v/, '');
+            const assets = release.data.assets;
+            const newAssets = [];
 
-          const tag = process.env.TAG_NAME;
-          const repo = process.env.REPO_NAME;
-          const baseUrl = `https://github.com/${repo}/releases/download/${tag}`;
+            // 1. Renombrar assets con la API para aplicar la arquitectura
+            for (const asset of assets) {
+              let newName = asset.name;
+              const isSig = newName.endsWith('.sig');
+              const baseName = isSig ? newName.slice(0, -4) : newName;
+              const lowerBase = baseName.toLowerCase();
 
-          const files = fs.readdirSync("deploy-assets");
-          console.log("Assets descargados:", files);
+              let platformType = '';
+              
+              if (lowerBase.includes('windows') || lowerBase.includes('nsis') || lowerBase.endsWith('.exe')) {
+                if (lowerBase.includes('arm64') || lowerBase.includes('aarch64')) {
+                  platformType = 'arm64.exe';
+                } else {
+                  platformType = 'x64.exe';
+                }
+              } else if (lowerBase.endsWith('.dmg')) {
+                if (lowerBase.includes('arm64') || lowerBase.includes('aarch64')) {
+                  platformType = 'silicon.dmg';
+                } else {
+                  platformType = 'intel.dmg';
+                }
+              } else if (lowerBase.endsWith('.appimage')) {
+                platformType = 'x64.AppImage';
+              } else if (lowerBase.endsWith('.deb')) {
+                platformType = 'x64.deb';
+              }
 
-          function identifyPlatform(file) {
-            const f = file.toLowerCase();
-
-            if (f.endsWith(".sig")) return null;
-
-            if (f.includes("windows") || f.includes("nsis") || f.endsWith(".zip")) {
-              if (f.includes("arm64") || f.includes("aarch64")) return "windows-aarch64";
-              return "windows-x86_64";
+              if (platformType) {
+                const finalNewName = `ADB.App_${version}_${platformType}${isSig ? '.sig' : ''}`;
+                if (finalNewName !== asset.name) {
+                  console.log(`Renombrando ${asset.name} -> ${finalNewName}`);
+                  await github.rest.repos.updateReleaseAsset({
+                    owner,
+                    repo,
+                    asset_id: asset.id,
+                    name: finalNewName
+                  });
+                  newName = finalNewName;
+                }
+              }
+              const newUrl = asset.browser_download_url.substring(0, asset.browser_download_url.lastIndexOf('/') + 1) + newName;
+              newAssets.push({ ...asset, name: newName, browser_download_url: newUrl });
             }
 
-            if (f.includes("appimage")) {
-              return "linux-x86_64";
+            // 2. Generar latest.json
+            const platforms = {};
+            for (const asset of newAssets) {
+              if (asset.name.endsWith('.sig') || asset.name === 'latest.json') continue;
+              
+              const sigAsset = newAssets.find(a => a.name === asset.name + '.sig');
+              if (!sigAsset) {
+                console.warn(`No signature found for ${asset.name}`);
+                continue;
+              }
+              
+              // Descargar firma
+              const sigResponse = await fetch(sigAsset.browser_download_url);
+              if (!sigResponse.ok) {
+                console.warn(`Failed to fetch signature for ${asset.name}`);
+                continue;
+              }
+              const signature = (await sigResponse.text()).trim();
+
+              const lowerName = asset.name.toLowerCase();
+              let platformKey = null;
+              if (lowerName.includes('arm64.exe')) platformKey = 'windows-aarch64';
+              else if (lowerName.includes('x64.exe')) platformKey = 'windows-x86_64';
+              else if (lowerName.includes('silicon.dmg')) platformKey = 'darwin-aarch64';
+              else if (lowerName.includes('intel.dmg')) platformKey = 'darwin-x86_64';
+              else if (lowerName.includes('.appimage')) platformKey = 'linux-x86_64';
+              
+              if (platformKey) {
+                platforms[platformKey] = {
+                  signature,
+                  url: asset.browser_download_url
+                };
+              }
             }
 
-            if (f.includes("darwin") || f.includes("macos") || f.includes(".app.tar.gz")) {
-              if (f.includes("arm64") || f.includes("aarch64")) return "darwin-aarch64";
-              return "darwin-x86_64";
-            }
-
-            return null;
-          }
-
-          function getSignature(filename) {
-            const sigPath = path.join("deploy-assets", `${filename}.sig`);
-            if (fs.existsSync(sigPath)) {
-              return fs.readFileSync(sigPath, "utf8").trim();
-            }
-            return null;
-          }
-
-          const latestJson = {
-            version: tag.replace(/^v/, ""),
-            notes: process.env.RELEASE_NOTES || "Nueva actualización disponible.",
-            pub_date: new Date().toISOString(),
-            platforms: {}
-          };
-
-          for (const file of files) {
-            const platform = identifyPlatform(file);
-            console.log(`${file} -> ${platform}`);
-
-            if (!platform) continue;
-
-            const sig = getSignature(file);
-
-            if (!sig) {
-              console.warn(`No se encontró firma para: ${file}`);
-              continue;
-            }
-
-            latestJson.platforms[platform] = {
-              signature: sig,
-              url: `${baseUrl}/${encodeURIComponent(file)}`
+            const latestJson = {
+              version,
+              notes: release.data.body || "Nueva actualización disponible.",
+              pub_date: new Date().toISOString(),
+              platforms
             };
-          }
 
-          fs.writeFileSync("latest.json", JSON.stringify(latestJson, null, 2));
-          console.log(JSON.stringify(latestJson, null, 2));
-          '
+            const fs = require('fs');
+            fs.writeFileSync('latest.json', JSON.stringify(latestJson, null, 2));
+            console.log("latest.json generado exitosamente:");
+            console.log(JSON.stringify(latestJson, null, 2));
 
       - name: Desplegar latest.json en la rama gh-pages
         run: |
