@@ -42,9 +42,9 @@ export function HomePage() {
 
   useEffect(() => {
     if (selectedDevice?.serial && selectedDevice.state === 'device') {
-      invoke<string>('run_device_action', { 
-        serial: selectedDevice.serial, 
-        args: ['shell', 'settings', 'get', 'global', 'device_name'] 
+      invoke<string>('run_device_action', {
+        serial: selectedDevice.serial,
+        args: ['shell', 'settings', 'get', 'global', 'device_name']
       }).then(name => {
         if (name && name.trim() !== 'null') {
           setDeviceName(name.trim());
@@ -104,7 +104,7 @@ export function HomePage() {
   };
 
   const facts = [
-    ['check_circle', t('home.field.state'), stateLabel], 
+    ['check_circle', t('home.field.state'), stateLabel],
     ['android', "Android", dd ? `${dd.android_version} (API ${dd.api_level})` : '-'],
     ['devices', t('home.field.deviceType'), dd ? t(`device.type.${dd.device_type}`) : '-'],
     ['tablet_android', t('home.field.model'), dd?.model || '-'], ['factory', t('home.field.manufacturer'), dd?.manufacturer || '-'],

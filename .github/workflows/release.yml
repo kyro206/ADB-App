@@ -7,9 +7,6 @@ on:
 permissions:
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-tauri:
     strategy:
@@ -23,22 +20,18 @@ jobs:
             ext: "deb"
 
           - os: ubuntu-latest
-            target: x86_64-unknown-appimage-gnu
+            target: x86_64-unknown-linux-gnu
             args: "--bundles appimage"
-            name: "archlinux-x64"
+            name: "appimage-x64"
             ext: "AppImage"
 
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            args: "--bundles msi"
             name: "windows-x64"
-            ext: "msi"
 
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            args: "--bundles msi"
             name: "windows-arm64"
-            ext: "msi"
 
           - os: macos-latest
             target: x86_64-apple-darwin
@@ -61,6 +54,22 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Determinar Bundle Target y Extensión
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+              echo "BUNDLE_ARGS=--bundles nsis" >> $GITHUB_ENV
+              echo "BUNDLE_EXT=exe" >> $GITHUB_ENV
+            else
+              echo "BUNDLE_ARGS=--bundles msi" >> $GITHUB_ENV
+              echo "BUNDLE_EXT=msi" >> $GITHUB_ENV
+            fi
+          else
+            echo "BUNDLE_ARGS=${{ matrix.args }}" >> $GITHUB_ENV
+            echo "BUNDLE_EXT=${{ matrix.ext }}" >> $GITHUB_ENV
+          fi
 
       - name: Sincronizar versiones de Tauri y Cargo con el Tag
         shell: bash
@@ -118,26 +127,48 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: bun run tauri build --target ${{ matrix.target }} ${{ matrix.args }}
+        run: bun run tauri build --target ${{ matrix.target }} ${{ env.BUNDLE_ARGS }}
 
       - name: Organizar y Renombrar Artefactos (Bash para Linux/macOS)
         if: matrix.os != 'windows-latest'
         run: |
           mkdir -p final-artifacts
-          FILE_BIN=$(find src-tauri/target/ -type f -name "*.${{ matrix.ext }}" | head -n 1)
-          FILE_SIG=$(find src-tauri/target/ -type f -name "*.${{ matrix.ext }}.sig" | head -n 1)
-          cp "$FILE_BIN" "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}"
-          cp "$FILE_SIG" "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}.sig"
+          FILE_BIN=$(find src-tauri/target/ -type f -name "*.${{ env.BUNDLE_EXT }}" | head -n 1)
+          FILE_SIG=$(find src-tauri/target/ -type f -name "*.${{ env.BUNDLE_EXT }}.sig" | head -n 1)
+          
+          if [ -n "$FILE_BIN" ]; then
+            cp "$FILE_BIN" "final-artifacts/ADB-App-${{ matrix.name }}.${{ env.BUNDLE_EXT }}"
+          else
+            echo "Error: Binario no encontrado (*.${{ env.BUNDLE_EXT }})"
+            exit 1
+          fi
+
+          if [ -n "$FILE_SIG" ]; then
+            cp "$FILE_SIG" "final-artifacts/ADB-App-${{ matrix.name }}.${{ env.BUNDLE_EXT }}.sig"
+          else
+            echo "Aviso: No se encontró firma (.sig) para este formato, omitiendo..."
+          fi
 
       - name: Organizar y Renombrar Artefactos (PowerShell para Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path final-artifacts
-          $fileBin = Get-ChildItem -Path src-tauri/target/ -Filter "*.${{ matrix.ext }}" -Recurse | Select-Object -First 1
-          $fileSig = Get-ChildItem -Path src-tauri/target/ -Filter "*.${{ matrix.ext }}.sig" -Recurse | Select-Object -First 1
-          Copy-Item $fileBin.FullName -Destination "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}"
-          Copy-Item $fileSig.FullName -Destination "final-artifacts/ADB-App-${{ matrix.name }}.${{ matrix.ext }}.sig"
+          $fileBin = Get-ChildItem -Path src-tauri/target/ -Filter "*.${env:BUNDLE_EXT}" -Recurse | Select-Object -First 1
+          $fileSig = Get-ChildItem -Path src-tauri/target/ -Filter "*.${env:BUNDLE_EXT}.sig" -Recurse | Select-Object -First 1
+          
+          if ($fileBin) {
+            Copy-Item $fileBin.FullName -Destination "final-artifacts/ADB-App-${{ matrix.name }}.${env:BUNDLE_EXT}"
+          } else {
+            Write-Error "Error: Binario no encontrado (*.${env:BUNDLE_EXT})"
+            exit 1
+          }
+
+          if ($fileSig) {
+            Copy-Item $fileSig.FullName -Destination "final-artifacts/ADB-App-${{ matrix.name }}.${env:BUNDLE_EXT}.sig"
+          } else {
+            Write-Host "Aviso: No se encontró firma (.sig) para este formato, omitiendo..."
+          }
 
       - name: Subir al almacenamiento temporal de la Action
         uses: actions/upload-artifact@v4
@@ -174,6 +205,7 @@ jobs:
         with:
           files: |
             deploy-assets/*.deb
+            deploy-assets/*.exe
             deploy-assets/*.msi
             deploy-assets/*.dmg
 
