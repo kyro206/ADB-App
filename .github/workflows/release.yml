@@ -7,6 +7,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-tauri:
     strategy:
@@ -54,10 +57,15 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
         
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Sincronizar versiones de Tauri y Cargo con el Tag
         shell: bash
         run: |
-          node -e '
+          bun -e '
             const fs = require("fs");
             const tag = "${{ github.event.release.tag_name }}";
             const version = tag.replace(/^v/, "");
@@ -90,11 +98,6 @@ jobs:
               console.log("✓ Cargo.toml sincronizado a la versión: " + version);
             }
           '
-          
-      - name: Configurar Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
       - name: Configurar Rust y Target
         uses: dtolnay/rust-toolchain@stable
@@ -111,15 +114,11 @@ jobs:
         run: bun install
 
       - name: Compilar aplicación con Tauri v2
-        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ github.event.release.tag_name }}
-          includeRelease: false # Lo deshabilitamos para renombrar los archivos manualmente antes de subirlos
-          args: --target ${{ matrix.target }} ${{ matrix.args }}
+        run: bun run tauri build --target ${{ matrix.target }} ${{ matrix.args }}
 
       - name: Organizar y Renombrar Artefactos (Bash para Linux/macOS)
         if: matrix.os != 'windows-latest'
@@ -154,6 +153,11 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Descargar todos los artefactos compilados
         uses: actions/download-artifact@v4
         with:
@@ -180,7 +184,7 @@ jobs:
           REPO_NAME: ${{ github.repository }}
           RELEASE_NOTES: ${{ github.event.release.body }}
         run: |
-          node -e '
+          bun -e '
           const fs = require("fs");
           const path = require("path");
           
