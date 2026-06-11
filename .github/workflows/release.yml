@@ -125,13 +125,36 @@ jobs:
           node -e '
           const fs = require("fs");
           const path = require("path");
-          
+
           const tag = process.env.TAG_NAME;
           const repo = process.env.REPO_NAME;
           const baseUrl = `https://github.com/${repo}/releases/download/${tag}`;
-          
+
           const files = fs.readdirSync("deploy-assets");
-          
+          console.log("Assets descargados:", files);
+
+          function identifyPlatform(file) {
+            const f = file.toLowerCase();
+
+            if (f.endsWith(".sig")) return null;
+
+            if (f.includes("windows") || f.includes("nsis") || f.endsWith(".zip")) {
+              if (f.includes("arm64") || f.includes("aarch64")) return "windows-aarch64";
+              return "windows-x86_64";
+            }
+
+            if (f.includes("appimage")) {
+              return "linux-x86_64";
+            }
+
+            if (f.includes("darwin") || f.includes("macos") || f.includes(".app.tar.gz")) {
+              if (f.includes("arm64") || f.includes("aarch64")) return "darwin-aarch64";
+              return "darwin-x86_64";
+            }
+
+            return null;
+          }
+
           function getSignature(filename) {
             const sigPath = path.join("deploy-assets", `${filename}.sig`);
             if (fs.existsSync(sigPath)) {
@@ -140,49 +163,34 @@ jobs:
             return null;
           }
 
-          function identifyPlatform(file) {
-            if (file.endsWith(".sig")) return null;
-            const f = file.toLowerCase();
-            
-            if (f.endsWith(".zip")) {
-              if (f.includes("arm64") || f.includes("aarch64")) return "windows-aarch64";
-              return "windows-x86_64"; 
-            }
-            if (f.endsWith(".tar.gz") && !f.includes("appimage")) {
-              if (f.includes("arm64") || f.includes("aarch64") || f.includes("silicon")) return "darwin-aarch64";
-              return "darwin-x86_64";
-            }
-            if (f.endsWith(".appimage.tar.gz") || (f.endsWith(".tar.gz") && f.includes("appimage"))) {
-              return "linux-x86_64";
-            }
-            
-            return null;
-          }
-          
           const latestJson = {
-            version: tag,
+            version: tag.replace(/^v/, ""),
             notes: process.env.RELEASE_NOTES || "Nueva actualización disponible.",
             pub_date: new Date().toISOString(),
             platforms: {}
           };
-          
-          files.forEach(file => {
+
+          for (const file of files) {
             const platform = identifyPlatform(file);
-            if (platform) {
-              const sig = getSignature(file);
-              if (sig) {
-                latestJson.platforms[platform] = {
-                  signature: sig,
-                  url: `${baseUrl}/${file}`
-                };
-              } else {
-                console.warn(`No se encontró firma para: ${file}`);
-              }
+            console.log(`${file} -> ${platform}`);
+
+            if (!platform) continue;
+
+            const sig = getSignature(file);
+
+            if (!sig) {
+              console.warn(`No se encontró firma para: ${file}`);
+              continue;
             }
-          });
-          
+
+            latestJson.platforms[platform] = {
+              signature: sig,
+              url: `${baseUrl}/${encodeURIComponent(file)}`
+            };
+          }
+
           fs.writeFileSync("latest.json", JSON.stringify(latestJson, null, 2));
-          console.log("Archivo latest.json generado con éxito:\n", JSON.stringify(latestJson, null, 2));
+          console.log(JSON.stringify(latestJson, null, 2));
           '
 
       - name: Desplegar latest.json en la rama gh-pages
