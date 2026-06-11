@@ -406,6 +406,7 @@ export const en = {
   'workbench.status.appEnabled': 'App enabled',
   'workbench.status.appUninstalled': 'App uninstalled',
   'workbench.status.launchingApp': 'Launching {pkg}...',
+  'workbench.status.exporting': 'Exporting package to {path}...',
   'workbench.status.appDataCleared': 'App data cleared',
   'workbench.status.apkSaved': 'APK saved to {path}',
   'workbench.status.toolPathSaved': '{tool} path saved',

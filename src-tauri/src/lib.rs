@@ -1,5 +1,3 @@
-
-
 mod adb;
 mod app_paths;
 mod commands;
@@ -83,6 +81,7 @@ pub fn run() {
             operations::enrich_app_summary,
             operations::install_application_packages,
             operations::get_app_details,
+            operations::export_apk,
             operations::clear_application_cache,
             operations::get_app_settings,
             operations::save_app_settings,

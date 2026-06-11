@@ -43,6 +43,7 @@ pub struct AppDetailsInfo {
     pub package_name: String,
     pub display_name: String,
     pub apk_path: String,
+    pub is_split: bool,
     pub system_app: bool,
     pub disabled: bool,
     pub version_name: String,
@@ -1333,12 +1334,14 @@ pub async fn get_app_details(
     .await?;
     let appops =
         adb::run_adb_for_serial(&serial, &["shell", "cmd", "appops", "get", &package_name]).await?;
-    let apk_path = paths
+    let apk_paths: Vec<String> = paths
         .output
         .lines()
-        .find_map(|line| line.trim().strip_prefix("package:"))
-        .unwrap_or("-")
-        .to_string();
+        .filter_map(|line| line.trim().strip_prefix("package:"))
+        .map(|s| s.to_string())
+        .collect();
+    let is_split = apk_paths.len() > 1;
+    let apk_path = apk_paths.first().cloned().unwrap_or_else(|| "-".to_string());
     let data_dir = dump_value(&dump.output, "dataDir");
     let code_size_bytes = remote_size(&serial, &apk_path).await;
     let total_data_bytes = remote_size(&serial, &data_dir).await;
@@ -1362,6 +1365,7 @@ pub async fn get_app_details(
         package_name: package_name.clone(),
         display_name: display_name_from_dump(&dump.output, &package_name),
         apk_path,
+        is_split,
         system_app: package_set(&system.output).contains(&package_name),
         disabled: package_set(&disabled.output).contains(&package_name),
         version_name: dump_value(&dump.output, "versionName"),
@@ -1572,4 +1576,72 @@ pub async fn install_or_update_tool(tool: String) -> Result<ToolsStatus, String>
     tauri::async_runtime::spawn_blocking(move || tools::install_or_update(&tool))
         .await
         .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn export_apk(serial: String, package_name: String, destination: String) -> Result<(), String> {
+    let paths_result = adb::run_adb_for_serial(&serial, &["shell", "pm", "path", &package_name]).await?;
+    if !paths_result.ok() {
+        return Err(paths_result.output);
+    }
+    let apk_paths: Vec<String> = paths_result
+        .output
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("package:"))
+        .map(|s| s.to_string())
+        .collect();
+
+    if apk_paths.is_empty() {
+        return Err(format!("No APK paths found for {}", package_name));
+    }
+
+    if apk_paths.len() == 1 {
+        // Single APK
+        let result = adb::run_adb_for_serial(&serial, &["pull", &apk_paths[0], &destination]).await?;
+        if result.ok() {
+            Ok(())
+        } else {
+            Err(result.output)
+        }
+    } else {
+        // Split APKs
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| error.to_string())?
+            .as_millis();
+        let temp_dir = crate::app_paths::cache_dir()
+            .join("exports")
+            .join(nonce.to_string());
+        fs::create_dir_all(&temp_dir).map_err(|error| error.to_string())?;
+
+        // Pull all APKs
+        for path in &apk_paths {
+            let result = adb::run_adb_for_serial(&serial, &["pull", path, &temp_dir.to_string_lossy()]).await?;
+            if !result.ok() {
+                let _ = fs::remove_dir_all(&temp_dir);
+                return Err(format!("Failed to pull {}: {}", path, result.output));
+            }
+        }
+
+        // Zip them into destination
+        let file = std::fs::File::create(&destination).map_err(|e| format!("Failed to create destination file: {}", e))?;
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+
+        for entry in fs::read_dir(&temp_dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = path.file_name().unwrap().to_string_lossy().into_owned();
+                zip.start_file(file_name, options).map_err(|e| format!("Failed to start zip file: {}", e))?;
+                let mut f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+                std::io::copy(&mut f, &mut zip).map_err(|e| format!("Failed to write to zip: {}", e))?;
+            }
+        }
+
+        zip.finish().map_err(|e| format!("Failed to finalize zip: {}", e))?;
+        let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
+    }
 }

@@ -44,7 +44,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout del repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         
       - name: Configurar Bun
         uses: oven-sh/setup-bun@v2
@@ -177,8 +177,8 @@ jobs:
             fi
           done
 
-          # Eliminar el sufijo _en-US de los instaladores de Windows (.msi y .exe)
-          for file in *.msi *.exe *.msi.sig *.exe.sig; do
+          # Eliminar el sufijo _en-US de los instaladores de Windows y sus bundles de updater
+          for file in *.msi *.exe *.zip *.msi.sig *.exe.sig *.zip.sig; do
             if [ -e "$file" ]; then
               if [[ "$file" == *"_en-US"* ]]; then
                 new_name="${file/_en-US/}"
@@ -219,20 +219,22 @@ jobs:
           function identifyPlatform(file) {
             if (file.endsWith(".sig")) return null;
             const f = file.toLowerCase();
-            if (f.endsWith(".msi") || f.endsWith(".exe")) {
+            
+            // Windows updater uses .zip (e.g., .nsis.zip or .msi.zip)
+            if (f.endsWith(".zip")) {
               if (f.includes("arm64") || f.includes("aarch64")) return "windows-aarch64";
               return "windows-x86_64"; 
             }
-            if (f.endsWith(".deb")) {
+            // macOS updater uses .tar.gz (e.g., .app.tar.gz)
+            if (f.endsWith(".tar.gz") && !f.includes("appimage")) {
+              if (f.includes("arm64") || f.includes("aarch64") || f.includes("silicon")) return "darwin-aarch64";
+              return "darwin-x86_64";
+            }
+            // Linux updater uses .AppImage.tar.gz
+            if (f.endsWith(".appimage.tar.gz") || (f.endsWith(".tar.gz") && f.includes("appimage"))) {
               return "linux-x86_64";
             }
-            if (f.endsWith(".appimage")) {
-              return "linux-x86_64-appimage";
-            }
-            if (f.endsWith(".dmg")) {
-              if (f.includes("silicon") || f.includes("aarch64")) return "darwin-aarch64";
-              if (f.includes("intel") || f.includes("x64")) return "darwin-x86_64";
-            }
+            
             return null;
           }
           

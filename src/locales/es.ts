@@ -406,6 +406,7 @@ export const es: Record<string, string> = {
   'workbench.status.appEnabled': 'Aplicación habilitada',
   'workbench.status.appUninstalled': 'Aplicación desinstalada',
   'workbench.status.launchingApp': 'Iniciando {pkg}...',
+  'workbench.status.exporting': 'Exportando paquete a {path}...',
   'workbench.status.appDataCleared': 'Datos de la aplicación eliminados',
   'workbench.status.apkSaved': 'APK guardado en {path}',
   'workbench.status.toolPathSaved': 'Ruta de {tool} guardada',

@@ -99,6 +99,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
     setSelectedPackage(app.package_name);
     setAppDetails({
       ...app,
+      is_split: false,
       version_name: '-',
       version_code: '-',
       target_sdk: '-',
@@ -153,7 +154,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
         title: t('apps.action.install'),
         multiple: true,
         directory: false,
-        filters: [{ name: 'Paquetes Android', extensions: ['apk', 'apks', 'apkm', 'xapk', 'zip', 'aab'] }],
+        filters: [{ name: 'Android Packages', extensions: ['apk', 'apks', 'apkm', 'xapk', 'zip', 'aab'] }],
       });
       const selectedFiles = Array.isArray(selected) ? selected : selected ? [selected] : [];
       if (selectedFiles.length) {
@@ -216,12 +217,18 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
   const exportApk = async () => {
     if (!appDetails) return;
     try {
+      const isSplit = appDetails.is_split;
+      const extension = isSplit ? 'apks' : 'apk';
       const destination = await save({
         title: t('apps.action.saveApk'),
-        defaultPath: `${appDetails.package_name}.apk`,
-        filters: [{ name: 'Paquete Android', extensions: ['apk'] }],
+        defaultPath: `${appDetails.package_name}.${extension}`,
+        filters: [{ name: 'Android Package', extensions: [extension] }],
       });
-      if (destination) await run(['pull', appDetails.apk_path, destination], t('workbench.status.apkSaved', { path: destination }));
+      if (destination) {
+        setStatus(t('workbench.status.exporting', { path: destination }));
+        await invoke('export_apk', { serial, packageName: appDetails.package_name, destination });
+        setStatus(t('workbench.status.apkSaved', { path: destination }));
+      }
     } catch (error) { setStatus(String(error)); }
   };
 
