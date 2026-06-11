@@ -101,6 +101,11 @@ jobs:
             }
           '
 
+      - name: Configurar Rust y el Target de compilación
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
       - name: Instalar dependencias de Linux (Gtk / WebKit)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -132,6 +137,59 @@ jobs:
         run: |
           mkdir -p deploy-assets
           gh release download ${{ github.event.release.tag_name }} --dir deploy-assets --repo ${{ github.repository }}
+          ls -lh deploy-assets/
+
+      - name: Renombrar instaladores en el Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd deploy-assets
+          # Renombrar .dmg
+          for file in *.dmg; do
+            if [ -e "$file" ]; then
+              if [[ "$file" == *"x64"* ]]; then
+                new_name="${file/x64/Intel}"
+                mv "$file" "$new_name"
+                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
+                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
+              elif [[ "$file" == *"aarch64"* ]]; then
+                new_name="${file/aarch64/Silicon}"
+                mv "$file" "$new_name"
+                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
+                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
+              fi
+            fi
+          done
+          # Renombrar .dmg.sig
+          for file in *.dmg.sig; do
+            if [ -e "$file" ]; then
+              if [[ "$file" == *"x64"* ]]; then
+                new_name="${file/x64/Intel}"
+                mv "$file" "$new_name"
+                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
+                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
+              elif [[ "$file" == *"aarch64"* ]]; then
+                new_name="${file/aarch64/Silicon}"
+                mv "$file" "$new_name"
+                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
+                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
+              fi
+            fi
+          done
+
+          # Eliminar el sufijo _en-US de los instaladores de Windows (.msi y .exe)
+          for file in *.msi *.exe *.msi.sig *.exe.sig; do
+            if [ -e "$file" ]; then
+              if [[ "$file" == *"_en-US"* ]]; then
+                new_name="${file/_en-US/}"
+                mv "$file" "$new_name"
+                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
+                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
+              fi
+            fi
+          done
+
+          cd ..
           ls -lh deploy-assets/
 
       - name: Generar y Actualizar latest.json
@@ -172,8 +230,8 @@ jobs:
               return "linux-x86_64-appimage";
             }
             if (f.endsWith(".dmg")) {
-              if (f.includes("arm64") || f.includes("aarch64")) return "darwin-aarch64";
-              return "darwin-x86_64";
+              if (f.includes("silicon") || f.includes("aarch64")) return "darwin-aarch64";
+              if (f.includes("intel") || f.includes("x64")) return "darwin-x86_64";
             }
             return null;
           }
