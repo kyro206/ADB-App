@@ -16,7 +16,7 @@ export function MaterialIcon({
   title?: string;
 }) {
   const style = { 
-    '--icon-fill': filled ? 1 : 0,
+    fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24`,
     ...(size ? { fontSize: typeof size === 'number' ? `${size}px` : size } : {})
   } as CSSProperties;
 

@@ -63,7 +63,6 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   const [mirrorMouse, setMirrorMouse] = useState('default');
   const [mirrorRecord, setMirrorRecord] = useState(false);
   const [mirrorRecordPath, setMirrorRecordPath] = useState('');
-  const [mirrorStartApp, setMirrorStartApp] = useState(false);
   const [mirrorApp, setMirrorApp] = useState('');
   const [mirrorApps, setMirrorApps] = useState<AppSummary[]>([]);
   const [virtualWidth, setVirtualWidth] = useState('');
@@ -93,11 +92,15 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
   const refreshMirrorData = async () => {
     if (!serial) return;
-    try {
-      const value = await invoke<AppSummary[]>('list_apps', { serial });
-      setMirrorApps(value.filter(app => !app.system_app));
-    } catch { setMirrorApps([]); }
-    invoke<string[]>('list_scrcpy_cameras', { serial }).then(setCameras).catch(() => setCameras([]));
+    if (mirrorApps.length === 0) {
+      try {
+        const value = await invoke<AppSummary[]>('list_apps', { serial });
+        setMirrorApps(value.filter(app => !app.system_app));
+      } catch { setMirrorApps([]); }
+    }
+    if (cameras.length === 0) {
+      invoke<string[]>('list_scrcpy_cameras', { serial }).then(setCameras).catch(() => setCameras([]));
+    }
   };
 
   const launchMirror = () => {
@@ -125,7 +128,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
       if (mirrorKeyboard !== 'default') args.push(`--keyboard=${mirrorKeyboard}`);
       if (mirrorMouse !== 'default') args.push(`--mouse=${mirrorMouse}`);
     }
-    if (mirrorStartApp && mirrorApp && mirrorMode !== 'camera') args.push(`--start-app=${mirrorApp}`);
+    if (mirrorApp && mirrorMode !== 'camera') args.push(`--start-app=${mirrorApp}`);
     if (mirrorRecord && mirrorRecordPath) args.push(`--record=${mirrorRecordPath}`);
     scrcpy(args);
   };
@@ -293,7 +296,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
     maxSize={mirrorMaxSize} setMaxSize={setMirrorMaxSize} maxFps={mirrorMaxFps} setMaxFps={setMirrorMaxFps}
     audio={mirrorAudio} setAudio={setMirrorAudio} keyboard={mirrorKeyboard} setKeyboard={setMirrorKeyboard} mouse={mirrorMouse} setMouse={setMirrorMouse}
     record={mirrorRecord} setRecord={setMirrorRecord} recordPath={mirrorRecordPath} setRecordPath={setMirrorRecordPath}
-    startApp={mirrorStartApp} setStartApp={setMirrorStartApp} app={mirrorApp} setApp={setMirrorApp} apps={mirrorApps}
+    app={mirrorApp} setApp={setMirrorApp} apps={mirrorApps}
     virtualWidth={virtualWidth} setVirtualWidth={setVirtualWidth} virtualHeight={virtualHeight} setVirtualHeight={setVirtualHeight}
     virtualDpi={virtualDpi} setVirtualDpi={setVirtualDpi} virtualResizable={virtualResizable} setVirtualResizable={setVirtualResizable}
     cameraId={cameraId} setCameraId={setCameraId} cameraWidth={cameraWidth} setCameraWidth={setCameraWidth}

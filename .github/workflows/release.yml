@@ -15,30 +15,32 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            args: "--bundles deb"
+            args: "--bundles deb,updater"
             name: "linux-x64"
 
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            args: "--bundles appimage"
+            args: "--bundles appimage,updater"
             name: "appimage-x64"
 
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            args: "--bundles msi,updater"
             name: "windows-x64"
 
           - os: windows-latest
             target: aarch64-pc-windows-msvc
+            args: "--bundles msi,updater"
             name: "windows-arm64"
 
           - os: macos-latest
             target: x86_64-apple-darwin
-            args: "--bundles dmg"
+            args: "--bundles dmg,updater"
             name: "macos-x64"
 
           - os: macos-latest
             target: aarch64-apple-darwin
-            args: "--bundles dmg"
+            args: "--bundles dmg,updater"
             name: "macos-arm64"
 
     runs-on: ${{ matrix.os }}
@@ -51,18 +53,7 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Determinar Bundle Target
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-              echo "BUNDLE_ARGS=--bundles nsis" >> $GITHUB_ENV
-            else
-              echo "BUNDLE_ARGS=--bundles msi" >> $GITHUB_ENV
-            fi
-          else
-            echo "BUNDLE_ARGS=${{ matrix.args }}" >> $GITHUB_ENV
-          fi
+
 
       - name: Sincronizar versiones de Tauri y Cargo con el Tag
         shell: bash
@@ -70,7 +61,8 @@ jobs:
           bun -e '
             const fs = require("fs");
             const tag = "${{ github.event.release.tag_name }}";
-            const version = tag.replace(/^v/, "");
+            // Quita la "v" inicial y elimina cualquier sufijo de pre-release (ej. -alpha.1) para compatibilidad con MSI
+            const version = tag.replace(/^v/, "").split("-")[0];
             
             // Detecta de forma segura si es una Pre-release (Beta/Alpha)
             const isPrerelease = "${{ github.event.release.prerelease }}" === "true";
@@ -124,7 +116,7 @@ jobs:
         with:
           tagName: ${{ github.event.release.tag_name }}
           releaseId: ${{ github.event.release.id }}
-          args: --target ${{ matrix.target }} ${{ env.BUNDLE_ARGS }}
+          args: --target ${{ matrix.target }} ${{ matrix.args }}
 
   publish-updater:
     needs: build-tauri
