@@ -18,5 +18,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 - [Deleted things]
 
-## [1.0.0] - AAAA-MM-DD
+## [1.0.0] - 2026-06-11
 - Initial release.
