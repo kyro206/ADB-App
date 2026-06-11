@@ -8,10 +8,10 @@
 .mirror-material-card>header>.material-symbols-rounded{display:grid;place-items:center;width:40px;height:40px;color:var(--primary);background:var(--surface-container-high);border-radius:12px;font-size:22px}
 .mirror-material-card h3{font-size:16px;font-weight:600;flex:1}
 .mirror-material-spacer{flex:1}
-.mirror-material-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.mirror-material-fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mirror-material-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.mirror-material-fields.three{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
 .mirror-material-card md-outlined-text-field,.mirror-material-card md-outlined-select{width:100%;--md-outlined-field-container-shape:12px}
-.mirror-material-toggles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.mirror-material-toggles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .mirror-material-app-select{display:flex;align-items:center;gap:8px}
 .mirror-material-toggle{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px;background:var(--surface-container);border-radius:14px;cursor:pointer;transition:background 0.2s ease}
 .mirror-material-toggle:hover:not(.disabled){background:var(--surface-container-highest)}
@@ -27,5 +27,4 @@
 .mirror-material-footer md-filled-button{--md-filled-button-container-shape:16px;height:48px}
 .mirror-material-footer md-outlined-button{--md-outlined-button-container-shape:16px;height:48px}
 @media(max-width:1100px){.mirror-material-layout{grid-template-columns:1fr}.mirror-material-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.mirror-material-side {grid-column:1/-1}}
-@media(max-width:800px){.mirror-material-side,.mirror-material-fields.three,.mirror-material-toggles{grid-template-columns:1fr}.mirror-material-footer{flex-direction:column;align-items:stretch;padding:16px;border-radius:20px}.mirror-material-footer__actions{flex-direction:column}.mirror-material-footer__actions>*{width:100%}}
-@media(max-width:560px){.mirror-material-fields{grid-template-columns:1fr}}
+@media(max-width:800px){.mirror-material-side{grid-template-columns:1fr}.mirror-material-footer{flex-direction:column;align-items:stretch;padding:16px;border-radius:20px}.mirror-material-footer__actions{flex-direction:column}.mirror-material-footer__actions>*{width:100%}}

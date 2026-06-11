@@ -1,6 +1,7 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { useI18n } from '../locales';
+import { save } from '@tauri-apps/plugin-dialog';
 import type { AppSummary, MirrorMode, ToolsStatus } from './workbench/types';
 import './MirroringPage.css';
 
@@ -61,12 +62,16 @@ const MODES = [
   { id: 'camera', icon: 'photo_camera', titleKey: 'mirror.mode.camera' },
 ];
 
-function Field({ label, value, onValue, type = 'text', placeholder = '', disabled = false }: {
-  label: string; value: string; onValue: (value: string) => void; type?: string; placeholder?: string; disabled?: boolean;
+function Field({ label, value, onValue, type = 'text', placeholder = '', disabled = false, actionIcon, onActionClick }: {
+  label: string; value: string; onValue: (value: string) => void; type?: string; placeholder?: string; disabled?: boolean; actionIcon?: string; onActionClick?: () => void;
 }) {
   return <md-outlined-text-field label={label} type={type} value={value} placeholder={placeholder} disabled={disabled || undefined}
     onInput={(event: any) => onValue(event.currentTarget.value)}>
-    {value && <md-icon-button slot="trailing-icon" onClick={() => onValue('')}><MaterialIcon name="close" /></md-icon-button>}
+    {actionIcon && onActionClick ? (
+      <md-icon-button slot="trailing-icon" disabled={disabled || undefined} onClick={onActionClick}><MaterialIcon name={actionIcon} /></md-icon-button>
+    ) : value ? (
+      <md-icon-button slot="trailing-icon" onClick={() => onValue('')}><MaterialIcon name="close" /></md-icon-button>
+    ) : null}
   </md-outlined-text-field>;
 }
 
@@ -151,7 +156,20 @@ export function MirroringPage(props: MirroringPageProps) {
           <header><MaterialIcon name="fiber_manual_record" filled /><h3>{t('mirror.record.title')}</h3></header>
           <div className="mirror-material-toggles">
             <Toggle icon="videocam" title={t('mirror.record.toggle')} checked={props.record} onChange={props.setRecord} />
-            <Field label={t('mirror.record.path')} value={props.recordPath} onValue={props.setRecordPath} disabled={!props.record} placeholder="C:\Videos\captura.mkv" />
+            <Field 
+              label={t('mirror.record.path')} 
+              value={props.recordPath} 
+              onValue={props.setRecordPath} 
+              disabled={!props.record} 
+              placeholder="C:\Videos\captura.mkv" 
+              actionIcon="folder_open" 
+              onActionClick={async () => {
+                const selected = await save({ filters: [{ name: 'Video', extensions: ['mkv', 'mp4'] }] });
+                if (selected && typeof selected === 'string') {
+                  props.setRecordPath(selected);
+                }
+              }} 
+            />
           </div>
         </section>
       </main>
@@ -161,10 +179,8 @@ export function MirroringPage(props: MirroringPageProps) {
           <header><MaterialIcon name="tune" filled /><h3>{t('mirror.input.title')}</h3></header>
           {!cameraMode && <Toggle icon="visibility" title={t('mirror.input.readOnly')} checked={props.readOnly} onChange={props.setReadOnly} />}
           <Select label={t('mirror.input.audio')} value={props.audio} onValue={props.setAudio} options={[['default', t('mirror.input.default')], ['none', t('mirror.input.none')], ['output', t('mirror.input.output')], ['mic', t('mirror.input.mic')]]} />
-          <div className="mirror-material-fields">
-            <Select label={t('mirror.input.keyboard')} value={props.keyboard} disabled={inputDisabled} onValue={props.setKeyboard} options={[['default', t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', t('mirror.input.disabled')]]} />
-            <Select label={t('mirror.input.mouse')} value={props.mouse} disabled={inputDisabled} onValue={props.setMouse} options={[['default', t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', t('mirror.input.disabled')]]} />
-          </div>
+          <Select label={t('mirror.input.keyboard')} value={props.keyboard} disabled={inputDisabled} onValue={props.setKeyboard} options={[['default', t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', t('mirror.input.disabled')]]} />
+          <Select label={t('mirror.input.mouse')} value={props.mouse} disabled={inputDisabled} onValue={props.setMouse} options={[['default', t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', t('mirror.input.disabled')]]} />
         </section>
 
         {!cameraMode && <section className="mirror-material-card">

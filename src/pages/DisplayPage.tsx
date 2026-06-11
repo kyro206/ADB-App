@@ -34,7 +34,7 @@ function InfoCard({ icon, label, value }: { icon: string; label: string; value: 
 
 function EditCard({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) {
   return <article className="display-edit-card">
-    <header><span><MaterialIcon name={icon} filled /></span><strong>{label}</strong></header>
+    <header><MaterialIcon name={icon} filled /><h3>{label}</h3></header>
     {children}
   </article>;
 }
@@ -73,18 +73,17 @@ export function DisplayPage(props: DisplayPageProps) {
     </section>
 
     <section className="display-actions">
-      <div><MaterialIcon name="tune" /><span>{t('display.action.desc')}</span></div>
       <md-outlined-button disabled={!details || undefined} onClick={props.onReset}><span slot="icon"><MaterialIcon name="restart_alt" size={22} /></span>{t('common.reset')}</md-outlined-button>
       <md-filled-button disabled={!canApply || undefined} onClick={props.onApply}><span slot="icon"><MaterialIcon name="check" filled size={22} /></span>{t('common.apply')}</md-filled-button>
     </section>
 
     <section className="display-bottom-grid">
       <article className="display-panel">
-        <header><MaterialIcon name="auto_awesome" filled /><div><strong>{t('display.presets.title')}</strong><span>{t('display.presets.desc')}</span></div></header>
+        <header><MaterialIcon name="auto_awesome" filled /><h3>{t('display.presets.title')}</h3></header>
         <div className="display-presets">{props.suggestions.map(item => <button key={`${item.width}-${item.height}`} onClick={() => { props.setWidth(item.width); props.setHeight(item.height); props.setDensity(item.density); }}><MaterialIcon name="photo_size_select_large" /><span><strong>{item.width} × {item.height}</strong><small>{item.density} dpi</small></span></button>)}</div>
       </article>
       <article className="display-panel">
-        <header><MaterialIcon name="speed" filled /><div><strong>{t('display.rates.title')}</strong><span>{t('display.rates.desc')}</span></div></header>
+        <header><MaterialIcon name="speed" filled /><h3>{t('display.rates.title')}</h3></header>
         <div className="display-rates">{details?.supported_refresh_rates_hz?.map(rate => <button className={Math.abs(rate - props.refreshRate) < .6 ? 'selected' : ''} key={rate} onClick={() => props.onSetRefreshRate(rate)}><MaterialIcon name={Math.abs(rate - props.refreshRate) < .6 ? 'check_circle' : 'radio_button_unchecked'} />{formatRate(rate)}</button>) || <span>{t('display.rates.empty')}</span>}</div>
       </article>
     </section>

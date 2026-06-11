@@ -83,11 +83,8 @@ export const es: Record<string, string> = {
   'display.dark.changing': 'Cambiando modo...',
   'display.dark.on': 'Modo oscuro activado',
   'display.dark.off': 'Modo oscuro desactivado',
-  'display.action.desc': 'Aplica la resolución, densidad y tiempo de espera mediante ADB.',
   'display.presets.title': 'Ajustes rápidos',
-  'display.presets.desc': 'Presets proporcionales a la pantalla física.',
   'display.rates.title': 'Frecuencias disponibles',
-  'display.rates.desc': 'seleccionar la frecuencia que usará el dispositivo.',
   'display.rates.empty': 'Sin datos disponibles',
 
   // Mirroring

@@ -25,12 +25,12 @@ jobs:
 
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            args: "--bundles msi,updater"
+            args: "--bundles nsis,updater"
             name: "windows-x64"
 
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            args: "--bundles msi,updater"
+            args: "--bundles nsis,updater"
             name: "windows-arm64"
 
           - os: macos-latest
@@ -47,43 +47,24 @@ jobs:
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v6
-        
-      - name: Configurar Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-
 
       - name: Sincronizar versiones de Tauri y Cargo con el Tag
         shell: bash
         run: |
-          bun -e '
+          node -e '
             const fs = require("fs");
             const tag = "${{ github.event.release.tag_name }}";
-            // Quita la "v" inicial y elimina cualquier sufijo de pre-release (ej. -alpha.1) para compatibilidad con MSI
-            const version = tag.replace(/^v/, "").split("-")[0];
+            const version = tag.replace(/^v/, "");
             
-            // Detecta de forma segura si es una Pre-release (Beta/Alpha)
-            const isPrerelease = "${{ github.event.release.prerelease }}" === "true";
-
-            // 1. Sincronizar tauri.conf.json
             const tauriPath = "src-tauri/tauri.conf.json";
             if (fs.existsSync(tauriPath)) {
               const config = JSON.parse(fs.readFileSync(tauriPath, "utf8"));
               config.version = version;
               
-              // Si es una pre-release, renombra el producto visualmente
-              if (isPrerelease) {
-                config.productName = "ADB App Preview";
-                console.log("⚠️ Detectada Pre-release. Cambiando productName a: ADB App Preview");
-              }
-              
               fs.writeFileSync(tauriPath, JSON.stringify(config, null, 2));
               console.log("✓ tauri.conf.json sincronizado a la versión: " + version);
             }
 
-            // 2. Sincronizar Cargo.toml
             const cargoPath = "src-tauri/Cargo.toml";
             if (fs.existsSync(cargoPath)) {
               let cargoContent = fs.readFileSync(cargoPath, "utf8");
@@ -105,7 +86,7 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Instalar dependencias del Frontend
-        run: bun install
+        run: npm install
 
       - name: Compilar y Subir aplicación con Tauri Action
         uses: tauri-apps/tauri-action@v0
@@ -129,60 +110,6 @@ jobs:
         run: |
           mkdir -p deploy-assets
           gh release download ${{ github.event.release.tag_name }} --dir deploy-assets --repo ${{ github.repository }}
-          ls -lh deploy-assets/
-
-      - name: Renombrar instaladores en el Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd deploy-assets
-          # Renombrar .dmg
-          for file in *.dmg; do
-            if [ -e "$file" ]; then
-              if [[ "$file" == *"x64"* ]]; then
-                new_name="${file/x64/Intel}"
-                mv "$file" "$new_name"
-                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
-                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
-              elif [[ "$file" == *"aarch64"* ]]; then
-                new_name="${file/aarch64/Silicon}"
-                mv "$file" "$new_name"
-                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
-                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
-              fi
-            fi
-          done
-          # Renombrar .dmg.sig
-          for file in *.dmg.sig; do
-            if [ -e "$file" ]; then
-              if [[ "$file" == *"x64"* ]]; then
-                new_name="${file/x64/Intel}"
-                mv "$file" "$new_name"
-                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
-                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
-              elif [[ "$file" == *"aarch64"* ]]; then
-                new_name="${file/aarch64/Silicon}"
-                mv "$file" "$new_name"
-                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
-                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
-              fi
-            fi
-          done
-
-          # Eliminar el sufijo _en-US de los instaladores de Windows y sus bundles de updater
-          for file in *.msi *.exe *.zip *.msi.sig *.exe.sig *.zip.sig; do
-            if [ -e "$file" ]; then
-              if [[ "$file" == *"_en-US"* ]]; then
-                new_name="${file/_en-US/}"
-                mv "$file" "$new_name"
-                gh release upload ${{ github.event.release.tag_name }} "$new_name" --clobber --repo ${{ github.repository }}
-                gh release delete-asset ${{ github.event.release.tag_name }} "$file" -y --repo ${{ github.repository }} || true
-              fi
-            fi
-          done
-
-          cd ..
-          ls -lh deploy-assets/
 
       - name: Generar y Actualizar latest.json
         env:
@@ -212,17 +139,14 @@ jobs:
             if (file.endsWith(".sig")) return null;
             const f = file.toLowerCase();
             
-            // Windows updater uses .zip (e.g., .nsis.zip or .msi.zip)
             if (f.endsWith(".zip")) {
               if (f.includes("arm64") || f.includes("aarch64")) return "windows-aarch64";
               return "windows-x86_64"; 
             }
-            // macOS updater uses .tar.gz (e.g., .app.tar.gz)
             if (f.endsWith(".tar.gz") && !f.includes("appimage")) {
               if (f.includes("arm64") || f.includes("aarch64") || f.includes("silicon")) return "darwin-aarch64";
               return "darwin-x86_64";
             }
-            // Linux updater uses .AppImage.tar.gz
             if (f.endsWith(".appimage.tar.gz") || (f.endsWith(".tar.gz") && f.includes("appimage"))) {
               return "linux-x86_64";
             }
@@ -246,12 +170,14 @@ jobs:
                   signature: sig,
                   url: `${baseUrl}/${file}`
                 };
+              } else {
+                console.warn(`No se encontró firma para: ${file}`);
               }
             }
           });
           
           fs.writeFileSync("latest.json", JSON.stringify(latestJson, null, 2));
-          console.log("Archivo latest.json generado dinámicamente con éxito:", JSON.stringify(latestJson, null, 2));
+          console.log("Archivo latest.json generado con éxito:\n", JSON.stringify(latestJson, null, 2));
           '
 
       - name: Desplegar latest.json en la rama gh-pages

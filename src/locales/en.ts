@@ -83,11 +83,8 @@ export const en = {
   'display.dark.changing': 'Changing mode...',
   'display.dark.on': 'Dark mode enabled',
   'display.dark.off': 'Dark mode disabled',
-  'display.action.desc': 'Applies resolution, density and timeout via ADB.',
   'display.presets.title': 'Quick settings',
-  'display.presets.desc': 'Proportional presets to the physical screen.',
   'display.rates.title': 'Available refresh rates',
-  'display.rates.desc': 'Select the refresh rate the device will use.',
   'display.rates.empty': 'No data available',
 
   // Mirroring
