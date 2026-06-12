@@ -70,21 +70,41 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
             used_storage_mb: -1,
             dark_mode_enabled: false,
             screen_off_timeout_ms: 60000,
+            uptime_seconds: -1.0,
         });
     }
 
-    // Run all info queries
-    let getprop = run_or_empty(&serial, &["shell", "getprop"]).await;
-    let dumpsys_meminfo = run_or_empty(&serial, &["shell", "dumpsys", "meminfo"]).await;
-    let proc_meminfo = run_or_empty(&serial, &["shell", "cat", "/proc/meminfo"]).await;
+    // Run all info queries concurrently for maximum speed
+    let (
+        getprop,
+        dumpsys_meminfo,
+        proc_meminfo,
+        battery,
+        storage,
+        features,
+        wm_size,
+        wm_density,
+        display,
+        mut dark_mode,
+        screen_timeout,
+        uptime,
+    ) = tokio::join!(
+        run_or_empty(&serial, &["shell", "getprop"]),
+        run_or_empty(&serial, &["shell", "dumpsys", "meminfo"]),
+        run_or_empty(&serial, &["shell", "cat", "/proc/meminfo"]),
+        run_or_empty(&serial, &["shell", "dumpsys", "battery"]),
+        run_or_empty(&serial, &["shell", "df", "-k", "/data"]),
+        run_or_empty(&serial, &["shell", "pm", "list", "features"]),
+        run_or_empty(&serial, &["shell", "wm", "size"]),
+        run_or_empty(&serial, &["shell", "wm", "density"]),
+        run_or_empty(&serial, &["shell", "dumpsys", "display"]),
+        run_or_empty(&serial, &["shell", "cmd", "uimode", "night"]),
+        run_or_empty(&serial, &["shell", "settings", "get", "system", "screen_off_timeout"]),
+        run_or_empty(&serial, &["shell", "cat", "/proc/uptime"])
+    );
+
     let meminfo = format!("{dumpsys_meminfo}\n{proc_meminfo}");
-    let battery = run_or_empty(&serial, &["shell", "dumpsys", "battery"]).await;
-    let storage = run_or_empty(&serial, &["shell", "df", "-k", "/data"]).await;
-    let features = run_or_empty(&serial, &["shell", "pm", "list", "features"]).await;
-    let wm_size = run_or_empty(&serial, &["shell", "wm", "size"]).await;
-    let wm_density = run_or_empty(&serial, &["shell", "wm", "density"]).await;
-    let display = run_or_empty(&serial, &["shell", "dumpsys", "display"]).await;
-    let mut dark_mode = run_or_empty(&serial, &["shell", "cmd", "uimode", "night"]).await;
+
     if dark_mode.trim().is_empty() {
         dark_mode = run_or_empty(
             &serial,
@@ -92,11 +112,6 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
         )
         .await;
     }
-    let screen_timeout = run_or_empty(
-        &serial,
-        &["shell", "settings", "get", "system", "screen_off_timeout"],
-    )
-    .await;
 
     Ok(device_parser::build_device_details(
         &device,
@@ -110,6 +125,7 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
         &display,
         &dark_mode,
         &screen_timeout,
+        &uptime,
     ))
 }
 

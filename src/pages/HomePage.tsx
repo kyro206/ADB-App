@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, type ReactNode } from 'react';
+import { useEffect, useCallback, useState, useMemo, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { getName } from '@tauri-apps/api/app';
@@ -31,14 +31,13 @@ export function HomePage() {
   const [shizukuStatus, setShizukuStatus] = useState<'idle' | 'busy' | 'success' | 'error'>('idle');
   const [appName, setAppName] = useState('ADB App');
   const [deviceName, setDeviceName] = useState('ADB App');
-  const [bootDate, setBootDate] = useState<{ short: string, full: string } | null>(null);
   const dd = deviceDetails;
 
   useEffect(() => {
     getName().then(name => {
       setAppName(name);
       setDeviceName(name);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -58,27 +57,16 @@ export function HomePage() {
     }
   }, [selectedDevice, appName]);
 
-  useEffect(() => {
-    if (selectedDevice?.serial && selectedDevice.state === 'device') {
-      invoke<string>('run_device_action', {
-        serial: selectedDevice.serial,
-        args: ['shell', 'cat', '/proc/uptime']
-      }).then(out => {
-        const seconds = parseFloat(out.split(' ')[0]);
-        if (!isNaN(seconds)) {
-          const date = new Date(Date.now() - seconds * 1000);
-          setBootDate({
-            short: date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }).replace(',', ''),
-            full: date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'medium' })
-          });
-        } else {
-          setBootDate(null);
-        }
-      }).catch(() => setBootDate(null));
-    } else {
-      setBootDate(null);
+  const bootDate = useMemo(() => {
+    if (dd && dd.uptime_seconds >= 0) {
+      const date = new Date(Date.now() - dd.uptime_seconds * 1000);
+      return {
+        short: date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }).replace(',', ''),
+        full: date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'medium' })
+      };
     }
-  }, [selectedDevice]);
+    return null;
+  }, [dd]);
 
   const stateLabel = dd ? ({ device: t('state.connected'), connecting: t('state.connecting'), unauthorized: t('state.unauthorized'), offline: t('state.offline'), recovery: t('state.recovery') }[dd.state] || t('state.unknown')) : '-';
 
@@ -137,8 +125,8 @@ export function HomePage() {
   ];
 
   return <main className="home-material">
-    {/* Contenido Izquierdo */}
-    <div className="home-material__content">
+      {/* Contenido Izquierdo */}
+      <div className="home-material__content">
       <Surface className="home-hero">
         <div><h2>{deviceName}</h2><p>{dd ? secondaryTitle(dd) : t('home.summary.empty')}</p>
           <div className="home-popular-actions" style={{ marginTop: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>

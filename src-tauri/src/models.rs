@@ -44,6 +44,7 @@ pub struct DeviceDetails {
     pub used_storage_mb: i64,
     pub dark_mode_enabled: bool,
     pub screen_off_timeout_ms: i32,
+    pub uptime_seconds: f64,
 }
 
 /// System state (users, keyboards, settings).

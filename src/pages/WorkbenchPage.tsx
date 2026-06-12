@@ -22,7 +22,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
   useEffect(() => {
     tabRef.current = tab;
   }, [tab]);
-  const { selectedDevice, deviceDetails, refreshDevices } = useDevices();
+  const { selectedDevice, deviceDetails, refreshDevices, loading } = useDevices();
   const { language, setLanguage, t } = useI18n();
   const { theme, setTheme } = useTheme();
   const serial = selectedDevice?.serial ?? '';
@@ -325,7 +325,7 @@ export function WorkbenchPage({ tab }: { tab: WorkTab }) {
 
   const settings = <SettingsPage theme={theme} language={language} tools={tools} checkingUpdates={toolUpdatesChecking} adbPath={adbPath} scrcpyPath={scrcpyPath} javaPath={javaPath} onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onAdbPathChange={setAdbPath} onScrcpyPathChange={setScrcpyPath} onJavaPathChange={setJavaPath} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} appSettings={appSettings} onSaveAppSettings={saveAppSettings} defaultCacheDir={defaultCacheDir} />;
 
-  const wrap = (content: ReactNode, loading?: boolean) => <DeviceStateScreen serial={serial} loading={loading}>{serial ? content : null}</DeviceStateScreen>;
+  const wrap = (content: ReactNode, customLoading?: boolean) => <DeviceStateScreen serial={serial} loading={loading || customLoading}>{serial ? content : null}</DeviceStateScreen>;
 
   const pages: Record<WorkTab, ReactNode> = {
     display: wrap(display),

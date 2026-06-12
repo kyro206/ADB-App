@@ -429,6 +429,7 @@ pub fn build_device_details(
     display_output: &str,
     dark_mode_output: &str,
     screen_timeout_output: &str,
+    uptime_output: &str,
 ) -> DeviceDetails {
     let properties = parse_properties(getprop_output);
     let (total_ram_mb, used_ram_mb) = parse_memory(meminfo_output);
@@ -446,6 +447,12 @@ pub fn build_device_details(
     let dark_mode = parse_dark_mode(dark_mode_output);
     let screen_timeout = parse_screen_off_timeout(screen_timeout_output);
     let device_type = detect_device_type(&properties, features_output);
+    
+    let uptime_seconds = uptime_output
+        .split_whitespace()
+        .next()
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(-1.0);
 
     let manufacturer = safe_value(&first_non_blank(&[
         properties
@@ -550,6 +557,7 @@ pub fn build_device_details(
         used_storage_mb,
         dark_mode_enabled: dark_mode,
         screen_off_timeout_ms: screen_timeout,
+        uptime_seconds,
     }
 }
 

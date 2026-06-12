@@ -41,6 +41,7 @@ export interface DeviceDetails {
   used_storage_mb: number;
   dark_mode_enabled: boolean;
   screen_off_timeout_ms: number;
+  uptime_seconds: number;
 }
 
 interface DeviceContextType {
@@ -117,12 +118,15 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
     setSelectedDevice(device);
     setDeviceDetails(null);
+    setLoading(true);
 
     try {
       const details: DeviceDetails = await invoke('get_device_details', { serial });
       setDeviceDetails(details);
     } catch (err) {
       console.error('Failed to get device details:', err);
+    } finally {
+      setLoading(false);
     }
   }, [devices]);
 
