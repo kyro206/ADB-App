@@ -2,7 +2,7 @@
 
 **A modern, fast, and cross-platform desktop application to manage Android devices over ADB.**
 
-<p>
+<p align="center">
   <a href="https://github.com/kyro206/ADB-App/stargazers"><img src="https://img.shields.io/github/stars/kyro206/ADB-App?style=for-the-badge&color=yellow" alt="Stars"></a>
   <a href="https://github.com/kyro206/ADB-App/commits/main"><img src="https://img.shields.io/github/last-commit/kyro206/ADB-App?style=for-the-badge&color=blue" alt="Last Commit"></a>
   <a href="https://github.com/kyro206/ADB-App/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kyro206/ADB-App?style=for-the-badge&color=green" alt="License"></a>
