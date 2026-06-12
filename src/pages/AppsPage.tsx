@@ -22,7 +22,8 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
   const [installingApps, setInstallingApps] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const [installFiles, setInstallFiles] = useState<string[]>([]);
-  const [installResult, setInstallResult] = useState('');
+  const [installStatuses, setInstallStatuses] = useState<Record<string, 'idle' | 'installing' | 'success' | 'error'>>({});
+  const [installErrors, setInstallErrors] = useState<Record<string, string>>({});
 
   const [installReplace, setInstallReplace] = useState(true);
   const [installGrant, setInstallGrant] = useState(true);
@@ -164,34 +165,57 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
       });
       const selectedFiles = Array.isArray(selected) ? selected : selected ? [selected] : [];
       if (selectedFiles.length) {
-        setInstallFiles((current: string[]) => [...new Set([...current, ...selectedFiles])]);
-        setInstallResult('');
+        setInstallFiles((current: string[]) => {
+          const newFiles = [...new Set([...current, ...selectedFiles])];
+          setInstallStatuses(prev => {
+            const next = { ...prev };
+            newFiles.forEach(f => { if (!next[f]) next[f] = 'idle'; });
+            return next;
+          });
+          return newFiles;
+        });
       }
-    } catch (error) { setInstallResult(String(error)); }
+    } catch (error) { console.error(error); }
   };
 
   const installSelectedApps = async () => {
     if (!serial || !installFiles.length || installingApps) return;
     setInstallingApps(true);
-    setInstallResult(t('workbench.status.installing'));
-    try {
-      const result = await invoke<string>('install_application_packages', {
-        serial,
-        files: installFiles,
-        options: {
-          replace_existing: installReplace,
-          grant_runtime_permissions: installGrant,
-          allow_test_packages: installTest,
-          bypass_low_target_sdk_block: installBypass,
-        },
-      });
-      setInstallResult(result);
-      await refreshApps();
-    } catch (error) {
-      setInstallResult(String(error));
-    } finally {
-      setInstallingApps(false);
-    }
+    setInstallErrors({});
+
+    await Promise.all(installFiles.map(async (file) => {
+      setInstallStatuses(prev => ({ ...prev, [file]: 'installing' }));
+      try {
+        const result = await invoke<string>('install_application_packages', {
+          serial,
+          files: [file],
+          options: {
+            replace_existing: installReplace,
+            grant_runtime_permissions: installGrant,
+            allow_test_packages: installTest,
+            bypass_low_target_sdk_block: installBypass,
+          },
+        });
+        
+        if (result.includes('ERROR ·') || (!result.includes('Success') && !result.includes('OK ·'))) {
+          const cleanResult = result
+            .split('\n')
+            .filter(line => !line.includes('Performing Streamed Install') && !line.toLowerCase().includes('preparing') && !line.startsWith('ERROR ·'))
+            .join('\n')
+            .trim();
+          setInstallErrors(prev => ({ ...prev, [file]: cleanResult || result }));
+          setInstallStatuses(prev => ({ ...prev, [file]: 'error' }));
+        } else {
+          setInstallStatuses(prev => ({ ...prev, [file]: 'success' }));
+        }
+      } catch (error) {
+        setInstallErrors(prev => ({ ...prev, [file]: String(error) }));
+        setInstallStatuses(prev => ({ ...prev, [file]: 'error' }));
+      }
+    }));
+    
+    setInstallingApps(false);
+    await refreshApps();
   };
 
   const toggleAppEnabled = async () => {
@@ -380,7 +404,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
         </aside>
       </div>
       <DestructiveActionDialog action={destructiveAction} appName={appDetails?.display_name || selectedPackage} packageName={selectedPackage} iconDataUrl={appDetails?.icon_data_url || ''} busy={destructiveBusy} onClose={() => setDestructiveAction(null)} onConfirm={performDestructiveAppAction} />
-      <InstallationDialog open={installOpen} files={installFiles} installing={installingApps} result={installResult} options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }} canInstall={Boolean(serial && installFiles.length)} onClose={() => setInstallOpen(false)} onChooseFiles={chooseInstallFiles} onRemoveFile={file => setInstallFiles(current => current.filter(value => value !== file))} onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)} onInstall={installSelectedApps} />
+      <InstallationDialog open={installOpen} files={installFiles} installing={installingApps} installStatuses={installStatuses} installErrors={installErrors} options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }} canInstall={Boolean(serial && installFiles.length)} onClose={() => setInstallOpen(false)} onChooseFiles={chooseInstallFiles} onRemoveFile={file => { setInstallFiles(current => current.filter(value => value !== file)); setInstallStatuses(prev => { const next = {...prev}; delete next[file]; return next; }); setInstallErrors(prev => { const next = {...prev}; delete next[file]; return next; }); }} onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)} onInstall={installSelectedApps} />
     </div>
   );
 }

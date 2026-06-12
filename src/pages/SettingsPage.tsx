@@ -371,10 +371,16 @@ export function SettingsPage(props: SettingsPageProps) {
                 <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: '14px' }}>{appVersion}</span>
               </div>
             </div>
-            <md-filled-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer">
-              <MaterialIcon name="code" slot="icon" />
-              GitHub
-            </md-filled-button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <md-filled-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer">
+                <MaterialIcon name="code" slot="icon" />
+                GitHub
+              </md-filled-button>
+              <md-outlined-button onClick={() => setLicensesOpen(true)}>
+                <MaterialIcon name="gavel" slot="icon" />
+                {t('settings.aboutLicenses')}
+              </md-outlined-button>
+            </div>
           </div>
 
           {/* Aviso de responsabilidad */}
@@ -407,37 +413,11 @@ export function SettingsPage(props: SettingsPageProps) {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <strong style={{ fontSize: '15px', color: 'var(--md-sys-color-on-surface)' }}>Kyro206</strong>
-                <a href="https://github.com/kyro206" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', color: 'var(--md-sys-color-primary)', textDecoration: 'none' }} title="GitHub Profile">
+                <md-icon-button href="https://github.com/kyro206" target="_blank" rel="noopener noreferrer" title="GitHub Profile">
                   <MaterialIcon name="open_in_new" size={16} />
-                </a>
+                </md-icon-button>
               </div>
             </div>
-          </div>
-
-          {/* Licencias de uso */}
-          <div 
-            onClick={() => setLicensesOpen(true)}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '16px', 
-              width: '100%',
-              padding: '12px', 
-              borderRadius: '12px',
-              cursor: 'pointer',
-              transition: 'background 0.2s ease',
-              marginTop: '4px'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} 
-            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', borderRadius: '50%', background: 'var(--md-sys-color-secondary-container)', color: 'var(--md-sys-color-on-secondary-container)' }}>
-              <MaterialIcon name="gavel" size={20} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-              <strong style={{ fontSize: '15px' }}>{t('settings.aboutLicenses')}</strong>
-            </div>
-            <MaterialIcon name="chevron_right" size={24} />
           </div>
           
         </div>
@@ -457,9 +437,9 @@ export function SettingsPage(props: SettingsPageProps) {
                 <div style={{ borderBottom: '1px dashed var(--md-sys-color-outline-variant)', paddingBottom: '8px', marginBottom: '12px' }}>
                   <h4 style={{ margin: '0 0 4px 0', fontSize: '16px', color: 'var(--md-sys-color-on-surface)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     {lic.name}
-                    <a href={lic.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--md-sys-color-primary)', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }} title="Código original">
+                    <md-icon-button href={lic.url} target="_blank" rel="noopener noreferrer" title="Código original">
                       <MaterialIcon name="open_in_new" size={18} />
-                    </a>
+                    </md-icon-button>
                   </h4>
                   <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>{lic.licenseType}</span>
                 </div>

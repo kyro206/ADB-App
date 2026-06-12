@@ -325,8 +325,6 @@ export const en = {
   'install.files.empty': 'You have not selected any file yet.',
   'install.files.remove': 'Remove file',
   'install.options.title': 'Installation options',
-  'install.result.title': 'Installation result',
-  'install.result.empty': 'Select the files and press Install when you want to start the process.',
 
   'power.title': 'Power options',
   'power.subtitle': 'Controls the state of the connected device.',
@@ -342,7 +340,6 @@ export const en = {
   'power.hint.fastbootd': 'Run fastboot reboot.',
   'power.btn.download': 'Download mode',
   'power.hint.download': 'Press the volume down button and the power button.',
-
   'app.action.uninstallApp': 'Uninstall application',
   'app.action.clearData': 'Clear application data',
   'app.desc.uninstall': 'The application and all its data will be removed from the device.',
@@ -388,7 +385,6 @@ export const en = {
   'workbench.status.metadataLoading': 'Loading names and icons for {count} pending apps...',
   'workbench.status.metadataProgress': 'Names and icons processed: {processed} / {total}',
   'workbench.status.metadataFailed': 'Error retrieving metadata from {failed} apps.',
-  'workbench.status.installing': 'Preparing packages and installing...',
   'workbench.status.appDisabled': 'App disabled',
   'workbench.status.appEnabled': 'App enabled',
   'workbench.status.appUninstalled': 'App uninstalled',

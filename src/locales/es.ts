@@ -325,8 +325,7 @@ export const es: Record<string, string> = {
   'install.files.empty': 'Todavía no has seleccionado ningún archivo.',
   'install.files.remove': 'Quitar archivo',
   'install.options.title': 'Opciones de instalación',
-  'install.result.title': 'Resultado de la instalación',
-  'install.result.empty': 'Selecciona los archivos y pulsa Instalar cuando quieras iniciar el proceso.',
+
 
   'power.title': 'Opciones de energía',
   'power.subtitle': 'Controla el estado del dispositivo conectado.',
@@ -342,14 +341,11 @@ export const es: Record<string, string> = {
   'power.hint.fastbootd': 'ejecutar fastboot reboot.',
   'power.btn.download': 'Modo descarga',
   'power.hint.download': 'Presione volumen abajo y el botón de apagado.',
-
   'app.action.uninstallApp': 'Desinstalar aplicación',
   'app.action.clearData': 'Borrar datos de la aplicación',
   'app.desc.uninstall': 'La aplicación y todos sus datos se eliminarán del dispositivo.',
   'app.desc.clearData': 'Se eliminarán los datos, ajustes, cuentas y archivos internos de la aplicación. La aplicación permanecerá instalada.',
-
   'device.selector.label': 'Seleccionar dispositivo',
-
   'topbar.window.minimize': 'Minimizar',
   'topbar.window.restore': 'Restaurar',
   'topbar.window.maximize': 'Maximizar',
@@ -388,7 +384,7 @@ export const es: Record<string, string> = {
   'workbench.status.metadataLoading': 'Cargando nombres e iconos de {count} aplicaciones pendientes...',
   'workbench.status.metadataProgress': 'Nombres e iconos procesados: {processed} / {total}',
   'workbench.status.metadataFailed': 'No se pudieron cargar los metadatos de {failed} apps.',
-  'workbench.status.installing': 'Preparando paquetes e instalando...',
+
   'workbench.status.appDisabled': 'Aplicación deshabilitada',
   'workbench.status.appEnabled': 'Aplicación habilitada',
   'workbench.status.appUninstalled': 'Aplicación desinstalada',
