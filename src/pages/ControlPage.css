@@ -293,8 +293,8 @@
   height: 48px;
   border-radius: 50%;
   border: none;
-  background: var(--error-container, #ffdad6);
-  color: var(--on-error-container, #410002);
+  background: color-mix(in srgb, var(--error) 20%, transparent);
+  color: var(--error);
   display: grid;
   place-items: center;
   cursor: pointer;

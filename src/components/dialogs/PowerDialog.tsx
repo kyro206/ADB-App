@@ -46,7 +46,7 @@ export function PowerDialog({ open, busy, onClose, onAction }: { open: boolean; 
         )}
         <div className="power-dialog__confirm-actions">
           <md-text-button onClick={() => setConfirmStep(null)}>{t('common.cancel')}</md-text-button>
-          <md-filled-button className={confirmStep.danger ? 'danger' : ''} onClick={executeAction}>{t('common.continue')}</md-filled-button>
+          <md-filled-button className={confirmStep.danger ? 'md-btn-danger' : ''} onClick={executeAction}>{t('common.continue')}</md-filled-button>
         </div>
       </div>
     ) : (

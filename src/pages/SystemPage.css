@@ -188,12 +188,6 @@
     --md-outlined-field-container-shape: 16px;
 }
 
-/* Botones peligrosos globales */
-.md-btn-danger {
-    --md-text-button-label-text-color: var(--error, #b3261e);
-    --md-filled-button-container-color: var(--error, #b3261e);
-    --md-filled-button-label-text-color: var(--on-error, #ffffff);
-}
 
 md-icon-button {
     --md-icon-button-icon-color: var(--on-surface-variant);

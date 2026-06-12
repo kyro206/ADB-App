@@ -180,3 +180,15 @@ html.platform-windows .app-layout__content,
 html.platform-macos .app-layout__content {
   background: var(--bg) !important;
 }
+
+.md-btn-danger {
+  --md-filled-button-container-color: color-mix(in srgb, var(--error) 20%, transparent);
+  --md-filled-button-label-text-color: var(--error);
+  --md-filled-button-hover-label-text-color: var(--error);
+  --md-filled-button-pressed-label-text-color: var(--error);
+  --md-filled-button-focus-label-text-color: var(--error);
+  --md-text-button-label-text-color: var(--error);
+  --md-text-button-hover-label-text-color: var(--error);
+  --md-text-button-pressed-label-text-color: var(--error);
+  --md-text-button-focus-label-text-color: var(--error);
+}

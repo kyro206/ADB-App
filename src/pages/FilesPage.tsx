@@ -5,6 +5,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { PromptDialog } from '../components/dialogs/PromptDialog';
 import { PermissionsDialog } from '../components/dialogs/PermissionsDialog';
+import { ConfirmDialog } from '../components/dialogs/ConfirmDialog';
 import { ContextMenu } from '../components/layout/ContextMenu';
 import { useI18n } from '../locales';
 import { formatBytes } from './workbench/utils';
@@ -28,13 +29,17 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
   const [filePathEditing, setFilePathEditing] = useState(false);
   const [fileSort, setFileSort] = useState<{ key: FileSortKey; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [fileHistory, setFileHistory] = useState<string[]>(['/sdcard']);
   const [fileHistoryIndex, setFileHistoryIndex] = useState(0);
   const [fileThumbnails, setFileThumbnails] = useState<Record<string, string>>({});
   const [promptConfig, setPromptConfig] = useState<{ open: boolean; title: string; initialValue: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
   const [permissionsConfig, setPermissionsConfig] = useState<{ open: boolean; title: string; initialMode: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
+  const [confirmConfig, setConfirmConfig] = useState<{ open: boolean; title: string; message: string; isDanger: boolean; confirmText: string; onConfirm: () => void; onCancel: () => void } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
   const [osDragHover, setOsDragHover] = useState(false);
+  const [thumbnailRefresh, setThumbnailRefresh] = useState(0);
+  const pendingThumbnails = useRef<Set<string>>(new Set());
   
   const pathRef = useRef(path);
   useEffect(() => { pathRef.current = path; }, [path]);
@@ -70,6 +75,26 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
         onCancel: () => {
           setPermissionsConfig(null);
           resolve(null);
+        }
+      });
+    });
+  };
+
+  const asyncConfirm = (title: string, message: string, confirmText: string, isDanger: boolean = false) => {
+    return new Promise<boolean>((resolve) => {
+      setConfirmConfig({
+        open: true,
+        title,
+        message,
+        confirmText,
+        isDanger,
+        onConfirm: () => {
+          setConfirmConfig(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setConfirmConfig(null);
+          resolve(false);
         }
       });
     });
@@ -115,7 +140,7 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
     try {
       const normalized = normalizeDevicePath(nextPath);
       const value = await invoke<FileEntry[]>('list_directory', { serial, path: normalized });
-      setFiles(value); setPath(normalized); setSelectedFiles([]); setStatus('');
+      setFiles(value); setPath(normalized); setSelectedFiles([]); setLastSelectedIndex(null); setStatus('');
       if (addHistory && normalized !== fileHistory[fileHistoryIndex]) {
         setFileHistory(current => [...current.slice(0, fileHistoryIndex + 1), normalized]);
         setFileHistoryIndex(fileHistoryIndex + 1);
@@ -193,9 +218,11 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
 
   const deleteSelectedFiles = async () => {
     if (!selectedFileEntries.length) return;
-    const accepted = await confirm(
+    const accepted = await asyncConfirm(
+      t('files.confirm.deleteTitle'),
       t('files.confirm.deleteDesc', { count: selectedFileEntries.length }),
-      { title: t('files.confirm.deleteTitle'), kind: 'warning', okLabel: t('common.delete'), cancelLabel: t('common.cancel') },
+      t('common.delete'),
+      true
     );
     if (!accepted) return;
     for (const file of selectedFileEntries) await run(['shell', 'rm', '-rf', filePath(file)]);
@@ -268,16 +295,39 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
 
   useEffect(() => {
     if (fileView !== 'grid' || !serial) return;
-    filteredFiles.filter(file => !file.is_directory && !file.is_link && file.size <= 5 * 1024 * 1024 && /\.(png|jpe?g|webp|gif)$/i.test(file.name) && !fileThumbnails[filePath(file)]).slice(0, 12).forEach(file => {
+    
+    const toRequest = filteredFiles.filter(file => {
+      if (file.is_directory || file.is_link || file.size > 5 * 1024 * 1024 || !/\.(png|jpe?g|webp|gif)$/i.test(file.name)) return false;
       const remotePath = filePath(file);
-      invoke<string>('get_file_thumbnail', { serial, path: remotePath }).then(value => setFileThumbnails(current => ({ ...current, [remotePath]: value }))).catch(() => undefined);
+      return fileThumbnails[remotePath] === undefined && !pendingThumbnails.current.has(remotePath);
     });
-  }, [fileView, serial, path, filteredFiles]);
 
-  const selectFileEntry = (event: MouseEvent, file: FileEntry) => {
-    setSelectedFiles(current => event.ctrlKey || event.metaKey
-      ? current.includes(file.name) ? current.filter(name => name !== file.name) : [...current, file.name]
-      : [file.name]);
+    toRequest.slice(0, 12).forEach(file => {
+      const remotePath = filePath(file);
+      pendingThumbnails.current.add(remotePath);
+      
+      invoke<string>('get_file_thumbnail', { serial, path: remotePath })
+        .then(value => setFileThumbnails(current => ({ ...current, [remotePath]: value })))
+        .catch(() => setFileThumbnails(current => ({ ...current, [remotePath]: '' })))
+        .finally(() => {
+          pendingThumbnails.current.delete(remotePath);
+          setThumbnailRefresh(r => r + 1);
+        });
+    });
+  }, [fileView, serial, path, filteredFiles, thumbnailRefresh]);
+
+  const selectFileEntry = (event: MouseEvent, file: FileEntry, index: number) => {
+    if (event.shiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const range = filteredFiles.slice(start, end + 1).map(f => f.name);
+      setSelectedFiles(current => event.ctrlKey || event.metaKey ? [...new Set([...current, ...range])] : range);
+    } else {
+      setSelectedFiles(current => event.ctrlKey || event.metaKey
+        ? current.includes(file.name) ? current.filter(name => name !== file.name) : [...current, file.name]
+        : [file.name]);
+      setLastSelectedIndex(index);
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent, file: FileEntry) => {
@@ -296,8 +346,18 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
   const sortIcon = (key: FileSortKey) => fileSort.key === key ? (fileSort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more';
   const currentFolderName = path === '/' ? 'root' : path.split('/').pop();
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Delete') {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (selectedFileEntries.length > 0 && !promptConfig && !permissionsConfig && !confirmConfig) {
+        deleteSelectedFiles();
+      }
+    }
+  };
+
   return (
-    <div className={`file-explorer ${osDragHover ? 'os-drag-hover' : ''}`}>
+    <div className={`file-explorer ${osDragHover ? 'os-drag-hover' : ''}`} onKeyDown={handleKeyDown}>
       {osDragHover && <div className="file-os-drag-overlay"><MaterialIcon name="upload_file" /><span>{t('files.action.upload')}</span></div>}
       <section className="file-material-toolbar">
         <div className="file-navigation">
@@ -354,17 +414,17 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
           <md-icon-button aria-label={t('files.action.rename')} title={t('files.action.rename')} disabled={selectedFileEntries.length !== 1 ? true : undefined} onClick={renameSelectedFile}><MaterialIcon name="edit" /></md-icon-button>
           <md-icon-button aria-label={t('files.action.duplicate')} title={t('files.action.duplicate')} disabled={selectedFileEntries.length !== 1 ? true : undefined} onClick={duplicateSelectedFile}><MaterialIcon name="content_copy" /></md-icon-button>
           <md-icon-button aria-label={t('files.action.permissions')} title={t('files.action.permissions')} disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={changeSelectedPermissions}><MaterialIcon name="admin_panel_settings" /></md-icon-button>
-          <md-icon-button className="danger" aria-label={t('common.delete')} title={t('common.delete')} disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={deleteSelectedFiles}><MaterialIcon name="delete" /></md-icon-button>
+          <md-icon-button className="danger" aria-label={t('common.delete')} title={`${t('common.delete')} (Supr)`} disabled={selectedFileEntries.length === 0 ? true : undefined} onClick={deleteSelectedFiles}><MaterialIcon name="delete" /></md-icon-button>
         </div>
       </section>
 
       <section className={`file-browser ${fileView}`}>
         {fileView === 'list' && <div className="file-list-table">
           <div className="file-list-header">{([['name', t('files.sort.name')], ['type', t('files.sort.type')], ['size', t('files.sort.size')], ['permissions', t('files.sort.permissions')], ['modified', t('files.sort.modified')]] as [FileSortKey, string][]).map(([key, label]) => <button className={fileSort.key === key ? 'active' : ''} key={key} onClick={() => changeFileSort(key)}>{label}<MaterialIcon name={sortIcon(key)} /></button>)}</div>
-          {filteredFiles.map(file => <button 
+          {filteredFiles.map((file, index) => <button 
             className={`file-list-row ${selectedFiles.includes(file.name) ? 'selected' : ''}`} 
             key={file.name} 
-            onClick={event => selectFileEntry(event, file)} 
+            onClick={event => selectFileEntry(event, file, index)} 
             onDoubleClick={() => openFileEntry(file)}
             onContextMenu={e => handleContextMenu(e, file)}
           >
@@ -374,10 +434,10 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
           </button>)}
         </div>}
         {fileView === 'grid' && <div className="file-grid-view">
-          {filteredFiles.map(file => <button 
+          {filteredFiles.map((file, index) => <button 
             className={`file-grid-card ${selectedFiles.includes(file.name) ? 'selected' : ''}`} 
             key={file.name} 
-            onClick={event => selectFileEntry(event, file)} 
+            onClick={event => selectFileEntry(event, file, index)} 
             onDoubleClick={() => openFileEntry(file)}
             onContextMenu={e => handleContextMenu(e, file)}
           >
@@ -417,6 +477,17 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
           initialMode={permissionsConfig.initialMode}
           onConfirm={permissionsConfig.onConfirm}
           onCancel={permissionsConfig.onCancel}
+        />
+      )}
+      {confirmConfig && (
+        <ConfirmDialog
+          open={confirmConfig.open}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmText={confirmConfig.confirmText}
+          isDanger={confirmConfig.isDanger}
+          onConfirm={confirmConfig.onConfirm}
+          onCancel={confirmConfig.onCancel}
         />
       )}
 
