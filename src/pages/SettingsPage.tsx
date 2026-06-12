@@ -7,6 +7,8 @@ import { open } from '@tauri-apps/plugin-dialog';
 import './SettingsPage.css';
 
 import { useI18n } from '../locales';
+import { AppModal } from '../components/dialogs/AppModal';
+import { APACHE_LICENSE_2_0, MIT_LICENSE } from '../utils/licenseTexts';
 
 // --- COMPONENTES BASE MD3 ---
 
@@ -152,6 +154,18 @@ export function SettingsPage(props: SettingsPageProps) {
   const [appVersion, setAppVersion] = useState<string>('...');
   const [appName, setAppName] = useState('ADB App');
   const [localCachePath, setLocalCachePath] = useState<string | null>(null);
+  
+  type LicenseInfo = { name: string; url: string; licenseType: string; licenseText: string };
+  const [licensesOpen, setLicensesOpen] = useState(false);
+
+  const LICENSES: LicenseInfo[] = [
+    { name: 'ADB', url: 'https://android.googlesource.com/platform/packages/modules/adb/', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'scrcpy', url: 'https://github.com/Genymobile/scrcpy', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'Bundletool', url: 'https://github.com/google/bundletool', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'Material Web', url: 'https://github.com/material-components/material-web', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'Tauri', url: 'https://github.com/tauri-apps/tauri', licenseType: 'MIT / Apache 2.0', licenseText: MIT_LICENSE + '\n\n---\n\n' + APACHE_LICENSE_2_0 },
+    { name: 'React', url: 'https://github.com/facebook/react', licenseType: 'MIT License', licenseText: MIT_LICENSE }
+  ];
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('Unknown'));
@@ -401,35 +415,62 @@ export function SettingsPage(props: SettingsPageProps) {
           </div>
 
           {/* Licencias de uso */}
-          <div style={{ width: '100%' }}>
-            <h4 style={{ margin: '0 0 12px 0', color: 'var(--md-sys-color-on-surface)', fontSize: '16px' }}>{t('settings.aboutLicenses')}</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-              <a href="https://android.googlesource.com/platform/packages/modules/adb/" target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', background: 'var(--md-sys-color-surface-container-low)', padding: '12px', borderRadius: '12px', border: '1px solid var(--md-sys-color-outline-variant)', transition: 'background 0.2s ease', color: 'inherit' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <strong style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface)' }}>ADB</strong>
-                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', display: 'flex' }}><MaterialIcon name="open_in_new" size={16} /></span>
-                </div>
-                <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>Apache License 2.0</span>
-              </a>
-              <a href="https://github.com/Genymobile/scrcpy" target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', background: 'var(--md-sys-color-surface-container-low)', padding: '12px', borderRadius: '12px', border: '1px solid var(--md-sys-color-outline-variant)', transition: 'background 0.2s ease', color: 'inherit' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <strong style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface)' }}>scrcpy</strong>
-                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', display: 'flex' }}><MaterialIcon name="open_in_new" size={16} /></span>
-                </div>
-                <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>Apache License 2.0</span>
-              </a>
-              <a href="https://github.com/google/bundletool" target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', background: 'var(--md-sys-color-surface-container-low)', padding: '12px', borderRadius: '12px', border: '1px solid var(--md-sys-color-outline-variant)', transition: 'background 0.2s ease', color: 'inherit' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <strong style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface)' }}>Bundletool</strong>
-                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', display: 'flex' }}><MaterialIcon name="open_in_new" size={16} /></span>
-                </div>
-                <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>Apache License 2.0</span>
-              </a>
+          <div 
+            onClick={() => setLicensesOpen(true)}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '16px', 
+              width: '100%',
+              padding: '12px', 
+              borderRadius: '12px',
+              cursor: 'pointer',
+              transition: 'background 0.2s ease',
+              marginTop: '4px'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-high)'} 
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--md-sys-color-surface-container-low)'}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', borderRadius: '50%', background: 'var(--md-sys-color-secondary-container)', color: 'var(--md-sys-color-on-secondary-container)' }}>
+              <MaterialIcon name="gavel" size={20} />
             </div>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <strong style={{ fontSize: '15px' }}>{t('settings.aboutLicenses')}</strong>
+            </div>
+            <MaterialIcon name="chevron_right" size={24} />
           </div>
           
         </div>
       </Panel>
+      <AppModal open={licensesOpen} onClose={() => setLicensesOpen(false)} title={t('settings.aboutLicenses')} width="large">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          <div style={{ 
+            background: 'var(--md-sys-color-surface-container)', 
+            padding: '16px', 
+            borderRadius: '12px', 
+            overflowY: 'auto',
+            border: '1px solid var(--md-sys-color-outline-variant)'
+          }}>
+            {LICENSES.map((lic, index) => (
+              <div key={lic.name} style={{ marginBottom: index === LICENSES.length - 1 ? 0 : '32px' }}>
+                <div style={{ borderBottom: '1px dashed var(--md-sys-color-outline-variant)', paddingBottom: '8px', marginBottom: '12px' }}>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '16px', color: 'var(--md-sys-color-on-surface)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    {lic.name}
+                    <a href={lic.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--md-sys-color-primary)', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }} title="Código original">
+                      <MaterialIcon name="open_in_new" size={18} />
+                    </a>
+                  </h4>
+                  <span style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>{lic.licenseType}</span>
+                </div>
+                <div style={{ fontSize: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                  {lic.licenseText}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </AppModal>
     </div>
   );
 }
