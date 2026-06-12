@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 export interface Device {
   serial: string;
@@ -50,7 +51,7 @@ interface DeviceContextType {
   deviceDetails: DeviceDetails | null;
   loading: boolean;
   error: string | null;
-  refreshDevices: () => Promise<void>;
+  refreshDevices: (targetSerialToSelect?: string) => Promise<void>;
   selectDevice: (serial: string) => Promise<void>;
 }
 
@@ -63,8 +64,17 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshDevices = useCallback(async () => {
-    if (loading) return;
+  const selectedDeviceRef = useRef<Device | null>(null);
+  selectedDeviceRef.current = selectedDevice;
+
+  const deviceDetailsRef = useRef<DeviceDetails | null>(null);
+  deviceDetailsRef.current = deviceDetails;
+
+  const loadingRef = useRef(false);
+
+  const refreshDevices = useCallback(async (targetSerialToSelect?: string) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -73,29 +83,44 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       setDevices(deviceList);
 
       // Auto-select first connected device if none selected
-      const currentSerial = selectedDevice?.serial;
+      const currentSerial = selectedDeviceRef.current?.serial;
       const stillExists = deviceList.find(d => d.serial === currentSerial);
 
       let targetDevice: Device | null = null;
 
-      if (stillExists) {
-        targetDevice = stillExists;
-      } else {
-        // Pick first connected device
-        const connected = deviceList.find(d => d.state === 'device');
-        targetDevice = connected || (deviceList.length > 0 ? deviceList[0] : null);
+      if (targetSerialToSelect) {
+        targetDevice = deviceList.find(d => d.serial === targetSerialToSelect) || null;
+      }
+
+      if (!targetDevice) {
+        if (currentSerial && selectedDeviceRef.current) {
+          if (stillExists) {
+            targetDevice = stillExists;
+          } else {
+            // Keep the previous selection but mark it offline since it's no longer in adb devices
+            targetDevice = { ...selectedDeviceRef.current, state: 'offline' };
+          }
+        } else {
+          // Pick first connected device
+          const connected = deviceList.find(d => d.state === 'device');
+          targetDevice = connected || (deviceList.length > 0 ? deviceList[0] : null);
+        }
       }
 
       if (targetDevice) {
         setSelectedDevice(targetDevice);
-        try {
-          const details: DeviceDetails = await invoke('get_device_details', {
-            serial: targetDevice.serial,
-          });
-          setDeviceDetails(details);
-        } catch (detailsError) {
-          console.error('Failed to get device details:', detailsError);
-          setDeviceDetails(null);
+        
+        // Only fetch details if we changed devices, or if we don't have them
+        if (targetDevice.serial !== currentSerial || !deviceDetailsRef.current) {
+          try {
+            const details: DeviceDetails = await invoke('get_device_details', {
+              serial: targetDevice.serial,
+            });
+            setDeviceDetails(details);
+          } catch (detailsError) {
+            console.error('Failed to get device details:', detailsError);
+            setDeviceDetails(null);
+          }
         }
       } else {
         setSelectedDevice(null);
@@ -108,9 +133,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       setSelectedDevice(null);
       setDeviceDetails(null);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [loading, selectedDevice?.serial]);
+  }, []);
 
   const selectDevice = useCallback(async (serial: string) => {
     const device = devices.find(d => d.serial === serial);
@@ -129,6 +155,18 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [devices]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen('device-list-changed', () => {
+      refreshDevices();
+    }).then(fn => {
+      unlisten = fn;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [refreshDevices]);
 
   return (
     <DeviceContext.Provider

@@ -64,7 +64,10 @@ export function TopBar() {
           await refreshDevices();
         }} />
         <button className={`topbar__wireless ${wirelessOpen ? 'active' : ''}`} onClick={() => setWirelessOpen(true)} title={t('topbar.wireless.tooltip')}><MaterialIcon name="add" /></button>
-        <button className="topbar__action-btn" onClick={() => refreshDevices()} disabled={loading} title={t('main.refresh')}><MaterialIcon name="refresh" className={loading ? 'topbar__refresh-icon--spinning' : ''} /></button>
+        
+        {/* Botón de refrescar quitado para probar si funciona perfectamente y no necesita ser usado
+        <button className="topbar__action-btn" onClick={() => refreshDevices()} disabled={loading} title={t('main.refresh')}><MaterialIcon name="refresh" className={loading ? 'topbar__refresh-icon--spinning' : ''} /></button> 
+        */}
       </div>
       <div className="topbar__drag-zone" data-tauri-drag-region />
       {platform !== 'macos' && windowControls}

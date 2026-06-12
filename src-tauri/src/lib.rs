@@ -16,6 +16,10 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             app_paths::initialize(&app.handle())?;
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                crate::adb::start_device_tracker(app_handle).await;
+            });
             let settings = crate::commands::operations::read_settings();
             crate::app_paths::update_base_path(
                 if !settings.cache_path.trim().is_empty() {

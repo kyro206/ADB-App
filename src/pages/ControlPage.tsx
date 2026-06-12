@@ -12,6 +12,7 @@ declare global {
     interface IntrinsicElements {
       'md-slider': any;
       'md-switch': any;
+      'md-suggestion-chip': any;
     }
   }
 }
@@ -87,6 +88,59 @@ export function ControlPage({ serial, run, setStatus, setBusy }: ControlPageProp
   const setDeviceSoundMode = async (mode: SoundMode) => {
     setSoundMode(mode);
     await run(['shell', 'cmd', 'audio', 'set-ringer-mode', mode]);
+  };
+
+  const importMacro = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (typeof ev.target?.result === 'string') setInputArgs(ev.target.result);
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const exportMacro = () => {
+    if (!inputArgs) return;
+    const blob = new Blob([inputArgs], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'macro.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus(t('control.macro.saved') || 'Macro saved successfully');
+  };
+
+  const runMacro = async () => {
+    if (!inputArgs) return;
+    const lines = inputArgs.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    setBusy(true);
+    try {
+      for (const line of lines) {
+        if (line.startsWith('sleep ')) {
+          const ms = parseInt(line.split(' ')[1]) || 1000;
+          await new Promise(r => setTimeout(r, ms));
+        } else {
+          const args = words(line);
+          if (['keyevent', 'text', 'tap', 'swipe', 'roll', 'press'].includes(args[0])) {
+            await run(['shell', 'input', ...args]);
+          } else {
+            await run(['shell', ...args]);
+          }
+        }
+      }
+    } catch (e) {
+      setStatus(String(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -194,19 +248,41 @@ export function ControlPage({ serial, run, setStatus, setBusy }: ControlPageProp
             <button className="md3-btn-filled">{t('control.input.send')}</button>
           </form>
 
-          <details className="md3-details">
+          <details className="md3-details" open>
             <summary>{t('control.input.advanced')}</summary>
-            <form className="md3-text-form" onSubmit={event => { event.preventDefault(); if (inputArgs) run(['shell', 'input', ...words(inputArgs)]); }}>
-              <md-outlined-text-field
-                label={t('control.input.advancedDesc')}
-                value={inputArgs}
-                onInput={(e: any) => setInputArgs(e.target.value)}
-                style={{ flex: 1 }}
-              >
-                {inputArgs && <md-icon-button slot="trailing-icon" type="button" onClick={() => setInputArgs('')}><MaterialIcon name="close" /></md-icon-button>}
-              </md-outlined-text-field>
-              <button className="md3-btn-filled">{t('control.input.run')}</button>
-            </form>
+            <div className="md3-text-form" style={{ flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                <md-suggestion-chip onClick={() => setInputArgs(prev => prev + (prev && !prev.endsWith('\n') ? '\n' : '') + 'tap x y')}>+ Tap</md-suggestion-chip>
+                <md-suggestion-chip onClick={() => setInputArgs(prev => prev + (prev && !prev.endsWith('\n') ? '\n' : '') + 'swipe x1 y1 x2 y2 duration')}>+ Swipe</md-suggestion-chip>
+                <md-suggestion-chip onClick={() => setInputArgs(prev => prev + (prev && !prev.endsWith('\n') ? '\n' : '') + 'text "hello"')}>+ Text</md-suggestion-chip>
+                <md-suggestion-chip onClick={() => setInputArgs(prev => prev + (prev && !prev.endsWith('\n') ? '\n' : '') + 'keyevent 26')}>+ Key</md-suggestion-chip>
+                <md-suggestion-chip onClick={() => setInputArgs(prev => prev + (prev && !prev.endsWith('\n') ? '\n' : '') + 'sleep 1000')}>+ Sleep</md-suggestion-chip>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                <md-outlined-text-field
+                  type="textarea"
+                  rows="5"
+                  label={t('control.input.advancedDesc')}
+                  value={inputArgs}
+                  onInput={(e: any) => setInputArgs(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <md-text-button onClick={importMacro}>
+                  <MaterialIcon name="folder_open" slot="icon" />
+                  {t('control.macro.import')}
+                </md-text-button>
+                <md-text-button onClick={exportMacro} disabled={!inputArgs ? true : undefined}>
+                  <MaterialIcon name="save" slot="icon" />
+                  {t('control.macro.export')}
+                </md-text-button>
+                <md-filled-button onClick={runMacro}>
+                  <MaterialIcon name="play_arrow" slot="icon" />
+                  {t('control.input.run')}
+                </md-filled-button>
+              </div>
+            </div>
           </details>
         </section>
       </div>

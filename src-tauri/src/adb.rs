@@ -2,6 +2,8 @@ use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::time::timeout;
+use tauri::Emitter;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -124,4 +126,34 @@ pub async fn run_adb_binary_for_serial(
     let mut full_args = vec!["-s", serial];
     full_args.extend_from_slice(args);
     run_adb_binary(&full_args).await
+}
+
+/// Start a background tracker that emits a Tauri event when devices change
+pub async fn start_device_tracker(app: tauri::AppHandle) {
+    loop {
+        let path = match crate::tools::resolve_tool_path("adb") {
+            Some(p) => p,
+            None => {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            }
+        };
+
+        let mut cmd = crate::process::tokio_command(path.to_string_lossy().as_ref());
+        cmd.arg("track-devices")
+           .stdout(Stdio::piped())
+           .stderr(Stdio::piped());
+
+        if let Ok(mut child) = cmd.spawn() {
+            if let Some(stdout) = child.stdout.take() {
+                let mut reader = BufReader::new(stdout).lines();
+                while let Ok(Some(_line)) = reader.next_line().await {
+                    let _ = app.emit("device-list-changed", ());
+                }
+            }
+            let _ = child.wait().await;
+        }
+        
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
 }

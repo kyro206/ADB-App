@@ -30,8 +30,13 @@ export function WirelessDialog({ open, onClose }: { open: boolean; onClose: () =
   const run = async (command: string, payload: Record<string, unknown>, pending: string, success: string) => {
     setBusy(true); setStatus(pending);
     try { 
+      const oldDevices = await invoke<any[]>('list_devices').catch(() => []);
       setStatus(await invoke<string>(command, payload) || success); 
-      await refreshDevices(); 
+      const newDevices = await invoke<any[]>('list_devices').catch(() => []);
+      
+      const newDevice = newDevices.find(nd => !oldDevices.some(od => od.serial === nd.serial));
+      await refreshDevices(newDevice?.serial);
+      
       onClose();
     }
     catch (error) { setStatus(String(error)); }
@@ -59,9 +64,16 @@ export function WirelessDialog({ open, onClose }: { open: boolean; onClose: () =
     if (payload && modeRef.current === 'qr' && openRef.current && currentGen === genIdRef.current) {
       setStatus(t('wireless.status.scanQr'));
       try {
+        const oldDevices = await invoke<any[]>('list_devices').catch(() => []);
         await invoke<string>('pair_wireless_qr', { serviceName: payload.service_name, password: payload.password });
-        await refreshDevices();
-        if (openRef.current && currentGen === genIdRef.current) onClose();
+        const newDevices = await invoke<any[]>('list_devices').catch(() => []);
+        
+        const newDevice = newDevices.find(nd => !oldDevices.some(od => od.serial === nd.serial));
+        await refreshDevices(newDevice?.serial);
+        
+        if (openRef.current && currentGen === genIdRef.current) {
+          onClose();
+        }
       } catch (error) {
         // Auto-refresh if it failed (timeout) and we are still in QR mode
         if (modeRef.current === 'qr' && openRef.current && currentGen === genIdRef.current) {
