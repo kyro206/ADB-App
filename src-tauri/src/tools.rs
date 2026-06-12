@@ -148,6 +148,11 @@ fn common_directories(tool: &str) -> Vec<PathBuf> {
             if let Ok(home) = env::var("HOME") {
                 dirs.push(PathBuf::from(home).join("Library/Android/sdk/platform-tools"));
             }
+            dirs.push(PathBuf::from("/opt/homebrew/bin"));
+            dirs.push(PathBuf::from("/usr/local/bin"));
+        } else if tool == "scrcpy" {
+            dirs.push(PathBuf::from("/opt/homebrew/bin"));
+            dirs.push(PathBuf::from("/usr/local/bin"));
         }
     }
 

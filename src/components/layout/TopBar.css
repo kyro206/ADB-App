@@ -43,7 +43,7 @@
   cursor: not-allowed;
 }
 
-.topbar__window-controls{display:flex;align-self:stretch;margin-left:auto}.topbar__window-control{display:grid;place-items:center;width:46px;color:var(--on-surface-variant);border-radius:0}.topbar__window-control:hover{background:var(--surface-container-high)}.topbar__window-control.close:hover{color:#fff;background:#c42b1c}.topbar__window-control .material-symbols-rounded{font-size:17px}.topbar--macos{padding-left:10px}.topbar--macos .topbar__window-controls{order:-1;align-items:center;align-self:center;gap:8px;margin:0 14px 0 0}.topbar--macos .topbar__window-control{width:13px;height:13px;overflow:hidden;border-radius:50%}.topbar--macos .topbar__window-control .material-symbols-rounded{opacity:0;font-size:10px}.topbar--macos .topbar__window-controls:hover .material-symbols-rounded{opacity:.65}.topbar--macos .topbar__window-control.minimize{background:#ffbd2e}.topbar--macos .topbar__window-control.maximize{background:#28c840}.topbar--macos .topbar__window-control.close{order:-1;background:#ff5f57}.topbar--macos .topbar__identity{padding-left:0}
+.topbar__window-controls{display:flex;align-self:stretch;margin-left:auto}.topbar__window-control{display:grid;place-items:center;width:46px;color:var(--on-surface-variant);border-radius:0}.topbar__window-control:hover{background:var(--surface-container-high)}.topbar__window-control.close:hover{color:#fff;background:#c42b1c}.topbar__window-control .material-symbols-rounded{font-size:17px}
 
 .topbar__refresh-icon {
   display: inline-block;

@@ -192,3 +192,22 @@ html.platform-macos .app-layout__content {
   --md-text-button-pressed-label-text-color: var(--error);
   --md-text-button-focus-label-text-color: var(--error);
 }
+
+/* Fix macOS font rendering for bold elements */
+html.platform-macos h1,
+html.platform-macos h2,
+html.platform-macos h3,
+html.platform-macos .topbar-device-picker__label,
+html.platform-macos .sidebar__tab-label {
+  -webkit-font-smoothing: auto;
+  font-weight: calc(inherit + 100);
+}
+html.platform-macos .sidebar__tab-label {
+  font-weight: 700;
+}
+html.platform-macos .topbar-device-picker__label {
+  font-weight: 700;
+}
+html.platform-macos .home-hero h2 {
+  font-weight: 600;
+}

@@ -29,13 +29,24 @@ pub fn run() {
                 }
             );
 
-            let builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+            #[allow(unused_mut)]
+            let mut builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
                 .title("ADB App")
                 .inner_size(1180.0, 760.0)
                 .min_inner_size(920.0, 620.0)
-                .decorations(false)
                 .transparent(true)
                 .data_directory(crate::app_paths::data_dir());
+
+            #[cfg(target_os = "macos")]
+            {
+                builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay)
+                                 .hidden_title(true);
+            }
+
+            #[cfg(not(target_os = "macos"))]
+            {
+                builder = builder.decorations(false);
+            }
 
             let window = builder.build().map_err(|e| e.to_string())?;
 
