@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef, type MouseEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { confirm, open } from '@tauri-apps/plugin-dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { PromptDialog } from '../components/dialogs/PromptDialog';

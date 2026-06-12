@@ -6,17 +6,6 @@ import { words } from './workbench/utils';
 import type { MediaVolumeState, SoundMode } from './workbench/types';
 import './ControlPage.css';
 
-// Declaración para que TypeScript reconozca los Web Components de Material sin quejarse
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'md-slider': any;
-      'md-switch': any;
-      'md-suggestion-chip': any;
-    }
-  }
-}
-
 interface ControlPageProps {
   serial: string;
   run: (args: string[], success?: string) => Promise<string | undefined>;

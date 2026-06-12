@@ -28,6 +28,7 @@ declare module 'react' {
       'md-divider': any;
       'md-circular-progress': any;
       'md-slider': any;
+      'md-suggestion-chip': any;
     }
   }
 }

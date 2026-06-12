@@ -7,6 +7,7 @@ export function MaterialIcon({
   className = '',
   slot,
   title,
+  style: customStyle,
 }: {
   name: string;
   filled?: boolean;
@@ -14,10 +15,12 @@ export function MaterialIcon({
   className?: string;
   slot?: string;
   title?: string;
+  style?: CSSProperties;
 }) {
   const style = { 
     fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24`,
-    ...(size ? { fontSize: typeof size === 'number' ? `${size}px` : size } : {})
+    ...(size ? { fontSize: typeof size === 'number' ? `${size}px` : size } : {}),
+    ...customStyle
   } as CSSProperties;
 
   return (
