@@ -271,8 +271,14 @@ export const en = {
   'settings.downloadTemurin': 'Download Temurin LTS',
   'settings.cacheTitle': 'Almacenamiento y Caché',
   'settings.restoreDefault': 'Restore default',
-  'settings.cacheRestartWarning': 'Warning: Saving or restoring the path will close the application.',
-  'settings.clearCache': 'Clear cache',
+  'settings.cacheRestartWarning': 'Changing the cache path requires restarting the application',
+
+  // Missing Tools Dialogs
+  'dialog.missingTool.title': '{tool} not found',
+  'dialog.missingTool.desc': 'To use this feature, you need to configure or install {tool}.',
+  'dialog.missingTool.adbDesc': 'ADB App will not work until you configure it.',
+  'dialog.missingTool.goToSettings': 'Go to Settings',
+
   'settings.enableCache': 'Enable icon caching',
   'updater.availableTitle': 'Update available',
   'updater.availableMessage': 'Version {{version}} is available.\nDo you want to download and install it now?',

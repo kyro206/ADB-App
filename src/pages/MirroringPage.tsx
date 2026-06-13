@@ -1,6 +1,7 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { useI18n } from '../locales';
+import { AppModal } from '../components/dialogs/AppModal';
 import { save } from '@tauri-apps/plugin-dialog';
 import type { AppSummary, MirrorMode, ToolsStatus } from './workbench/types';
 import './MirroringPage.css';
@@ -102,6 +103,15 @@ export function MirroringPage(props: MirroringPageProps) {
   const cameraMode = props.mode === 'camera';
   const inputDisabled = props.readOnly || cameraMode;
   const scrcpyReady = Boolean(props.tools?.scrcpy.available);
+  const [showScrcpyModal, setShowScrcpyModal] = useState(false);
+  const scrcpyWarningShown = useRef(false);
+
+  useEffect(() => {
+    if (props.tools && !props.tools.scrcpy.available && !scrcpyWarningShown.current) {
+      setShowScrcpyModal(true);
+      scrcpyWarningShown.current = true;
+    }
+  }, [props.tools]);
 
   return <div className="mirror-material-page">
     <section className="mirror-material-source-tabs" aria-label={t('mirror.source')}>
@@ -206,5 +216,15 @@ export function MirroringPage(props: MirroringPageProps) {
         <md-filled-button disabled={!props.serial || !scrcpyReady || undefined} onClick={props.onLaunch}><span slot="icon"><MaterialIcon name="cast" filled /></span>{t('mirror.action.launch')}</md-filled-button>
       </div>
     </footer>
+    <AppModal 
+      open={showScrcpyModal} 
+      onClose={() => setShowScrcpyModal(false)} 
+      title={t('dialog.missingTool.title', { tool: 'scrcpy' })}
+      actions={<>
+        <md-filled-button onClick={() => { setShowScrcpyModal(false); window.dispatchEvent(new CustomEvent('change-tab', { detail: 'settings' })); }}>{t('dialog.missingTool.goToSettings')}</md-filled-button>
+      </>}
+    >
+      <p>{t('dialog.missingTool.desc', { tool: 'scrcpy' })}</p>
+    </AppModal>
   </div>;
 }

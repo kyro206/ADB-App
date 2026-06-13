@@ -11,7 +11,7 @@ import { MaterialIcon } from '../components/MaterialIcon';
 import { appTone, formatBytes } from './workbench/utils';
 import './AppsPage.css';
 
-export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSettings }: { serial: string; setStatus: (s: string) => void; setBusy: (b: boolean) => void; run: (args: string[], success?: string) => Promise<string | undefined>; scrcpy?: (args: string[]) => Promise<void>; tab: string; appSettings: AppSettings | null; }) {
+export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSettings, javaAvailable }: { serial: string; setStatus: (s: string) => void; setBusy: (b: boolean) => void; run: (args: string[], success?: string) => Promise<string | undefined>; scrcpy?: (args: string[]) => Promise<void>; tab: string; appSettings: AppSettings | null; javaAvailable: boolean; }) {
   const { t } = useI18n();
   
   const [apps, setApps] = useState<AppSummary[]>([]);
@@ -404,7 +404,7 @@ export function AppsPage({ serial, setStatus, setBusy, run, scrcpy, tab, appSett
         </aside>
       </div>
       <DestructiveActionDialog action={destructiveAction} appName={appDetails?.display_name || selectedPackage} packageName={selectedPackage} iconDataUrl={appDetails?.icon_data_url || ''} busy={destructiveBusy} onClose={() => setDestructiveAction(null)} onConfirm={performDestructiveAppAction} />
-      <InstallationDialog open={installOpen} files={installFiles} installing={installingApps} installStatuses={installStatuses} installErrors={installErrors} options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }} canInstall={Boolean(serial && installFiles.length)} onClose={() => setInstallOpen(false)} onChooseFiles={chooseInstallFiles} onRemoveFile={file => { setInstallFiles(current => current.filter(value => value !== file)); setInstallStatuses(prev => { const next = {...prev}; delete next[file]; return next; }); setInstallErrors(prev => { const next = {...prev}; delete next[file]; return next; }); }} onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)} onInstall={installSelectedApps} />
+      <InstallationDialog open={installOpen} files={installFiles} installing={installingApps} installStatuses={installStatuses} installErrors={installErrors} options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }} canInstall={Boolean(serial && installFiles.length)} onClose={() => setInstallOpen(false)} onChooseFiles={chooseInstallFiles} onRemoveFile={file => { setInstallFiles(current => current.filter(value => value !== file)); setInstallStatuses(prev => { const next = {...prev}; delete next[file]; return next; }); setInstallErrors(prev => { const next = {...prev}; delete next[file]; return next; }); }} onOptionChange={(option, value) => ({ replace: setInstallReplace, grant: setInstallGrant, test: setInstallTest, bypass: setInstallBypass })[option](value)} onInstall={installSelectedApps} javaAvailable={javaAvailable} />
     </div>
   );
 }

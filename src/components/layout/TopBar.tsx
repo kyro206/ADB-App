@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getName } from '@tauri-apps/api/app';
@@ -18,7 +18,7 @@ function detectPlatform(): DesktopPlatform {
   return 'windows';
 }
 
-export function TopBar() {
+export function TopBar({ adbAvailable = true }: { adbAvailable?: boolean }) {
   const { t } = useI18n();
   const { devices, selectedDevice, loading, refreshDevices, selectDevice } = useDevices();
   const [wirelessOpen, setWirelessOpen] = useState(false);
@@ -32,7 +32,10 @@ export function TopBar() {
     getName().then(setAppName).catch(() => {});
     void appWindow.isMaximized().then(setMaximized);
     const unlisten = appWindow.onResized(() => void appWindow.isMaximized().then(setMaximized));
-    return () => { void unlisten.then(stop => stop()); };
+    
+    return () => { 
+      void unlisten.then(stop => stop()); 
+    };
   }, []);
 
   const connectUsbOverTcpip = async () => {
@@ -67,7 +70,7 @@ export function TopBar() {
           await invoke('disconnect_wireless_device', { endpoint: serial });
           await refreshDevices();
         }} />
-        <button className={`topbar__wireless ${wirelessOpen ? 'active' : ''}`} onClick={() => setWirelessOpen(true)} title={t('topbar.wireless.tooltip')}><MaterialIcon name="add" /></button>
+        <button className={`topbar__wireless ${wirelessOpen ? 'active' : ''}`} onClick={() => setWirelessOpen(true)} title={t('topbar.wireless.tooltip')} disabled={!adbAvailable}><MaterialIcon name="add" /></button>
         
         {/* Botón de refrescar quitado para probar si funciona perfectamente y no necesita ser usado
         <button className="topbar__action-btn" onClick={() => refreshDevices()} disabled={loading} title={t('main.refresh')}><MaterialIcon name="refresh" className={loading ? 'topbar__refresh-icon--spinning' : ''} /></button> 

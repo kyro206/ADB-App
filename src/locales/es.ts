@@ -271,7 +271,14 @@ export const es: Record<string, string> = {
   'settings.downloadTemurin': 'Descargar Temurin LTS',
   'settings.cacheTitle': 'Almacenamiento y Caché',
   'settings.restoreDefault': 'Restablecer por defecto',
-  'settings.cacheRestartWarning': 'Atención: Guardar o restablecer la ruta cerrará la aplicación.',
+  'settings.cacheRestartWarning': 'Cambiar la ruta de caché requiere reiniciar la aplicación',
+
+  // Missing Tools Dialogs
+  'dialog.missingTool.title': '{tool} no encontrado',
+  'dialog.missingTool.desc': 'Para usar esta función, necesitas configurar o instalar {tool}.',
+  'dialog.missingTool.adbDesc': 'ADB App no funcionará hasta que no lo configures.',
+  'dialog.missingTool.goToSettings': 'Ir a Ajustes',
+
   'settings.clearCache': 'Borrar caché',
   'settings.enableCache': 'Habilitar caché de iconos',
   'updater.availableTitle': 'Actualización disponible',

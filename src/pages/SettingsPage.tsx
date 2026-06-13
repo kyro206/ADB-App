@@ -33,7 +33,7 @@ function ToolState({ tool, checking, t }: { tool: ToolStatus; checking: boolean;
           : t('settings.checkFailed');
 
   const iconName = !tool.available
-    ? 'error'
+    ? 'close'
     : tool.update_available
       ? 'new_releases'
       : checking
@@ -45,8 +45,12 @@ function ToolState({ tool, checking, t }: { tool: ToolStatus; checking: boolean;
   return (
     <div className="tool-status">
       <div className="tool-status-header">
-        <MaterialIcon name={iconName} size={20} />
-        <strong>{state}</strong>
+        <MaterialIcon 
+          name={iconName} 
+          size={20} 
+          style={!tool.available ? { color: 'var(--md-sys-color-error)' } : undefined}
+        />
+        <strong style={!tool.available ? { color: 'var(--md-sys-color-error)' } : undefined}>{state}</strong>
       </div>
       <div className="tool-status-details">
         <span>{t('settings.source')}: {tool.source || '-'}</span>

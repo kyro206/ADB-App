@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useI18n } from '../../locales';
 import { MaterialIcon } from '../MaterialIcon';
 import { AppModal } from './AppModal';
@@ -23,9 +24,10 @@ type InstallationDialogProps = {
   onRemoveFile: (file: string) => void;
   onOptionChange: (option: keyof InstallOptions, value: boolean) => void;
   onInstall: () => void;
+  javaAvailable?: boolean;
 };
 
-export function InstallationDialog({ open, files, installing, installStatuses, installErrors, options, canInstall, onClose, onChooseFiles, onRemoveFile, onOptionChange, onInstall }: InstallationDialogProps) {
+export function InstallationDialog({ open, files, installing, installStatuses, installErrors, options, canInstall, onClose, onChooseFiles, onRemoveFile, onOptionChange, onInstall, javaAvailable = true }: InstallationDialogProps) {
   const { t } = useI18n();
 
   const optionDefinitions: Array<[keyof InstallOptions, string, string]> = [
@@ -35,11 +37,23 @@ export function InstallationDialog({ open, files, installing, installStatuses, i
     ['bypass', t('install.option.bypass'), t('install.option.bypassDesc')],
   ];
 
+  const hasAab = files.some(f => f.toLowerCase().endsWith('.aab'));
+  const [showJavaModal, setShowJavaModal] = useState(false);
+
+  const handleInstallClick = () => {
+    if (hasAab && !javaAvailable) {
+      setShowJavaModal(true);
+    } else {
+      onInstall();
+    }
+  };
+
   const actions = <>
-    <md-filled-button disabled={!canInstall || installing || undefined} onClick={onInstall}>{installing ? t('install.action.installing') : `${t('install.action.install')}${files.length ? ` (${files.length})` : ''}`}</md-filled-button>
+    <md-filled-button disabled={!canInstall || installing || undefined} onClick={handleInstallClick}>{installing ? t('install.action.installing') : `${t('install.action.install')}${files.length ? ` (${files.length})` : ''}`}</md-filled-button>
   </>;
 
-  return <AppModal open={open} onClose={onClose} width="large" title={t('install.title')} subtitle={t('install.subtitle')} actions={actions}>
+  return <>
+    <AppModal open={open} onClose={onClose} width="large" title={t('install.title')} subtitle={t('install.subtitle')} actions={actions}>
     <section className="install-dialog-section">
       <header><h3>{t('install.files.title')}</h3><md-filled-button disabled={installing || undefined} onClick={onChooseFiles}>{t('install.files.choose')}</md-filled-button></header>
       {!files.length ? <p className="install-dialog-empty">{t('install.files.empty')}</p> : <div className="install-dialog-files">{files.map(file => {
@@ -77,5 +91,16 @@ export function InstallationDialog({ open, files, installing, installStatuses, i
         {optionDefinitions.map(([key, title, description]) => <label key={key}><md-checkbox checked={options[key] || undefined} onClick={() => onOptionChange(key, !options[key])} /><span><strong>{title}</strong><small>{description}</small></span></label>)}
       </div>
     </section>
-  </AppModal>;
+  </AppModal>
+  <AppModal 
+    open={showJavaModal} 
+    onClose={() => setShowJavaModal(false)} 
+    title={t('dialog.missingTool.title', { tool: 'Java' })}
+    actions={<>
+      <md-filled-button onClick={() => { setShowJavaModal(false); onClose(); window.dispatchEvent(new CustomEvent('change-tab', { detail: 'settings' })); }}>{t('dialog.missingTool.goToSettings')}</md-filled-button>
+    </>}
+  >
+    <p>{t('dialog.missingTool.desc', { tool: 'Java' })}</p>
+  </AppModal>
+  </>;
 }

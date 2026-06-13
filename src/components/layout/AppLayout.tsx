@@ -1,15 +1,46 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { Sidebar, TabId } from './Sidebar';
 import { TopBar } from './TopBar';
+import type { ToolsStatus } from '../../pages/workbench/types';
+import { AppModal } from '../dialogs/AppModal';
+import { useI18n } from '../../locales';
 import { HomePage } from '../../pages/HomePage';
 import { WorkbenchPage } from '../../pages/WorkbenchPage';
 import { useDevices } from '../../context/DeviceContext';
 import './AppLayout.css';
 
 export function AppLayout() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>('home');
+  const [adbAvailable, setAdbAvailable] = useState(true);
+  const [showAdbModal, setShowAdbModal] = useState(false);
+  const adbWarningShown = useRef(false);
   const pageRef = useRef<HTMLDivElement>(null);
   const { refreshDevices } = useDevices();
+
+  const checkAdb = useCallback(async () => {
+    try {
+      const tools = await invoke<ToolsStatus>('get_tools_status');
+      setAdbAvailable(tools.adb.available);
+      if (!tools.adb.available && !adbWarningShown.current) {
+        setShowAdbModal(true);
+        adbWarningShown.current = true;
+      }
+    } catch {
+      setAdbAvailable(false);
+      if (!adbWarningShown.current) {
+        setShowAdbModal(true);
+        adbWarningShown.current = true;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    checkAdb();
+    window.addEventListener('focus', checkAdb);
+    return () => window.removeEventListener('focus', checkAdb);
+  }, [checkAdb]);
 
   useEffect(() => {
     refreshDevices();
@@ -70,15 +101,25 @@ export function AppLayout() {
 
   return (
     <div className="app-layout">
-      <TopBar />
+      <TopBar adbAvailable={adbAvailable} />
       <div className="app-layout__body">
-        <Sidebar activeTab={activeTab} onTabChange={changeTab} />
+        <Sidebar activeTab={activeTab} onTabChange={changeTab} adbAvailable={adbAvailable} />
         <main className="app-layout__content">
           <div ref={pageRef} className="app-layout__page">
             {activeTab === 'home' ? <HomePage /> : <WorkbenchPage tab={activeTab} />}
           </div>
         </main>
       </div>
+      <AppModal 
+        open={showAdbModal} 
+        onClose={() => setShowAdbModal(false)} 
+        title={t('dialog.missingTool.title', { tool: 'ADB' })}
+        actions={<>
+          <md-filled-button onClick={() => { setShowAdbModal(false); changeTab('settings'); }}>{t('dialog.missingTool.goToSettings')}</md-filled-button>
+        </>}
+      >
+        <p>{t('dialog.missingTool.adbDesc')}</p>
+      </AppModal>
     </div>
   );
 }
