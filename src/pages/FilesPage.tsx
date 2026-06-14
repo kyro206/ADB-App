@@ -10,6 +10,8 @@ import { ContextMenu } from '../components/layout/ContextMenu';
 import { useI18n } from '../locales';
 import { formatBytes } from './workbench/utils';
 import type { FileEntry, FileSortKey, FileView } from './workbench/types';
+import { TransferMenu, type TransferJob, type TransferStatus, type TransferType } from '../components/layout/TransferMenu';
+import { stat } from '@tauri-apps/plugin-fs';
 import './FilesPage.css';
 
 export interface FilesPageProps {
@@ -39,6 +41,8 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
   const [osDragHover, setOsDragHover] = useState(false);
   const [thumbnailRefresh, setThumbnailRefresh] = useState(0);
+  const [transfersOpen, setTransfersOpen] = useState(false);
+  const [transferJobs, setTransferJobs] = useState<TransferJob[]>([]);
   const pendingThumbnails = useRef<Set<string>>(new Set());
   
   const pathRef = useRef(path);
@@ -159,19 +163,106 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
     setFileHistoryIndex(index);
   };
 
+  const enqueueTransfer = (type: TransferType, source: string, destination: string, name: string, isDirectory: boolean) => {
+    const id = Date.now().toString() + Math.random().toString();
+    setTransferJobs(current => [...current, { id, type, name, source, destination, isDirectory, status: 'idle' }]);
+  };
+
+  useEffect(() => {
+    const activeJob = transferJobs.find(j => j.status === 'transferring');
+    if (activeJob) return; // Process one at a time
+
+    const nextJob = transferJobs.find(j => j.status === 'idle');
+    if (!nextJob) return;
+
+    const processJob = async (job: TransferJob) => {
+      setTransferJobs(current => current.map(j => j.id === job.id ? { ...j, status: 'transferring', error: undefined, children: undefined } : j));
+      try {
+        if (job.type === 'upload') {
+          await invoke<string>('run_device_action', { serial, args: ['push', job.source, job.destination] });
+          if (pathRef.current === job.destination) refreshFiles(pathRef.current);
+        } else {
+          await invoke<string>('pull_file', { serial, remotePath: job.source, localPath: job.destination });
+        }
+        setTransferJobs(current => current.map(j => j.id === job.id ? { ...j, status: 'success' } : j));
+      } catch (error: any) {
+        let errStr = String(error);
+        const children: TransferJob[] = [];
+        
+        // Parse "adb: error: failed to copy 'src' to 'dest': reason"
+        const regex = /adb: error: failed to copy '([^']+)' to '([^']+)': ([^\n]+)/g;
+        let match;
+        while ((match = regex.exec(errStr)) !== null) {
+          const src = match[1];
+          const dest = match[2];
+          const reason = match[3];
+          const name = src.split(/[\\/]/).pop() || src;
+          children.push({
+            id: Date.now().toString() + Math.random().toString(),
+            type: job.type,
+            name,
+            source: src,
+            destination: dest,
+            isDirectory: false,
+            status: 'error',
+            error: reason
+          });
+        }
+
+        if (children.length === 0) {
+           errStr = errStr.replace(/adb: error: /, '').trim();
+        }
+
+        setTransferJobs(current => current.map(j => j.id === job.id ? { 
+          ...j, 
+          status: 'error', 
+          error: children.length > 0 ? t('transfers.error') : errStr,
+          children: children.length > 0 ? children : undefined
+        } : j));
+      }
+    };
+    
+    processJob(nextJob);
+  }, [transferJobs, run, serial, t]);
+
+  useEffect(() => {
+    const hasError = transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error'));
+    const isTransferring = transferJobs.some(j => j.status === 'transferring' || j.status === 'idle');
+    window.dispatchEvent(new CustomEvent('transfer-badge-update', { detail: { hasError, isTransferring } }));
+  }, [transferJobs]);
+
+  const handleRetryTransfer = (id: string, parentId?: string) => {
+    if (parentId) {
+      setTransferJobs(current => {
+        const parent = current.find(j => j.id === parentId);
+        if (!parent || !parent.children) return current;
+        const child = parent.children.find(c => c.id === id);
+        if (!child) return current;
+        
+        const updatedParent = { ...parent, children: parent.children.filter(c => c.id !== id) };
+        const newJob = { ...child, status: 'idle' as TransferStatus, error: undefined };
+        
+        return current.map(j => j.id === parentId ? updatedParent : j).concat(newJob);
+      });
+    } else {
+      setTransferJobs(current => current.map(j => j.id === id ? { ...j, status: 'idle', error: undefined } : j));
+    }
+  };
+
   const uploadLocalPaths = async (paths: string[]) => {
     if (!paths.length) return;
-    setBusy(true);
-    try {
-      for (const localPath of paths) {
-        await run(['push', localPath, pathRef.current]);
+    for (const localPath of paths) {
+      let isDirectory = false;
+      try {
+        const metadata = await stat(localPath);
+        isDirectory = metadata.isDirectory;
+      } catch (e) {
+        console.error(e);
       }
-      await refreshFiles(pathRef.current);
-    } catch (error) {
-      setStatus(String(error));
-    } finally {
-      setBusy(false);
+      const name = localPath.split(/[\\/]/).pop() || localPath;
+      enqueueTransfer('upload', localPath, pathRef.current, name, isDirectory);
     }
+    if (!transfersOpen) setTransfersOpen(true);
   };
 
   const uploadFiles = async () => {
@@ -184,13 +275,12 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
     if (!selectedFileEntries.length) return;
     const destination = await open({ directory: true, multiple: false });
     if (!destination || Array.isArray(destination)) return;
-    setBusy(true);
-    try {
-      for (const file of selectedFileEntries) {
-        const localPath = `${destination}\\${file.name}`;
-        setStatus(await invoke<string>('pull_file', { serial, remotePath: filePath(file), localPath }));
-      }
-    } catch (error) { setStatus(String(error)); } finally { setBusy(false); }
+    
+    for (const file of selectedFileEntries) {
+      const localPath = `${destination}\\${file.name}`;
+      enqueueTransfer('download', filePath(file), localPath, file.name, file.is_directory);
+    }
+    if (!transfersOpen) setTransfersOpen(true);
   };
 
   const createDeviceFolder = async () => {
@@ -401,6 +491,13 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
         <div className="file-view-switch">
           <button className={fileView === 'list' ? 'active' : ''} aria-label={t('files.view.list')} title={t('files.view.list')} onClick={() => setFileView('list')}><MaterialIcon name="view_list" /></button>
           <button className={fileView === 'grid' ? 'active' : ''} aria-label={t('files.view.grid')} title={t('files.view.grid')} onClick={() => setFileView('grid')}><MaterialIcon name="grid_view" /></button>
+          <div style={{ width: '1px', background: 'var(--md-sys-color-outline-variant)', margin: '4px 8px' }}></div>
+          <button className={transfersOpen ? 'active' : ''} onClick={() => setTransfersOpen(!transfersOpen)} title={t('transfers.title')} style={{ position: 'relative' }}>
+            <MaterialIcon name="swap_vert" />
+            {(transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) || transferJobs.some(j => j.status === 'transferring' || j.status === 'idle')) && (
+              <span className={`transfer-badge ${transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) ? 'error' : ''}`}></span>
+            )}
+          </button>
         </div>
       </section>
       
@@ -506,6 +603,14 @@ export function FilesPage({ serial, setStatus, setBusy, run, tab }: FilesPagePro
           ]}
         />
       )}
+
+      <TransferMenu
+        open={transfersOpen}
+        jobs={transferJobs}
+        onClose={() => setTransfersOpen(false)}
+        onClear={() => setTransferJobs(current => current.filter(j => j.status !== 'success' && j.status !== 'error'))}
+        onRetry={handleRetryTransfer}
+      />
     </div>
   );
 }

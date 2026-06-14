@@ -221,3 +221,17 @@
   .file-selection-actions>span{width:100%;max-width:none}
   .file-navigation{justify-content:space-between}
 }
+
+.transfer-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--md-sys-color-primary);
+  border-radius: 50%;
+}
+
+.transfer-badge.error {
+  background-color: var(--md-sys-color-error);
+}

@@ -214,6 +214,20 @@ export const en = {
   'files.permissions.group': 'Group',
   'files.permissions.others': 'Others',
   'files.permissions.octal': 'Octal value',
+  
+  // Transfers
+  'transfers.title': 'Transfers',
+  'transfers.clear': 'Clear completed',
+  'transfers.empty': 'No active transfers',
+  'transfers.idle': 'Queued...',
+  'transfers.transferring': 'Transferring...',
+  'transfers.uploading': 'Uploading...',
+  'transfers.downloading': 'Downloading...',
+  'transfers.success': 'Completed',
+  'transfers.error': 'Error',
+  'transfers.retry': 'Retry',
+  'transfers.action.upload': 'Upload',
+  'transfers.action.download': 'Download',
 
   // System
 

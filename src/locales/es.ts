@@ -214,6 +214,20 @@ export const es: Record<string, string> = {
   'files.permissions.group': 'Grupo',
   'files.permissions.others': 'Otros',
   'files.permissions.octal': 'Valor octal',
+  
+  // Transfers
+  'transfers.title': 'Transferencias',
+  'transfers.clear': 'Limpiar completados',
+  'transfers.empty': 'No hay transferencias activas',
+  'transfers.idle': 'En cola...',
+  'transfers.transferring': 'Transfiriendo...',
+  'transfers.uploading': 'Subiendo...',
+  'transfers.downloading': 'Descargando...',
+  'transfers.success': 'Completado',
+  'transfers.error': 'Error',
+  'transfers.retry': 'Reintentar',
+  'transfers.action.upload': 'Subida',
+  'transfers.action.download': 'Descarga',
 
   // System
 
