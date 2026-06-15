@@ -1,4 +1,4 @@
-# <img src="dist/icon.webp" alt="ADB App Logo" width="32" height="32" style="vertical-align: bottom;"> ADB App
+# <img src="public/icon.webp" alt="ADB App Logo" width="32" height="32" style="vertical-align: bottom;"> ADB App
 
 **A modern, fast, and cross-platform desktop application to manage Android devices over ADB.**
 
