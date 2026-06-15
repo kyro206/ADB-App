@@ -1,4 +1,6 @@
 <script lang="ts" module>
+import * as m from '../../paraglide/messages';
+
   export type TransferStatus = 'idle' | 'transferring' | 'success' | 'error';
   export type TransferType = 'upload' | 'download';
 
@@ -16,7 +18,7 @@
 </script>
 
 <script lang="ts">
-  import { i18n } from '../../locales/index.svelte';
+  
   import MaterialIcon from '../MaterialIcon.svelte';
   import './TransferMenu.css';
 
@@ -56,10 +58,10 @@
     <header class="transfer-menu__header">
       <h3>
         <MaterialIcon name="swap_vert" />
-        {i18n.t('transfers.title')}
+        {m.transfers_title()}
       </h3>
       <div class="transfer-menu__actions">
-        <md-icon-button title={i18n.t('transfers.clear')} onclick={onClear}>
+        <md-icon-button title={m.transfers_clear()} onclick={onClear}>
           <MaterialIcon name="clear_all" />
         </md-icon-button>
         <md-icon-button onclick={onClose}>
@@ -72,7 +74,7 @@
       {#if jobs.length === 0}
         <div class="transfer-menu__empty">
           <MaterialIcon name="done_all" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5" />
-          <p>{i18n.t('transfers.empty')}</p>
+          <p>{m.transfers_empty()}</p>
         </div>
       {:else}
         <ul class="transfer-list">
@@ -88,13 +90,13 @@
                     {#if job.status === 'error' && job.error}
                       {job.error}
                     {:else}
-                      {i18n.t(`transfers.${job.status}`)}
+                      {(m as any)[`transfers_${job.status}`]?.() ?? job.status}
                     {/if}
                   </span>
                 </div>
                 <div class="transfer-item__trailing">
                   {#if job.status === 'error'}
-                    <md-icon-button onclick={() => onRetry(job.id)} title={i18n.t('transfers.retry')}>
+                    <md-icon-button onclick={() => onRetry(job.id)} title={m.transfers_retry()}>
                       <MaterialIcon name="refresh" />
                     </md-icon-button>
                   {/if}
@@ -117,7 +119,7 @@
                       </div>
                       <div class="transfer-subitem__trailing">
                         {#if child.status === 'error'}
-                          <md-icon-button onclick={() => onRetry(child.id, job.id)} title={i18n.t('transfers.retry')}>
+                          <md-icon-button onclick={() => onRetry(child.id, job.id)} title={m.transfers_retry()}>
                             <MaterialIcon name="refresh" />
                           </md-icon-button>
                         {/if}

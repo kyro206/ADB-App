@@ -1,10 +1,12 @@
 <script lang="ts">
+import * as m from '../../paraglide/messages';
+
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { getName } from '@tauri-apps/api/app';
   import { devicesState } from '../../context/devices.svelte';
-  import { i18n } from '../../locales/index.svelte';
+  
   import WirelessDialog from '../dialogs/WirelessDialog.svelte';
   import MaterialIcon from '../MaterialIcon.svelte';
   import DeviceSelector from './DeviceSelector.svelte';
@@ -77,7 +79,7 @@
       class="topbar__tcpip" 
       disabled={!devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device' || (devicesState.selectedDevice.serial.includes(':') || devicesState.selectedDevice.serial.includes('._tcp')) || tcpipBusy} 
       onclick={connectUsbOverTcpip} 
-      title={i18n.t('topbar.tcpip.tooltip')}
+      title={m.topbar_tcpip_tooltip()}
     >
       <MaterialIcon name="usb" />
       <MaterialIcon name="arrow_forward" />
@@ -88,8 +90,8 @@
       devices={devicesState.devices} 
       selectedDevice={devicesState.selectedDevice} 
       loading={devicesState.loading} 
-      loadingLabel={i18n.t('common.loading')} 
-      emptyLabel={i18n.t('common.device.empty.title')} 
+      loadingLabel={m.common_loading()} 
+      emptyLabel={m.common_device_empty_title()} 
       onSelect={(serial) => devicesState.selectDevice(serial)} 
       onDisconnect={handleDisconnect} 
     />
@@ -97,7 +99,7 @@
     <button 
       class="topbar__wireless {wirelessOpen ? 'active' : ''}" 
       onclick={() => wirelessOpen = true} 
-      title={i18n.t('topbar.wireless.tooltip')} 
+      title={m.topbar_wireless_tooltip()} 
       disabled={!adbAvailable}
     >
       <MaterialIcon name="add" />
@@ -108,13 +110,13 @@
   
   {#if platform !== 'macos'}
     <div class="topbar__window-controls">
-      <button class="topbar__window-control minimize" onclick={() => appWindow.minimize()} title={i18n.t('topbar.window.minimize')}>
+      <button class="topbar__window-control minimize" onclick={() => appWindow.minimize()} title={m.topbar_window_minimize()}>
         <MaterialIcon name="remove" />
       </button>
-      <button class="topbar__window-control maximize" onclick={async () => { await appWindow.toggleMaximize(); maximized = await appWindow.isMaximized(); }} title={maximized ? i18n.t('topbar.window.restore') : i18n.t('topbar.window.maximize')}>
+      <button class="topbar__window-control maximize" onclick={async () => { await appWindow.toggleMaximize(); maximized = await appWindow.isMaximized(); }} title={maximized ? m.topbar_window_restore() : m.topbar_window_maximize()}>
         <MaterialIcon name={maximized ? 'filter_none' : 'crop_square'} />
       </button>
-      <button class="topbar__window-control close" onclick={() => appWindow.close()} title={i18n.t('topbar.window.close')}>
+      <button class="topbar__window-control close" onclick={() => appWindow.close()} title={m.topbar_window_close()}>
         <MaterialIcon name="close" />
       </button>
     </div>

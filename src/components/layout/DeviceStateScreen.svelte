@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { i18n } from '../../locales/index.svelte';
+import * as m from '../../paraglide/messages';
+
+  
   import MaterialIcon from '../MaterialIcon.svelte';
   import './DeviceStateScreen.css';
 
@@ -17,8 +19,8 @@
 {#if !serial}
   <div class="device-state-screen empty">
     <MaterialIcon name="phonelink_off" size={48} class="device-state-icon" />
-    <h2>{i18n.t('common.device.empty.title')}</h2>
-    <p>{i18n.t('common.device.empty.desc')}</p>
+    <h2>{m.common_device_empty_title()}</h2>
+    <p>{m.common_device_empty_desc()}</p>
   </div>
 {:else}
   {#if loading}

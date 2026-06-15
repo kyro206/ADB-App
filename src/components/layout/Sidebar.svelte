@@ -1,10 +1,12 @@
 <script lang="ts" module>
+import * as m from '../../paraglide/messages';
+
   export type TabId = 'home' | 'display' | 'mirroring' | 'control' | 'apps' | 'files' | 'system' | 'settings';
 </script>
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { i18n } from '../../locales/index.svelte';
+  
   import MaterialIcon from '../MaterialIcon.svelte';
   import './Sidebar.css';
 
@@ -37,8 +39,8 @@
   const NAV_TABS: TabId[] = ['home', 'display', 'mirroring', 'control', 'apps', 'files', 'system'];
 
   let labels = $derived({
-    home: i18n.t('nav.home'), display: i18n.t('nav.display'), mirroring: i18n.t('nav.mirroring'), control: i18n.t('nav.control'),
-    apps: i18n.t('nav.apps'), files: i18n.t('nav.files'), system: i18n.t('nav.system'), settings: i18n.t('nav.settings'),
+    home: m.nav_home(), display: m.nav_display(), mirroring: m.nav_mirroring(), control: m.nav_control(),
+    apps: m.nav_apps(), files: m.nav_files(), system: m.nav_system(), settings: m.nav_settings(),
   });
 </script>
 

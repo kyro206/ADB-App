@@ -1,9 +1,11 @@
 <script lang="ts" module>
+import * as m from '../../paraglide/messages';
+
   export type DestructiveAppAction = 'uninstall' | 'clear-data';
 </script>
 
 <script lang="ts">
-  import { i18n } from '../../locales/index.svelte';
+  
   import MaterialIcon from '../MaterialIcon.svelte';
   import AppModal from './AppModal.svelte';
   import './DestructiveActionDialog.css';
@@ -27,8 +29,8 @@
   }>();
 
   let uninstall = $derived(action === 'uninstall');
-  let title = $derived(uninstall ? i18n.t('app.action.uninstallApp') : i18n.t('app.action.clearData'));
-  let description = $derived(uninstall ? i18n.t('app.desc.uninstall') : i18n.t('app.desc.clearData'));
+  let title = $derived(uninstall ? m.app_action_uninstallApp() : m.app_action_clearData());
+  let description = $derived(uninstall ? m.app_desc_uninstall() : m.app_desc_clearData());
 </script>
 
 <AppModal
@@ -36,7 +38,7 @@
   {onClose}
   width="compact"
   {title}
-  subtitle={i18n.t('common.cannotUndo')}
+  subtitle={m.common_cannotUndo()}
 >
   <div class="destructive-dialog">
     <span class="destructive-dialog__icon">
@@ -55,14 +57,14 @@
 
   {#snippet actions()}
     <md-text-button disabled={busy ? true : undefined} onclick={onClose}>
-      {i18n.t('common.cancel')}
+      {m.common_cancel()}
     </md-text-button>
     <md-filled-button 
       class="destructive-dialog__confirm" 
       disabled={busy ? true : undefined} 
       onclick={onConfirm}
     >
-      {busy ? i18n.t('common.processing') : uninstall ? i18n.t('common.uninstall') : i18n.t('common.clearData')}
+      {busy ? m.common_processing() : uninstall ? m.common_uninstall() : m.common_clearData()}
     </md-filled-button>
   {/snippet}
 </AppModal>

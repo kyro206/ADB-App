@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import MaterialIcon from '../MaterialIcon.svelte';
   import './ContextMenu.css';
 
@@ -55,8 +55,7 @@
     if (!ref) return;
     
     // Only re-calculate if x or y changes
-    let currentX = x;
-    let currentY = y;
+
     
     // Small delay to ensure the DOM is updated and rect is correct
     setTimeout(() => {

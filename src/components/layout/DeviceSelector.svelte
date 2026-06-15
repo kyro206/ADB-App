@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
-  import { i18n } from '../../locales/index.svelte';
+import * as m from '../../paraglide/messages';
+
+  import { onMount } from 'svelte';
+  
   import type { Device } from '../../context/devices.svelte';
   import MaterialIcon from '../MaterialIcon.svelte';
 
@@ -72,7 +74,7 @@
     }
   }
 
-  function handleDisconnect(e: PointerEvent, serial: string) {
+  function handleDisconnect(e: Event, serial: string) {
     e.stopPropagation();
     e.preventDefault();
     if (onDisconnect) onDisconnect(serial);
@@ -84,7 +86,7 @@
     bind:this={anchorElement}
     class="topbar-device-picker__field {open ? 'open' : ''}"
     type="button"
-    aria-label={i18n.t('device.selector.label')}
+    aria-label={m.device_selector_label()}
     aria-haspopup="menu"
     aria-expanded={open}
     {disabled}
@@ -122,8 +124,9 @@
         {#if isWireless}
           <md-icon-button
             slot="end"
-            onpointerdown={(e) => handleDisconnect(e, device.serial)}
-            title={i18n.t('topbar.wireless.disconnect')}
+            onpointerdown={(e: PointerEvent) => handleDisconnect(e, device.serial)}
+            onkeydown={(e: KeyboardEvent) => {handleDisconnect(e, device.serial)}}
+            title={m.topbar_wireless_disconnect()}
           >
             <MaterialIcon name="close" />
           </md-icon-button>

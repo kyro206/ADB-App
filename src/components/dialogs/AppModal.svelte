@@ -1,6 +1,8 @@
 <script lang="ts">
+import * as m from '../../paraglide/messages';
+
   import { onMount, type Snippet } from 'svelte';
-  import { i18n } from '../../locales/index.svelte';
+  
   import MaterialIcon from '../MaterialIcon.svelte';
   import './AppModal.css';
 
@@ -54,7 +56,7 @@
             <p>{subtitle}</p>
           {/if}
         </div>
-        <md-icon-button aria-label={i18n.t('common.close')} onclick={onClose}>
+        <md-icon-button aria-label={m.common_close()} onclick={onClose}>
           <MaterialIcon name="close" />
         </md-icon-button>
       </header>

@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+import * as m from '../paraglide/messages';
+
+  import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { devicesState } from '../context/devices.svelte';
-  import { i18n } from '../locales/index.svelte';
+  import { i18n } from '../context/i18n.svelte';
   import { themeState } from '../context/theme.svelte';
   
   import DisplayPage from './DisplayPage.svelte';
@@ -20,8 +22,7 @@
 
   let { tab } = $props<{ tab: WorkTab }>();
 
-  let tabRef = $state(tab);
-  $effect(() => { tabRef = tab; });
+
 
   let selectedDevice = $derived(devicesState.selectedDevice);
   let deviceDetails = $derived(devicesState.deviceDetails);
@@ -83,7 +84,7 @@
   let cameras = $state<string[]>([]);
 
   async function run(args: string[], success = '') {
-    if (!serial) { status = i18n.t('workbench.status.selectDevice'); return; }
+    if (!serial) { status = m.workbench_status_selectDevice(); return; }
     busy = true;
     try {
       const output = await invoke<string>('run_device_action', { serial, args });
@@ -97,7 +98,10 @@
   }
 
   async function scrcpy(extraArgs: string[]) {
-    if (!serial) return status = i18n.t('workbench.status.selectDevice');
+    if (!serial) {
+      status = m.workbench_status_selectDevice();
+      return;
+    }
     try { 
       status = await invoke<string>('launch_scrcpy', { serial, extraArgs });
     } catch (error) { 
@@ -198,7 +202,7 @@
     busy = true;
     try {
       await invoke('clear_cache');
-      status = i18n.t('workbench.status.cacheCleared');
+      status = m.workbench_status_cacheCleared();
     } catch (error) { 
       status = String(error); 
     } finally { 
@@ -214,7 +218,7 @@
       adbPath = value.adb.path;
       scrcpyPath = value.scrcpy.path;
       javaPath = value.java.path;
-      status = i18n.t('workbench.status.toolPathSaved', { tool });
+      status = m.workbench_status_toolPathSaved({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
       await refreshTools();
     } catch (error) { 
@@ -226,14 +230,14 @@
 
   async function installTool(tool: 'adb' | 'scrcpy') {
     busy = true;
-    status = i18n.t('workbench.status.toolDownloading', { tool });
+    status = m.workbench_status_toolDownloading({ tool });
     try {
       const value = await invoke<ToolsStatus>('install_or_update_tool', { tool });
       tools = value;
       adbPath = value.adb.path;
       scrcpyPath = value.scrcpy.path;
       javaPath = value.java.path;
-      status = i18n.t('workbench.status.toolInstalled', { tool });
+      status = m.workbench_status_toolInstalled({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
       await refreshTools();
     } catch (error) { 
@@ -333,13 +337,13 @@
   }
 </script>
 
-<WorkbenchShell title={i18n.t(`nav.${tab}`)} {busy} {status}>
+<WorkbenchShell title={(m as any)[`nav_${tab}`]?.() ?? tab} {busy} {status}>
   {#if mountedTabs.has('display')}
     <div style="display: {tab === 'display' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}
           <DisplayPage
-            details={deviceDetails} deviceType={deviceDetails ? i18n.t(`device.type.${deviceDetails.device_type}`) : '-'}
+            details={deviceDetails}
             width={displayWidth} setWidth={w => displayWidth = w} height={displayHeight} setHeight={h => displayHeight = h}
             density={displayDensity} setDensity={d => displayDensity = d} timeout={displayTimeout} setTimeout={t => displayTimeout = t}
             refreshRate={displayRefreshRate}

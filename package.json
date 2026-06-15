@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "paraglide-js compile --project ./project.inlang && vite",
+    "build": "paraglide-js compile --project ./project.inlang && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -21,8 +21,11 @@
     "@tauri-apps/plugin-updater": "^2.10.1"
   },
   "devDependencies": {
+    "@inlang/paraglide-js": "^2.19.0",
+    "@inlang/plugin-message-format": "^4.4.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tauri-apps/cli": "^2.11.2",
+    "@types/node": "^25.9.3",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",
     "typescript": "~6.0.3",

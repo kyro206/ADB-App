@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+import * as m from '../../paraglide/messages';
+
   import { invoke } from '@tauri-apps/api/core';
   import { devicesState } from '../../context/devices.svelte';
-  import { i18n } from '../../locales/index.svelte';
+  
   import MaterialIcon from '../MaterialIcon.svelte';
   import AppModal from './AppModal.svelte';
   import './WirelessDialog.css';
@@ -43,7 +44,7 @@
     genId++;
     const currentGen = genId;
     busy = true;
-    status = i18n.t('wireless.status.generatingQr');
+    status = m.wireless_status_generatingQr();
     let payload: WirelessQrPayload | null = null;
     try { 
       payload = await invoke<WirelessQrPayload>('generate_wireless_qr');
@@ -60,7 +61,7 @@
     }
     
     if (payload && mode === 'qr' && open && currentGen === genId) {
-      status = i18n.t('wireless.status.scanQr');
+      status = m.wireless_status_scanQr();
       try {
         const oldDevices = await invoke<any[]>('list_devices').catch(() => []);
         await invoke<string>('pair_wireless_qr', { serviceName: payload.service_name, password: payload.password });
@@ -81,64 +82,64 @@
   }
 
   $effect(() => {
-    if (open && status === '') status = i18n.t('wireless.status.ready');
+    if (open && status === '') status = m.wireless_status_ready();
     if (mode === 'qr' && !qrPayload && !busy) {
       generateQr();
     }
   });
 </script>
 
-<AppModal {open} {onClose} title={i18n.t('wireless.title')}>
+<AppModal {open} {onClose} title={m.wireless_title()}>
   <md-tabs class="wireless-tabs">
     <md-primary-tab active={mode === 'connect' ? true : undefined} onclick={() => mode = 'connect'}>
-      {i18n.t('wireless.tab.connect')}
+      {m.wireless_tab_connect()}
     </md-primary-tab>
     <md-primary-tab active={mode === 'pair' ? true : undefined} onclick={() => mode = 'pair'}>
-      {i18n.t('wireless.tab.code')}
+      {m.wireless_tab_code()}
     </md-primary-tab>
     <md-primary-tab active={mode === 'qr' ? true : undefined} onclick={() => {
       if (mode === 'qr') generateQr();
       else mode = 'qr';
     }}>
-      {i18n.t('wireless.tab.qr')}
+      {m.wireless_tab_qr()}
     </md-primary-tab>
   </md-tabs>
   
   {#if mode === 'connect'}
     <section class="wireless-form">
-      <p>{i18n.t('wireless.connect.desc')}</p>
+      <p>{m.wireless_connect_desc()}</p>
       <md-outlined-text-field 
-        label={i18n.t('wireless.connect.endpoint')} 
+        label={m.wireless_connect_endpoint()} 
         value={connectEndpoint} 
         oninput={(e: any) => connectEndpoint = e.target.value} 
       ></md-outlined-text-field>
       <md-filled-button 
         disabled={!connectEndpoint.trim() || busy ? true : undefined} 
-        onclick={() => run('connect_wireless_device', { endpoint: connectEndpoint }, i18n.t('wireless.connect.pending'), i18n.t('wireless.connect.success'))}
+        onclick={() => run('connect_wireless_device', { endpoint: connectEndpoint }, m.wireless_connect_pending(), m.wireless_connect_success())}
       >
-        {i18n.t('wireless.tab.connect')}
+        {m.wireless_tab_connect()}
       </md-filled-button>
     </section>
   {/if}
   
   {#if mode === 'pair'}
     <section class="wireless-form">
-      <p>{i18n.t('wireless.pair.desc')}</p>
+      <p>{m.wireless_pair_desc()}</p>
       <md-outlined-text-field 
-        label={i18n.t('wireless.pair.endpoint')} 
+        label={m.wireless_pair_endpoint()} 
         value={pairEndpoint} 
         oninput={(e: any) => pairEndpoint = e.target.value} 
       ></md-outlined-text-field>
       <md-outlined-text-field 
-        label={i18n.t('wireless.pair.code')} 
+        label={m.wireless_pair_code()} 
         value={pairCode} 
         oninput={(e: any) => pairCode = e.target.value} 
       ></md-outlined-text-field>
       <md-filled-button 
         disabled={!pairEndpoint.trim() || !pairCode.trim() || busy ? true : undefined} 
-        onclick={() => run('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, i18n.t('wireless.pair.pending'), i18n.t('wireless.pair.success'))}
+        onclick={() => run('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, m.wireless_pair_pending(), m.wireless_pair_success())}
       >
-        {i18n.t('wireless.action.pair')}
+        {m.wireless_action_pair()}
       </md-filled-button>
     </section>
   {/if}
@@ -147,13 +148,13 @@
     <section class="wireless-qr">
       <div class="wireless-qr__preview">
         {#if qrPayload}
-          <img src={qrPayload.qr_data_url} alt={i18n.t('wireless.qr.alt')} />
+          <img src={qrPayload.qr_data_url} alt={m.wireless_qr_alt()} />
         {:else}
           <MaterialIcon name="qr_code_2" />
         {/if}
       </div>
       <div>
-        <p>{i18n.t('wireless.qr.desc')}</p>
+        <p>{m.wireless_qr_desc()}</p>
       </div>
     </section>
   {/if}

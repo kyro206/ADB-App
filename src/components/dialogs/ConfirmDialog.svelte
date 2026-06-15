@@ -1,6 +1,8 @@
 <script lang="ts">
+import * as m from '../../paraglide/messages';
+
   import { type Snippet } from 'svelte';
-  import { i18n } from '../../locales/index.svelte';
+  
   import AppModal from './AppModal.svelte';
 
   let {
@@ -25,8 +27,8 @@
     messageSnippet?: Snippet;
   }>();
 
-  let finalConfirmText = $derived(confirmText || i18n.t('common.confirm'));
-  let finalCancelText = $derived(cancelText || i18n.t('common.cancel'));
+  let finalConfirmText = $derived(confirmText || m.common_confirm());
+  let finalCancelText = $derived(cancelText || m.common_cancel());
 
   import { onMount } from 'svelte';
   onMount(() => {

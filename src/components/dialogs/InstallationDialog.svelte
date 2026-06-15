@@ -1,4 +1,6 @@
 <script lang="ts" module>
+import * as m from '../../paraglide/messages';
+
   export type InstallOptions = {
     replace: boolean;
     grant: boolean;
@@ -8,7 +10,7 @@
 </script>
 
 <script lang="ts">
-  import { i18n } from '../../locales/index.svelte';
+  
   import MaterialIcon from '../MaterialIcon.svelte';
   import AppModal from './AppModal.svelte';
   import './InstallationDialog.css';
@@ -44,13 +46,13 @@
   }>();
 
   let showJavaModal = $state(false);
-  let hasAab = $derived(files.some(f => f.toLowerCase().endsWith('.aab')));
+  let hasAab = $derived(files.some((f: string) => f.toLowerCase().endsWith('.aab')));
 
   let optionDefinitions = $derived<Array<[keyof InstallOptions, string, string]>>([
-    ['replace', i18n.t('install.option.replace'), i18n.t('install.option.replaceDesc')],
-    ['grant', i18n.t('install.option.grant'), i18n.t('install.option.grantDesc')],
-    ['test', i18n.t('install.option.test'), i18n.t('install.option.testDesc')],
-    ['bypass', i18n.t('install.option.bypass'), i18n.t('install.option.bypassDesc')],
+    ['replace', m.install_option_replace(), m.install_option_replaceDesc()],
+    ['grant', m.install_option_grant(), m.install_option_grantDesc()],
+    ['test', m.install_option_test(), m.install_option_testDesc()],
+    ['bypass', m.install_option_bypass(), m.install_option_bypassDesc()],
   ]);
 
   function handleInstallClick() {
@@ -73,17 +75,17 @@
   }
 </script>
 
-<AppModal {open} {onClose} width="large" title={i18n.t('install.title')} subtitle={i18n.t('install.subtitle')}>
+<AppModal {open} {onClose} width="large" title={m.install_title()} subtitle={m.install_subtitle()}>
   <section class="install-dialog-section">
     <header>
-      <h3>{i18n.t('install.files.title')}</h3>
+      <h3>{m.install_files_title()}</h3>
       <md-filled-button disabled={installing ? true : undefined} onclick={onChooseFiles}>
-        {i18n.t('install.files.choose')}
+        {m.install_files_choose()}
       </md-filled-button>
     </header>
     
     {#if !files.length}
-      <p class="install-dialog-empty">{i18n.t('install.files.empty')}</p>
+      <p class="install-dialog-empty">{m.install_files_empty()}</p>
     {:else}
       <div class="install-dialog-files">
         {#each files as file}
@@ -104,7 +106,7 @@
               <strong>{file.split(/[\\/]/).pop()}</strong>
               <small>{file}</small>
             </p>
-            <md-icon-button disabled={installing ? true : undefined} aria-label={i18n.t('install.files.remove')} onclick={() => onRemoveFile(file)}>
+            <md-icon-button disabled={installing ? true : undefined} aria-label={m.install_files_remove()} onclick={() => onRemoveFile(file)}>
               <MaterialIcon name="close" />
             </md-icon-button>
           </div>
@@ -126,7 +128,7 @@
   <md-divider></md-divider>
   
   <section class="install-dialog-section">
-    <h3>{i18n.t('install.options.title')}</h3>
+    <h3>{m.install_options_title()}</h3>
     <div class="install-dialog-options">
       {#each optionDefinitions as [key, title, description]}
         <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -143,7 +145,7 @@
 
   {#snippet actions()}
     <md-filled-button disabled={!canInstall || installing ? true : undefined} onclick={handleInstallClick}>
-      {installing ? i18n.t('install.action.installing') : `${i18n.t('install.action.install')}${files.length ? ` (${files.length})` : ''}`}
+      {installing ? m.install_action_installing() : `${m.install_action_install()}${files.length ? ` (${files.length})` : ''}`}
     </md-filled-button>
   {/snippet}
 </AppModal>
@@ -151,13 +153,13 @@
 <AppModal 
   open={showJavaModal} 
   onClose={handleCloseJavaModal} 
-  title={i18n.t('dialog.missingTool.title', { tool: 'Java' })}
+  title={m.dialog_missingTool_title({ tool: 'Java' })}
 >
-  <p>{i18n.t('dialog.missingTool.desc', { tool: 'Java' })}</p>
+  <p>{m.dialog_missingTool_desc({ tool: 'Java' })}</p>
   
   {#snippet actions()}
     <md-filled-button onclick={handleGoToSettings}>
-      {i18n.t('dialog.missingTool.goToSettings')}
+      {m.dialog_missingTool_goToSettings()}
     </md-filled-button>
   {/snippet}
 </AppModal>

@@ -1,4 +1,6 @@
 <script lang="ts">
+import * as m from './paraglide/messages';
+
   import { onMount } from 'svelte';
   import { check } from '@tauri-apps/plugin-updater';
   import { ask } from '@tauri-apps/plugin-dialog';
@@ -6,7 +8,7 @@
   
   import MaterialWebEnhancer from './components/MaterialWebEnhancer.svelte';
   import AppLayout from './components/layout/AppLayout.svelte';
-  import { i18n } from './locales/index.svelte';
+  import { i18n } from './context/i18n.svelte';
   import { themeState, initThemeEffects } from './context/theme.svelte';
   import { devicesState } from './context/devices.svelte';
 
@@ -20,12 +22,12 @@
         const update = await check();
         if (update) {
           const yes = await ask(
-            i18n.t('updater.availableMessage', { version: update.version }),
+            m.updater_availableMessage({ version: update.version }),
             { 
-              title: i18n.t('updater.availableTitle'),
+              title: m.updater_availableTitle(),
               kind: 'info',
-              okLabel: i18n.t('updater.updateNow'),
-              cancelLabel: i18n.t('updater.later')
+              okLabel: m.updater_updateNow(),
+              cancelLabel: m.updater_later()
             }
           );
           if (yes) {

@@ -1,12 +1,14 @@
 <script lang="ts" module>
+import * as m from '../paraglide/messages';
+
   export interface AppSettings { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; }
 </script>
 
 <script lang="ts">
-  import { onMount } from 'svelte';
+
   import { invoke } from '@tauri-apps/api/core';
   import { open, save } from '@tauri-apps/plugin-dialog';
-  import { i18n } from '../locales/index.svelte';
+  
   import type { AppSummary, AppDetailsInfo, AppPermissionInfo } from './workbench/types';
   import DestructiveActionDialog from '../components/dialogs/DestructiveActionDialog.svelte';
   import InstallationDialog from '../components/dialogs/InstallationDialog.svelte';
@@ -161,7 +163,7 @@
     if (!serial || !appsNeedingMetadata.length || metadataLoading) return;
     metadataLoading = true;
     if (tabRef === 'apps') {
-      setStatus(i18n.t('workbench.status.metadataLoading', { count: appsNeedingMetadata.length }));
+      setStatus(m.workbench_status_metadataLoading({ count: appsNeedingMetadata.length }));
     }
     let loaded = 0;
     let failed = 0;
@@ -189,11 +191,11 @@
         }
         
         if (tabRef === 'apps') {
-          setStatus(i18n.t('workbench.status.metadataProgress', { processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length }));
+          setStatus(m.workbench_status_metadataProgress({ processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length }));
         }
       }
       if (tabRef === 'apps') {
-        setStatus(failed ? i18n.t('workbench.status.metadataFailed', { failed }) : '');
+        setStatus(failed ? m.workbench_status_metadataFailed({ failed }) : '');
       }
     } finally { 
       metadataLoading = false; 
@@ -203,7 +205,7 @@
   async function chooseInstallFiles() {
     try {
       const selected = await open({
-        title: i18n.t('apps.action.install'),
+        title: m.apps_action_install(),
         multiple: true,
         directory: false,
         filters: [{ name: 'Android Packages', extensions: ['apk', 'apks', 'apkm', 'xapk', 'zip', 'aab'] }],
@@ -266,7 +268,7 @@
     const command = willDisable
       ? ['shell', 'pm', 'disable-user', '--user', '0', selectedPackage]
       : ['shell', 'pm', 'enable', '--user', '0', selectedPackage];
-    const result = await run(command, willDisable ? i18n.t('workbench.status.appDisabled') : i18n.t('workbench.status.appEnabled'));
+    const result = await run(command, willDisable ? m.workbench_status_appDisabled() : m.workbench_status_appEnabled());
     if (result === undefined) return;
     
     appDetails = { ...appDetails, disabled: willDisable };
@@ -293,14 +295,14 @@
       const isSplit = appDetails.is_split;
       const extension = isSplit ? 'apks' : 'apk';
       const destination = await save({
-        title: i18n.t('apps.action.saveApk'),
+        title: m.apps_action_saveApk(),
         defaultPath: `${appDetails.package_name}.${extension}`,
         filters: [{ name: 'Android Package', extensions: [extension] }],
       });
       if (destination) {
-        setStatus(i18n.t('workbench.status.exporting', { path: destination }));
+        setStatus(m.workbench_status_exporting({ path: destination }));
         await invoke('export_apk', { serial, packageName: appDetails.package_name, destination });
-        setStatus(i18n.t('workbench.status.apkSaved', { path: destination }));
+        setStatus(m.workbench_status_apkSaved({ path: destination }));
       }
     } catch (error) { setStatus(String(error)); }
   }
@@ -316,12 +318,12 @@
     destructiveBusy = true;
     try {
       if (destructiveAction === 'uninstall') {
-        await run(['uninstall', selectedPackage], i18n.t('workbench.status.appUninstalled'));
+        await run(['uninstall', selectedPackage], m.workbench_status_appUninstalled());
         selectedPackage = '';
         appDetails = null;
         await refreshApps();
       } else {
-        await run(['shell', 'pm', 'clear', selectedPackage], i18n.t('workbench.status.appDataCleared'));
+        await run(['shell', 'pm', 'clear', selectedPackage], m.workbench_status_appDataCleared());
         await refreshAppDetails();
       }
       destructiveAction = null;
@@ -331,7 +333,7 @@
   }
 
   async function openAppInScrcpy(pkg: string) {
-    setStatus(i18n.t('workbench.status.launchingApp', { pkg }));
+    setStatus(m.workbench_status_launchingApp({ pkg }));
     try {
       await invoke<string>('run_device_action', { serial, args: ['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'] });
       if (scrcpy) await scrcpy([]);
@@ -341,10 +343,10 @@
   }
 
   let filters = $derived<Array<['user' | 'all' | 'system' | 'disabled', string, string]>>([
-    ['user', i18n.t('apps.filter.user'), 'person'], 
-    ['all', i18n.t('apps.filter.all'), 'apps'], 
-    ['system', i18n.t('apps.filter.system'), 'settings'], 
-    ['disabled', i18n.t('apps.filter.disabled'), 'block'],
+    ['user', m.apps_filter_user(), 'person'], 
+    ['all', m.apps_filter_all(), 'apps'], 
+    ['system', m.apps_filter_system(), 'settings'], 
+    ['disabled', m.apps_filter_disabled(), 'block'],
   ]);
   
   let pending = $derived(filteredApps.filter(app => !app.icon_data_url || app.display_name === app.package_name).length);
@@ -355,7 +357,7 @@
   <div class="apps-material-page {selectedPackage ? 'detail-open' : ''}">
     <section class="apps-material-catalog">
       <header class="apps-material-toolbar">
-        <md-outlined-text-field class="apps-material-search" label={i18n.t('apps.search.placeholder')} value={appFilter} oninput={(event: Event) => appFilter = (event.target as HTMLInputElement).value}>
+        <md-outlined-text-field class="apps-material-search" label={m.apps_search_placeholder()} value={appFilter} oninput={(event: Event) => appFilter = (event.target as HTMLInputElement).value}>
           <MaterialIcon slot="leading-icon" name="search" />
           {#if appFilter}
             <md-icon-button slot="trailing-icon" onclick={() => appFilter = ''}>
@@ -367,14 +369,14 @@
         {#if appSettings?.cache_enabled && pending > 0}
           <md-filled-tonal-button disabled={metadataLoading ? true : undefined} onclick={loadVisibleMetadata}>
             <MaterialIcon slot="icon" name="image_search" />
-            {metadataLoading ? i18n.t('common.loading') : i18n.t('apps.action.loadMetadata', { pending })}
+            {metadataLoading ? m.common_loading() : m.apps_action_loadMetadata({ pending })}
           </md-filled-tonal-button>
         {/if}
         
-        <md-icon-button aria-label={i18n.t('apps.action.refresh')} title={i18n.t('apps.action.refresh')} onclick={refreshApps}>
+        <md-icon-button aria-label={m.apps_action_refresh()} title={m.apps_action_refresh()} onclick={refreshApps}>
           <MaterialIcon name="refresh" />
         </md-icon-button>
-        <md-filled-icon-button aria-label={i18n.t('apps.action.install')} title={i18n.t('apps.action.install')} onclick={() => installOpen = true}>
+        <md-filled-icon-button aria-label={m.apps_action_install()} title={m.apps_action_install()} onclick={() => installOpen = true}>
           <MaterialIcon name="add" />
         </md-filled-icon-button>
       </header>
@@ -393,7 +395,7 @@
       <div class="apps-material-grid">
         {#each filteredApps as app (app.package_name)}
           <button class="apps-material-tile {selectedPackage === app.package_name ? 'selected' : ''}" onclick={() => selectApplication(app)} ondblclick={() => openAppInScrcpy(app.package_name)}>
-            <div class="apps-material-status-icon {app.disabled ? 'disabled' : ''}" title={app.disabled ? i18n.t('apps.status.disabled') : app.system_app ? i18n.t('apps.status.system') : i18n.t('apps.status.user')}>
+            <div class="apps-material-status-icon {app.disabled ? 'disabled' : ''}" title={app.disabled ? m.apps_status_disabled() : app.system_app ? m.apps_status_system() : m.apps_status_user()}>
               <MaterialIcon name={app.disabled ? 'block' : app.system_app ? 'settings' : 'person'} />
             </div>     
             <span class="app-icon-frame">
@@ -413,8 +415,8 @@
         {#if !filteredApps.length}
           <div class="apps-material-empty">
             <MaterialIcon name="search_off" />
-            <strong>{i18n.t('apps.empty.title')}</strong>
-            <span>{i18n.t('apps.empty.subtitle')}</span>
+            <strong>{m.apps_empty_title()}</strong>
+            <span>{m.apps_empty_subtitle()}</span>
           </div>
         {/if}
       </div>
@@ -424,13 +426,13 @@
       {#if !appDetails}
         <div class="apps-material-empty detail">
           <MaterialIcon name="touch_app" />
-          <strong>{i18n.t('apps.detail.empty.title')}</strong>
-          <span>{i18n.t('apps.detail.empty.subtitle')}</span>
+          <strong>{m.apps_detail_empty_title()}</strong>
+          <span>{m.apps_detail_empty_subtitle()}</span>
         </div>
       {:else}
         <md-text-button class="apps-material-back" onclick={() => { selectedPackage = ''; appDetails = null; }}>
           <MaterialIcon slot="icon" name="arrow_back" />
-          {i18n.t('nav.apps')}
+          {m.nav_apps()}
         </md-text-button>
         
         <header class="apps-material-detail__hero" style="position: relative">
@@ -444,13 +446,13 @@
           <div style="flex: 1; min-width: 0; padding-right: 130px">
             <h2>{appDetails.display_name}</h2>
             <p>{appDetails.package_name}</p>
-            <div class="apps-material-status-icon {appDetails.disabled ? 'disabled' : ''}" title={appDetails.disabled ? i18n.t('apps.status.disabled') : appDetails.system_app ? i18n.t('apps.detail.type.system') : i18n.t('apps.detail.type.user')}>
+            <div class="apps-material-status-icon {appDetails.disabled ? 'disabled' : ''}" title={appDetails.disabled ? m.apps_status_disabled() : appDetails.system_app ? m.apps_detail_type_system() : m.apps_detail_type_user()}>
               <MaterialIcon name={appDetails.disabled ? 'block' : appDetails.system_app ? 'settings' : 'person'} />
             </div>
           </div>
           <md-text-button onclick={() => openAppInScrcpy(appDetails!.package_name)} style="position: absolute; top: 0; right: 0">
             <MaterialIcon slot="icon" name="desktop_windows" />
-            {i18n.t('apps.action.openScrcpy')}
+            {m.apps_action_openScrcpy()}
           </md-text-button>
         </header>
         
@@ -458,37 +460,37 @@
           <header>
             <span class="apps-material-section__title">
               <MaterialIcon name="bolt" />
-              <h3>{i18n.t('apps.detail.actions')}</h3>
+              <h3>{m.apps_detail_actions()}</h3>
             </span>
           </header>
           <div class="apps-material-actions">
             <md-filled-button onclick={() => run(['shell', 'monkey', '-p', selectedPackage, '1'])}>
               <MaterialIcon slot="icon" name="open_in_new" />
-              {i18n.t('apps.action.open')}
+              {m.apps_action_open()}
             </md-filled-button>
             <md-filled-tonal-button onclick={() => run(['shell', 'am', 'force-stop', selectedPackage])}>
               <MaterialIcon slot="icon" name="stop_circle" />
-              {i18n.t('apps.action.stop')}
+              {m.apps_action_stop()}
             </md-filled-tonal-button>
             <md-filled-tonal-button onclick={toggleAppEnabled}>
               <MaterialIcon slot="icon" name={appDetails.disabled ? 'check_circle' : 'block'} />
-              {appDetails.disabled ? i18n.t('apps.action.enable') : i18n.t('apps.action.disable')}
+              {appDetails.disabled ? m.apps_action_enable() : m.apps_action_disable()}
             </md-filled-tonal-button>
             <md-filled-tonal-button onclick={clearApplicationCache}>
               <MaterialIcon slot="icon" name="cleaning_services" />
-              {i18n.t('common.clearCache')}
+              {m.common_clearCache()}
             </md-filled-tonal-button>
             <md-outlined-button onclick={() => destructiveAction = 'clear-data'}>
               <MaterialIcon slot="icon" name="delete_sweep" />
-              {i18n.t('common.clearData')}
+              {m.common_clearData()}
             </md-outlined-button>
             <md-outlined-button class="apps-material-danger" onclick={() => destructiveAction = 'uninstall'}>
               <MaterialIcon slot="icon" name="delete_forever" />
-              {i18n.t('apps.action.uninstall')}
+              {m.apps_action_uninstall()}
             </md-outlined-button>
             <md-filled-tonal-button onclick={exportApk}>
               <MaterialIcon slot="icon" name="download" />
-              {i18n.t('apps.action.saveApk')}
+              {m.apps_action_saveApk()}
             </md-filled-tonal-button>
           </div>
         </section>
@@ -502,23 +504,23 @@
             <header>
               <span class="apps-material-section__title">
                 <MaterialIcon name="battery_android_frame_full" />
-                <h3>{i18n.t('apps.detail.energy')}</h3>
+                <h3>{m.apps_detail_energy()}</h3>
               </span>
             </header>
             <div class="apps-material-energy">
               {#each [
-                ['unrestricted', i18n.t('apps.energy.unrestricted'), 'speed'],
-                ['optimized', i18n.t('apps.energy.optimized'), 'eco'],
-                ['restricted', i18n.t('apps.energy.restricted'), 'battery_saver']
+                ['unrestricted', m.apps_energy_unrestricted(), 'speed'],
+                ['optimized', m.apps_energy_optimized(), 'eco'],
+                ['restricted', m.apps_energy_restricted(), 'battery_saver']
               ] as [value, label, icon]}
                 <button class={appDetails.background_mode === value ? 'active' : ''} onclick={() => setBackgroundMode(value as 'unrestricted'|'optimized'|'restricted')}>
                   <MaterialIcon name={String(icon)} />
                   <span>
                     <strong>{label}</strong>
                     <small>
-                      {value === 'unrestricted' ? i18n.t('apps.energy.unrestricted.desc') : 
-                       value === 'optimized' ? i18n.t('apps.energy.optimized.desc') : 
-                       i18n.t('apps.energy.restricted.desc')}
+                      {value === 'unrestricted' ? m.apps_energy_unrestricted_desc() : 
+                       value === 'optimized' ? m.apps_energy_optimized_desc() : 
+                       m.apps_energy_restricted_desc()}
                     </small>
                   </span>
                   <md-ripple></md-ripple>
@@ -531,20 +533,20 @@
             <header>
               <span class="apps-material-section__title">
                 <MaterialIcon name="info" />
-                <h3>{i18n.t('apps.detail.info')}</h3>
+                <h3>{m.apps_detail_info()}</h3>
               </span>
             </header>
             <dl class="apps-material-info">
-              <div><dt>{i18n.t('apps.info.version')}</dt><dd>{appDetails.version_name} ({appDetails.version_code})</dd></div>
-              <div><dt>{i18n.t('apps.info.installDate')}</dt><dd>{appDetails.install_date}</dd></div>
-              <div><dt>{i18n.t('apps.info.updateDate')}</dt><dd>{appDetails.update_date}</dd></div>
-              <div><dt>{i18n.t('apps.info.targetSdk')}</dt><dd>{appDetails.target_sdk}</dd></div>
-              <div><dt>{i18n.t('apps.info.minSdk')}</dt><dd>{appDetails.min_sdk}</dd></div>
-              <div><dt>{i18n.t('apps.info.installer')}</dt><dd>{appDetails.installer}</dd></div>
-              <div><dt>{i18n.t('apps.info.apkSize')}</dt><dd>{formatBytes(appDetails.code_size_bytes)}</dd></div>
-              <div><dt>{i18n.t('apps.info.dataSize')}</dt><dd>{formatBytes(appDetails.data_size_bytes)}</dd></div>
-              <div><dt>{i18n.t('apps.info.cacheSize')}</dt><dd>{formatBytes(appDetails.cache_size_bytes)}</dd></div>
-              <div class="wide"><dt>{i18n.t('apps.info.apkPath')}</dt><dd>{appDetails.apk_path}</dd></div>
+              <div><dt>{m.apps_info_version()}</dt><dd>{appDetails.version_name} ({appDetails.version_code})</dd></div>
+              <div><dt>{m.apps_info_installDate()}</dt><dd>{appDetails.install_date}</dd></div>
+              <div><dt>{m.apps_info_updateDate()}</dt><dd>{appDetails.update_date}</dd></div>
+              <div><dt>{m.apps_info_targetSdk()}</dt><dd>{appDetails.target_sdk}</dd></div>
+              <div><dt>{m.apps_info_minSdk()}</dt><dd>{appDetails.min_sdk}</dd></div>
+              <div><dt>{m.apps_info_installer()}</dt><dd>{appDetails.installer}</dd></div>
+              <div><dt>{m.apps_info_apkSize()}</dt><dd>{formatBytes(appDetails.code_size_bytes)}</dd></div>
+              <div><dt>{m.apps_info_dataSize()}</dt><dd>{formatBytes(appDetails.data_size_bytes)}</dd></div>
+              <div><dt>{m.apps_info_cacheSize()}</dt><dd>{formatBytes(appDetails.cache_size_bytes)}</dd></div>
+              <div class="wide"><dt>{m.apps_info_apkPath()}</dt><dd>{appDetails.apk_path}</dd></div>
             </dl>
           </section>
 
@@ -552,10 +554,10 @@
             <header>
               <span class="apps-material-section__title">
                 <MaterialIcon name="shield" />
-                <h3>{i18n.t('apps.detail.permissions')}</h3>
+                <h3>{m.apps_detail_permissions()}</h3>
               </span>
               <span class="apps-material-section__meta">
-                <span>{i18n.t('apps.permissions.count', { granted: appDetails.permissions.filter((p: AppPermissionInfo)=>p.granted).length, total: appDetails.permissions.length })}</span>
+                <span>{m.apps_permissions_count({ granted: appDetails.permissions.filter((p: AppPermissionInfo)=>p.granted).length, total: appDetails.permissions.length })}</span>
               </span>
             </header>
             <div class="apps-material-permissions">
@@ -574,7 +576,7 @@
                 </div>
               {/each}
               {#if !appDetails.permissions.length}
-                <p>{i18n.t('apps.permissions.empty')}</p>
+                <p>{m.apps_permissions_empty()}</p>
               {/if}
             </div>
           </section>

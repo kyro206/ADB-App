@@ -1,4 +1,6 @@
 <script lang="ts" module>
+import * as m from '../paraglide/messages';
+
   export interface FilesPageProps {
     serial: string;
     setStatus: (status: string) => void;
@@ -9,7 +11,7 @@
 </script>
 
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
@@ -19,14 +21,14 @@
   import PermissionsDialog from '../components/dialogs/PermissionsDialog.svelte';
   import ConfirmDialog from '../components/dialogs/ConfirmDialog.svelte';
   import ContextMenu from '../components/layout/ContextMenu.svelte';
-  import { i18n } from '../locales/index.svelte';
+  
   import { formatBytes } from './workbench/utils';
   import type { FileEntry, FileSortKey, FileView } from './workbench/types';
   import TransferMenu from '../components/layout/TransferMenu.svelte';
   import type { TransferJob, TransferStatus, TransferType } from '../components/layout/TransferMenu.svelte';
   import './FilesPage.css';
 
-  let props = $props<FilesPageProps>();
+  let props: FilesPageProps = $props();
 
   let path = $state('/sdcard');
   let files = $state.raw<FileEntry[]>([]);
@@ -74,7 +76,7 @@
     audioPlayingPath = remotePath;
     try {
       const bytes = await invoke<Uint8Array>('read_file_bytes', { serial: props.serial, path: remotePath });
-      const blob = new Blob([bytes], { type: 'audio/mpeg' });
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/mpeg' });
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       audioUrl = URL.createObjectURL(blob);
       
@@ -289,7 +291,7 @@
         transferJobs = transferJobs.map(j => j.id === job.id ? { 
           ...j, 
           status: 'error', 
-          error: children.length > 0 ? i18n.t('transfers.error') : errStr,
+          error: children.length > 0 ? m.transfers_error() : errStr,
           children: children.length > 0 ? children : undefined
         } : j);
       }
@@ -363,8 +365,8 @@
   }
 
   async function createDeviceFolder() {
-    const defaultName = i18n.t('files.prompt.defaultNewFolder');
-    const name = await asyncPrompt(i18n.t('files.prompt.newFolder'), defaultName);
+    const defaultName = m.files_prompt_defaultNewFolder();
+    const name = await asyncPrompt(m.files_prompt_newFolder(), defaultName);
     if (name?.trim() && name !== defaultName) await props.run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
     else if (name?.trim() === defaultName) await props.run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
   }
@@ -372,7 +374,7 @@
   async function renameSelectedFile() {
     const file = selectedFileEntries[0];
     if (!file) return;
-    const name = await asyncPrompt(i18n.t('files.prompt.rename'), file.name);
+    const name = await asyncPrompt(m.files_prompt_rename(), file.name);
     if (name?.trim() && name !== file.name) await props.run(['shell', 'mv', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
   }
 
@@ -381,18 +383,18 @@
     if (!file) return;
     const extensionIndex = file.is_directory ? -1 : file.name.lastIndexOf('.');
     const suggestedName = extensionIndex > 0
-      ? `${file.name.slice(0, extensionIndex)}${i18n.t('files.prompt.copySuffix')}${file.name.slice(extensionIndex)}`
-      : `${file.name}${i18n.t('files.prompt.copySuffix')}`;
-    const name = await asyncPrompt(i18n.t('files.prompt.copyName'), suggestedName);
+      ? `${file.name.slice(0, extensionIndex)}${m.files_prompt_copySuffix()}${file.name.slice(extensionIndex)}`
+      : `${file.name}${m.files_prompt_copySuffix()}`;
+    const name = await asyncPrompt(m.files_prompt_copyName(), suggestedName);
     if (name?.trim()) await props.run(['shell', 'cp', '-r', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
   }
 
   async function deleteSelectedFiles() {
     if (!selectedFileEntries.length) return;
     const accepted = await asyncConfirm(
-      i18n.t('files.confirm.deleteTitle'),
-      i18n.t('files.confirm.deleteDesc', { count: selectedFileEntries.length }),
-      i18n.t('common.delete'),
+      m.files_confirm_deleteTitle(),
+      m.files_confirm_deleteDesc({ count: selectedFileEntries.length }),
+      m.common_delete(),
       true
     );
     if (!accepted) return;
@@ -425,7 +427,7 @@
       }
     }
 
-    const mode = await asyncPermissions(i18n.t('files.action.permissions'), initialMode);
+    const mode = await asyncPermissions(m.files_action_permissions(), initialMode);
     if (!mode?.match(/^[0-7]{3,4}$/)) return;
     for (const file of selectedFileEntries) await props.run(['shell', 'chmod', mode, escapeAdbPath(filePath(file))]);
     await refreshFiles();
@@ -510,7 +512,7 @@
     contextMenu = { x: e.clientX, y: e.clientY, file };
   }
 
-  const fileType = (file: FileEntry) => file.is_link ? i18n.t('files.type.symlink') : file.is_directory ? i18n.t('files.type.folder') : i18n.t('files.type.file');
+  const fileType = (file: FileEntry) => file.is_link ? m.files_type_symlink() : file.is_directory ? m.files_type_folder() : m.files_type_file();
   const fileSize = (file: FileEntry) => file.is_directory || file.is_link ? '-' : formatBytes(file.size);
   const fileIcon = (file: FileEntry) => file.is_link ? 'shortcut' : file.is_directory ? 'folder' : 'draft';
   
@@ -583,21 +585,21 @@
   {#if osDragHover}
     <div class="file-os-drag-overlay">
       <MaterialIcon name="upload_file" />
-      <span>{i18n.t('files.action.upload')}</span>
+      <span>{m.files_action_upload()}</span>
     </div>
   {/if}
   <section class="file-material-toolbar">
     <div class="file-navigation">
-      <md-icon-button aria-label={i18n.t('files.nav.back')} title={i18n.t('files.nav.back')} disabled={fileHistoryIndex <= 0 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex - 1)}>
+      <md-icon-button aria-label={m.files_nav_back()} title={m.files_nav_back()} disabled={fileHistoryIndex <= 0 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex - 1)}>
         <MaterialIcon name="arrow_back" />
       </md-icon-button>
-      <md-icon-button aria-label={i18n.t('files.nav.forward')} title={i18n.t('files.nav.forward')} disabled={fileHistoryIndex >= fileHistory.length - 1 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex + 1)}>
+      <md-icon-button aria-label={m.files_nav_forward()} title={m.files_nav_forward()} disabled={fileHistoryIndex >= fileHistory.length - 1 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex + 1)}>
         <MaterialIcon name="arrow_forward" />
       </md-icon-button>
-      <md-icon-button aria-label={i18n.t('files.nav.up')} title={i18n.t('files.nav.up')} disabled={path === '/' ? true : undefined} onclick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}>
+      <md-icon-button aria-label={m.files_nav_up()} title={m.files_nav_up()} disabled={path === '/' ? true : undefined} onclick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}>
         <MaterialIcon name="arrow_upward" />
       </md-icon-button>
-      <md-icon-button aria-label={i18n.t('files.nav.refresh')} title={i18n.t('files.nav.refresh')} onclick={() => refreshFiles()}>
+      <md-icon-button aria-label={m.files_nav_refresh()} title={m.files_nav_refresh()} onclick={() => refreshFiles()}>
         <MaterialIcon name="refresh" />
       </md-icon-button>
     </div>
@@ -609,7 +611,7 @@
         <md-outlined-text-field 
           autofocus 
           value={path} 
-          aria-label={i18n.t('files.nav.path')} 
+          aria-label={m.files_nav_path()} 
           onfocus={(event: any) => event.currentTarget.select()} 
           onblur={() => filePathEditing = false} 
           oninput={(event: any) => path = event.currentTarget.value} 
@@ -636,7 +638,7 @@
     <md-outlined-text-field 
       class="file-search" 
       value={fileFilter} 
-      placeholder={i18n.t('files.search.placeholder', { folder: currentFolderName || '' })}
+      placeholder={m.files_search_placeholder({ folder: currentFolderName || '' })}
       type="search" 
       oninput={(event: any) => fileFilter = event.currentTarget.value}
     >
@@ -649,14 +651,14 @@
     </md-outlined-text-field>
 
     <div class="file-view-switch">
-      <button class={fileView === 'list' ? 'active' : ''} aria-label={i18n.t('files.view.list')} title={i18n.t('files.view.list')} onclick={() => fileView = 'list'}>
+      <button class={fileView === 'list' ? 'active' : ''} aria-label={m.files_view_list()} title={m.files_view_list()} onclick={() => fileView = 'list'}>
         <MaterialIcon name="view_list" />
       </button>
-      <button class={fileView === 'grid' ? 'active' : ''} aria-label={i18n.t('files.view.grid')} title={i18n.t('files.view.grid')} onclick={() => fileView = 'grid'}>
+      <button class={fileView === 'grid' ? 'active' : ''} aria-label={m.files_view_grid()} title={m.files_view_grid()} onclick={() => fileView = 'grid'}>
         <MaterialIcon name="grid_view" />
       </button>
       <div style="width: 1px; background: var(--md-sys-color-outline-variant); margin: 4px 8px"></div>
-      <button class={transfersOpen ? 'active' : ''} onclick={() => transfersOpen = !transfersOpen} title={i18n.t('transfers.title')} style="position: relative">
+      <button class={transfersOpen ? 'active' : ''} onclick={() => transfersOpen = !transfersOpen} title={m.transfers_title()} style="position: relative">
         <MaterialIcon name="swap_vert" />
         {#if transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) || transferJobs.some(j => j.status === 'transferring' || j.status === 'idle')}
           <span class="transfer-badge {transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) ? 'error' : ''}"></span>
@@ -669,28 +671,28 @@
     <div class="file-primary-actions">
       <md-filled-tonal-button onclick={createDeviceFolder}>
         <MaterialIcon slot="icon" name="create_new_folder" />
-        {i18n.t('files.action.newFolder')}
+        {m.files_action_newFolder()}
       </md-filled-tonal-button>
       <md-filled-button onclick={uploadFiles}>
         <MaterialIcon slot="icon" name="upload" />
-        {i18n.t('files.action.upload')}
+        {m.files_action_upload()}
       </md-filled-button>
       <md-filled-tonal-button disabled={selectedFileEntries.length === 0 ? true : undefined} onclick={downloadSelectedFiles}>
         <MaterialIcon slot="icon" name="download" />
-        {i18n.t('files.action.download')}
+        {m.files_action_download()}
       </md-filled-tonal-button>
     </div>
     <div class="file-selection-actions">
-      <md-icon-button aria-label={i18n.t('files.action.rename')} title={i18n.t('files.action.rename')} disabled={selectedFileEntries.length !== 1 ? true : undefined} onclick={renameSelectedFile}>
+      <md-icon-button aria-label={m.files_action_rename()} title={m.files_action_rename()} disabled={selectedFileEntries.length !== 1 ? true : undefined} onclick={renameSelectedFile}>
         <MaterialIcon name="edit" />
       </md-icon-button>
-      <md-icon-button aria-label={i18n.t('files.action.duplicate')} title={i18n.t('files.action.duplicate')} disabled={selectedFileEntries.length !== 1 ? true : undefined} onclick={duplicateSelectedFile}>
+      <md-icon-button aria-label={m.files_action_duplicate()} title={m.files_action_duplicate()} disabled={selectedFileEntries.length !== 1 ? true : undefined} onclick={duplicateSelectedFile}>
         <MaterialIcon name="content_copy" />
       </md-icon-button>
-      <md-icon-button aria-label={i18n.t('files.action.permissions')} title={i18n.t('files.action.permissions')} disabled={selectedFileEntries.length === 0 ? true : undefined} onclick={changeSelectedPermissions}>
+      <md-icon-button aria-label={m.files_action_permissions()} title={m.files_action_permissions()} disabled={selectedFileEntries.length === 0 ? true : undefined} onclick={changeSelectedPermissions}>
         <MaterialIcon name="admin_panel_settings" />
       </md-icon-button>
-      <md-icon-button class="danger" aria-label={i18n.t('common.delete')} title={`${i18n.t('common.delete')} (Supr)`} disabled={selectedFileEntries.length === 0 ? true : undefined} onclick={deleteSelectedFiles}>
+      <md-icon-button class="danger" aria-label={m.common_delete()} title={`${m.common_delete()} (Supr)`} disabled={selectedFileEntries.length === 0 ? true : undefined} onclick={deleteSelectedFiles}>
         <MaterialIcon name="delete" />
       </md-icon-button>
     </div>
@@ -700,7 +702,7 @@
     {#if fileView === 'list'}
       <div class="file-list-table">
         <div class="file-list-header">
-          {#each [['name', i18n.t('files.sort.name')], ['type', i18n.t('files.sort.type')], ['size', i18n.t('files.sort.size')], ['permissions', i18n.t('files.sort.permissions')], ['modified', i18n.t('files.sort.modified')]] as [key, label] (key)}
+          {#each [['name', m.files_sort_name()], ['type', m.files_sort_type()], ['size', m.files_sort_size()], ['permissions', m.files_sort_permissions()], ['modified', m.files_sort_modified()]] as [key, label] (key)}
             <button class={fileSort.key === key ? 'active' : ''} onclick={() => changeFileSort(key as FileSortKey)}>
               {label}
               <MaterialIcon name={sortIcon(key as FileSortKey)} />
@@ -796,8 +798,8 @@
     {#if !filteredFiles.length}
       <div class="file-empty">
         <MaterialIcon name="folder_off" />
-        <b>{i18n.t('files.empty.title')}</b>
-        <span>{i18n.t('files.empty.desc')}</span>
+        <b>{m.files_empty_title()}</b>
+        <span>{m.files_empty_desc()}</span>
       </div>
     {/if}
     
@@ -815,8 +817,8 @@
   </section>
   
   <footer class="file-status-bar">
-    <span><MaterialIcon name="folder" />{i18n.t('files.status.items', { count: filteredFiles.length })}</span>
-    <span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? i18n.t('files.status.selected', { count: selectedFileEntries.length }) : i18n.t('files.status.noSelection')}</span>
+    <span><MaterialIcon name="folder" />{m.files_status_items({ count: filteredFiles.length })}</span>
+    <span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? m.files_status_selected({ count: selectedFileEntries.length }) : m.files_status_noSelection()}</span>
   </footer>
   
   {#if promptConfig}
@@ -857,12 +859,12 @@
       y={contextMenu.y}
       onClose={() => contextMenu = null}
       items={[
-        { icon: 'open_in_new', label: i18n.t('files.action.open'), onClick: () => openFileEntry(contextMenu!.file), disabled: !contextMenu.file.is_directory && !contextMenu.file.is_link },
-        { icon: 'download', label: i18n.t('files.action.download'), onClick: () => setTimeout(downloadSelectedFiles, 10), disabled: contextMenu.file.is_directory },
-        { icon: 'edit', label: i18n.t('files.action.rename'), onClick: () => setTimeout(renameSelectedFile, 10) },
-        { icon: 'content_copy', label: i18n.t('files.action.duplicate'), onClick: () => setTimeout(duplicateSelectedFile, 10) },
-        { icon: 'admin_panel_settings', label: i18n.t('files.action.permissions'), onClick: () => setTimeout(changeSelectedPermissions, 10) },
-        { icon: 'delete', label: i18n.t('common.delete'), onClick: () => setTimeout(deleteSelectedFiles, 10), danger: true }
+        { icon: 'open_in_new', label: m.files_action_open(), onClick: () => openFileEntry(contextMenu!.file), disabled: !contextMenu.file.is_directory && !contextMenu.file.is_link },
+        { icon: 'download', label: m.files_action_download(), onClick: () => setTimeout(downloadSelectedFiles, 10), disabled: contextMenu.file.is_directory },
+        { icon: 'edit', label: m.files_action_rename(), onClick: () => setTimeout(renameSelectedFile, 10) },
+        { icon: 'content_copy', label: m.files_action_duplicate(), onClick: () => setTimeout(duplicateSelectedFile, 10) },
+        { icon: 'admin_panel_settings', label: m.files_action_permissions(), onClick: () => setTimeout(changeSelectedPermissions, 10) },
+        { icon: 'delete', label: m.common_delete(), onClick: () => setTimeout(deleteSelectedFiles, 10), danger: true }
       ]}
     />
   {/if}

@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { i18n } from '../../locales/index.svelte';
+import * as m from '../../paraglide/messages';
+
+  
   import AppModal from './AppModal.svelte';
   import './PermissionsDialog.css';
 
@@ -64,28 +66,28 @@
   <div class="permissions-dialog-content">
     <div class="permissions-grid">
       <div></div>
-      <div class="header">{i18n.t('files.permissions.read')}</div>
-      <div class="header">{i18n.t('files.permissions.write')}</div>
-      <div class="header">{i18n.t('files.permissions.execute')}</div>
+      <div class="header">{m.files_permissions_read()}</div>
+      <div class="header">{m.files_permissions_write()}</div>
+      <div class="header">{m.files_permissions_execute()}</div>
 
-      <div class="row-label">{i18n.t('files.permissions.owner')}</div>
+      <div class="row-label">{m.files_permissions_owner()}</div>
       <md-checkbox checked={hasBit(perms[0], 4) ? true : undefined} oninput={() => toggleBit(0, 4)}></md-checkbox>
       <md-checkbox checked={hasBit(perms[0], 2) ? true : undefined} oninput={() => toggleBit(0, 2)}></md-checkbox>
       <md-checkbox checked={hasBit(perms[0], 1) ? true : undefined} oninput={() => toggleBit(0, 1)}></md-checkbox>
 
-      <div class="row-label">{i18n.t('files.permissions.group')}</div>
+      <div class="row-label">{m.files_permissions_group()}</div>
       <md-checkbox checked={hasBit(perms[1], 4) ? true : undefined} oninput={() => toggleBit(1, 4)}></md-checkbox>
       <md-checkbox checked={hasBit(perms[1], 2) ? true : undefined} oninput={() => toggleBit(1, 2)}></md-checkbox>
       <md-checkbox checked={hasBit(perms[1], 1) ? true : undefined} oninput={() => toggleBit(1, 1)}></md-checkbox>
 
-      <div class="row-label">{i18n.t('files.permissions.others')}</div>
+      <div class="row-label">{m.files_permissions_others()}</div>
       <md-checkbox checked={hasBit(perms[2], 4) ? true : undefined} oninput={() => toggleBit(2, 4)}></md-checkbox>
       <md-checkbox checked={hasBit(perms[2], 2) ? true : undefined} oninput={() => toggleBit(2, 2)}></md-checkbox>
       <md-checkbox checked={hasBit(perms[2], 1) ? true : undefined} oninput={() => toggleBit(2, 1)}></md-checkbox>
     </div>
     
     <div class="permissions-octal">
-      <span>{i18n.t('files.permissions.octal')}</span>
+      <span>{m.files_permissions_octal()}</span>
       <md-outlined-text-field 
         value={octal} 
         oninput={handleOctalInput} 
@@ -94,7 +96,7 @@
   </div>
 
   {#snippet actions()}
-    <md-text-button onclick={onCancel}>{i18n.t('common.cancel')}</md-text-button>
-    <md-filled-button onclick={handleConfirm}>{i18n.t('common.confirm')}</md-filled-button>
+    <md-text-button onclick={onCancel}>{m.common_cancel()}</md-text-button>
+    <md-filled-button onclick={handleConfirm}>{m.common_confirm()}</md-filled-button>
   {/snippet}
 </AppModal>

@@ -1,4 +1,6 @@
 <script lang="ts" module>
+import * as m from '../paraglide/messages';
+
   export type ConfigurableTool = 'adb' | 'scrcpy' | 'java';
   export type InstallableTool = 'adb' | 'scrcpy';
 </script>
@@ -8,7 +10,7 @@
   import { getVersion, getName } from '@tauri-apps/api/app';
   import { open } from '@tauri-apps/plugin-dialog';
   import type { ToolStatus, ToolsStatus } from './workbench/types';
-  import { i18n } from '../locales/index.svelte';
+  
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import AppModal from '../components/dialogs/AppModal.svelte';
   import { APACHE_LICENSE_2_0, MIT_LICENSE } from '../utils/licenseTexts';
@@ -81,11 +83,11 @@
   });
 
   function getToolStateLabel(tool: ToolStatus, checking: boolean) {
-    if (!tool.available) return i18n.t('settings.notInstalled');
-    if (tool.update_available) return i18n.t('settings.updateAvailable');
-    if (checking) return i18n.t('settings.checkingUpdate');
-    if (tool.update_checked) return i18n.t('settings.updated');
-    return i18n.t('settings.checkFailed');
+    if (!tool.available) return m.settings_notInstalled();
+    if (tool.update_available) return m.settings_updateAvailable();
+    if (checking) return m.settings_checkingUpdate();
+    if (tool.update_checked) return m.settings_updated();
+    return m.settings_checkFailed();
   }
 
   function getToolIconName(tool: ToolStatus, checking: boolean) {
@@ -107,25 +109,25 @@
 <div class="work-grid">
   
   <section class="md3-card">
-    <h3 class="md3-title">{i18n.t('settings.appearance')}</h3>
+    <h3 class="md3-title">{m.settings_appearance()}</h3>
     <div class="settings-appearance-row">
       <div class="md3-segmented-button">
         <button class={theme === 'light' ? 'active' : ''} onclick={() => onThemeChange('light')}>
           <MaterialIcon name="light_mode" />
-          <span>{i18n.t('settings.theme.light')}</span>
+          <span>{m.settings_theme_light()}</span>
         </button>
         <button class={theme === 'dark' ? 'active' : ''} onclick={() => onThemeChange('dark')}>
           <MaterialIcon name="dark_mode" />
-          <span>{i18n.t('settings.theme.dark')}</span>
+          <span>{m.settings_theme_dark()}</span>
         </button>
         <button class={theme === 'auto' ? 'active' : ''} onclick={() => onThemeChange('auto')}>
           <MaterialIcon name="brightness_auto" />
-          <span>{i18n.t('settings.theme.auto')}</span>
+          <span>{m.settings_theme_auto()}</span>
         </button>
       </div>
 
       <md-outlined-select 
-        label={i18n.t('settings.language')}
+        label={m.settings_language()}
         value={language} 
         onchange={(e: any) => onLanguageChange(e.target.value)}
       >
@@ -155,10 +157,10 @@
             </strong>
           </div>
           <div class="tool-status-details">
-            <span>{i18n.t('settings.source')}: {tool.source || '-'}</span>
-            <span>{i18n.t('settings.installedVersion')}: {tool.version || '-'}</span>
+            <span>{m.settings_source()}: {tool.source || '-'}</span>
+            <span>{m.settings_installedVersion()}: {tool.version || '-'}</span>
             {#if tool.latest_version}
-              <span>{i18n.t('settings.latestVersion')}: {tool.latest_version}</span>
+              <span>{m.settings_latestVersion()}: {tool.latest_version}</span>
             {/if}
           </div>
         </div>
@@ -176,22 +178,22 @@
         </md-outlined-text-field>
         <div class="button-row">
           <md-filled-button onclick={() => onSaveToolPath(toolName, path)}>
-            {i18n.t('settings.savePath')}
+            {m.settings_savePath()}
           </md-filled-button>
           <md-outlined-button onclick={() => onSaveToolPath(toolName, '')}>
-            {i18n.t('settings.autoDetect')}
+            {m.settings_autoDetect()}
           </md-outlined-button>
           
           {#if tool?.install_supported && !tool.available}
             <md-filled-button onclick={() => onInstallTool(toolName)}>
               <MaterialIcon name="download" slot="icon" />
-              {i18n.t('settings.install')} {title.split(' ')[0]}
+              {m.settings_install()} {title.split(' ')[0]}
             </md-filled-button>
           {/if}
           {#if tool?.install_supported && tool.update_available}
             <md-filled-button onclick={() => onInstallTool(toolName)}>
               <MaterialIcon name="update" slot="icon" />
-              {i18n.t('settings.update')} {title.split(' ')[0]}
+              {m.settings_update()} {title.split(' ')[0]}
             </md-filled-button>
           {/if}
         </div>
@@ -199,28 +201,28 @@
     </section>
   {/snippet}
 
-  {@render toolPanel("ADB", "adb", tools?.adb, adbPath, i18n.t('settings.adbPlaceholder'), onAdbPathChange)}
-  {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, i18n.t('settings.scrcpyPlaceholder'), onScrcpyPathChange)}
+  {@render toolPanel("ADB", "adb", tools?.adb, adbPath, m.settings_adbPlaceholder(), onAdbPathChange)}
+  {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_scrcpyPlaceholder(), onScrcpyPathChange)}
   
   <section class="md3-card">
-    <h3 class="md3-title">{i18n.t('settings.javaTitle')}</h3>
+    <h3 class="md3-title">{m.settings_javaTitle()}</h3>
     <div class="tool-status">
       <div class="tool-status-header">
         <MaterialIcon 
           name={tools?.java.available ? 'check_circle' : 'warning'} 
           size={20} 
         />
-        <strong>{tools?.java.available ? i18n.t('settings.javaCompatible') : tools?.java.path ? i18n.t('settings.javaNotCompatible') : i18n.t('settings.javaNotDetected')}</strong>
+        <strong>{tools?.java.available ? m.settings_javaCompatible() : tools?.java.path ? m.settings_javaNotCompatible() : m.settings_javaNotDetected()}</strong>
       </div>
       <div class="tool-status-details">
-        <span>{i18n.t('settings.installedVersion')}: {tools?.java.version || '-'}</span>
+        <span>{m.settings_installedVersion()}: {tools?.java.version || '-'}</span>
       </div>
     </div>
     <div class="form-stack">
       <md-outlined-text-field 
         value={javaPath} 
         oninput={(e: any) => onJavaPathChange(e.target.value)} 
-        label={i18n.t('settings.javaPlaceholder')}
+        label={m.settings_javaPlaceholder()}
         style="width: 100%"
       >
         <md-icon-button slot="trailing-icon" onclick={() => pickDirectory(onJavaPathChange)}>
@@ -228,21 +230,21 @@
         </md-icon-button>
       </md-outlined-text-field>
       <div class="button-row">
-        <md-filled-button onclick={() => onSaveToolPath('java', javaPath)}>{i18n.t('settings.savePath')}</md-filled-button>
-        <md-outlined-button onclick={() => onSaveToolPath('java', '')}>{i18n.t('settings.autoDetect')}</md-outlined-button>
+        <md-filled-button onclick={() => onSaveToolPath('java', javaPath)}>{m.settings_savePath()}</md-filled-button>
+        <md-outlined-button onclick={() => onSaveToolPath('java', '')}>{m.settings_autoDetect()}</md-outlined-button>
         <md-text-button href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">
           <MaterialIcon name="open_in_new" slot="icon" />
-          {i18n.t('settings.downloadTemurin')}
+          {m.settings_downloadTemurin()}
         </md-text-button>
       </div>
     </div>
   </section>
   
   <section class="md3-card">
-    <h3 class="md3-title">{i18n.t('settings.cacheTitle')}</h3>
+    <h3 class="md3-title">{m.settings_cacheTitle()}</h3>
     <div class="form-stack">          
       <label class="settings-switch-row">
-        <span class="md3-body-large">{i18n.t('settings.enableCache')}</span>
+        <span class="md3-body-large">{m.settings_enableCache()}</span>
         <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
           selected={appSettings?.cache_enabled ?? true ? true : undefined}
@@ -257,7 +259,7 @@
       <md-outlined-text-field 
         value={localCachePath || appSettings?.cache_path || defaultCacheDir} 
         oninput={(e: any) => localCachePath = e.target.value} 
-        label={i18n.t('settings.cachePathPlaceholder')}
+        label={m.settings_cachePathPlaceholder()}
         style="width: 100%"
       >
         <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => localCachePath = p)}>
@@ -271,7 +273,7 @@
             onSaveAppSettings({ ...appSettings, cache_path: localCachePath });
           }
         }}>
-          {i18n.t('settings.savePath')}
+          {m.settings_savePath()}
         </md-filled-button>
 
         <md-outlined-button onclick={() => {
@@ -280,26 +282,26 @@
             onSaveAppSettings({ ...appSettings, cache_path: '' });
           }
         }}>
-          {i18n.t('common.reset')}
+          {m.common_reset()}
         </md-outlined-button>
 
         <md-outlined-button onclick={onClearCache}>
           <MaterialIcon name="delete" slot="icon" />
-          {i18n.t('common.clearCache')}
+          {m.common_clearCache()}
         </md-outlined-button>
       </div>
       <p style="font-size: 13px; color: var(--md-sys-color-error); margin-top: 8px; display: flex; align-items: center; gap: 6px; margin: 8px 0 0 0">
         <MaterialIcon name="info" size={16} />
-        {i18n.t('settings.cacheRestartWarning')}
+        {m.settings_cacheRestartWarning()}
       </p>
     </div>
   </section>
 
   <section class="md3-card">
-    <h3 class="md3-title">{i18n.t('settings.advancedTitle')}</h3>
+    <h3 class="md3-title">{m.settings_advancedTitle()}</h3>
     <div class="form-stack">          
       <label class="settings-switch-row">
-        <span class="md3-body-large">{i18n.t('settings.killAdbOnExit')}</span>
+        <span class="md3-body-large">{m.settings_killAdbOnExit()}</span>
         <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
           selected={appSettings?.kill_adb_on_exit ?? true ? true : undefined}
@@ -314,7 +316,7 @@
   </section>
 
   <section class="md3-card" style="grid-column: 1 / -1">
-    <h3 class="md3-title">{i18n.t('settings.aboutTitle')}</h3>
+    <h3 class="md3-title">{m.settings_aboutTitle()}</h3>
     <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px; text-align: left; padding: 16px 0">
       
       <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px">
@@ -333,14 +335,14 @@
           </md-filled-button>
           <md-outlined-button onclick={() => licensesOpen = true}>
             <MaterialIcon name="gavel" slot="icon" />
-            {i18n.t('settings.aboutLicenses')}
+            {m.settings_aboutLicenses()}
           </md-outlined-button>
         </div>
       </div>
 
       <p style="font-size: 13px; color: var(--md-sys-color-error); display: flex; align-items: center; gap: 6px; margin: 0 0 8px 0">
         <MaterialIcon name="warning" size={16} />
-        {i18n.t('settings.aboutDisclaimer')}
+        {m.settings_aboutDisclaimer()}
       </p>
       
       <div style="display: flex; align-items: center; gap: 12px; width: 100%">
@@ -362,7 +364,7 @@
         </div>
         <div style="display: flex; flex-direction: column">
           <span style="font-size: 12px; color: var(--md-sys-color-on-surface-variant)">
-            {i18n.t('settings.aboutCreator')}
+            {m.settings_aboutCreator()}
           </span>
           <div style="display: flex; align-items: center; gap: 6px">
             <strong style="font-size: 15px; color: var(--md-sys-color-on-surface)">Kyro206</strong>
@@ -376,7 +378,7 @@
       
     </div>
   </section>
-  <AppModal open={licensesOpen} onClose={() => licensesOpen = false} title={i18n.t('settings.aboutLicenses')} width="large">
+  <AppModal open={licensesOpen} onClose={() => licensesOpen = false} title={m.settings_aboutLicenses()} width="large">
     <div style="display: flex; flex-direction: column; gap: 24px">
       <div style="background: var(--md-sys-color-surface-container); padding: 16px; border-radius: 12px; overflow-y: auto; border: 1px solid var(--md-sys-color-outline-variant)">
         {#each LICENSES as lic, index}

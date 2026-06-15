@@ -7,6 +7,10 @@ yarn/
 # Output of 'npm pack'
 *.tgz
 
+# Vite output
+dist/
+dist-ssr/
+
 # dotenv environment variables file
 env
 

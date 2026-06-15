@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { i18n } from '../../locales/index.svelte';
+import * as m from '../../paraglide/messages';
+
+  
   import AppModal from './AppModal.svelte';
 
   let {
@@ -21,8 +23,8 @@
   }>();
 
   let value = $state(initialValue);
-  let finalConfirmText = $derived(confirmText || i18n.t('common.confirm'));
-  let finalCancelText = $derived(cancelText || i18n.t('common.cancel'));
+  let finalConfirmText = $derived(confirmText || m.common_confirm());
+  let finalCancelText = $derived(cancelText || m.common_cancel());
 
   $effect(() => {
     if (open) {
@@ -51,7 +53,7 @@
   <div style="margin-top: 8px;">
     <md-outlined-text-field
       style="width: 100%;"
-      label={i18n.t('common.name')}
+      label={m.common_name()}
       {value}
       oninput={(e: any) => value = e.target.value}
       onkeydown={handleKeyDown}

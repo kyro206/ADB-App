@@ -1,4 +1,6 @@
 <script lang="ts" module>
+import * as m from '../paraglide/messages';
+
   export interface MirroringPageProps {
     serial: string;
     tools: ToolsStatus | null;
@@ -49,20 +51,20 @@
 </script>
 
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+
   import MaterialIcon from '../components/MaterialIcon.svelte';
-  import { i18n } from '../locales/index.svelte';
+  
   import AppModal from '../components/dialogs/AppModal.svelte';
   import { save } from '@tauri-apps/plugin-dialog';
   import type { AppSummary, MirrorMode, ToolsStatus } from './workbench/types';
   import './MirroringPage.css';
 
-  let props = $props<MirroringPageProps>();
+  let props: MirroringPageProps = $props();
 
   const MODES = [
-    { id: 'display', icon: 'smartphone', titleKey: 'mirror.mode.display' },
-    { id: 'virtual', icon: 'ad_group', titleKey: 'mirror.mode.virtual' },
-    { id: 'camera', icon: 'photo_camera', titleKey: 'mirror.mode.camera' },
+    { id: 'display', icon: 'smartphone', title: () => m.mirror_mode_display() },
+    { id: 'virtual', icon: 'ad_group', title: () => m.mirror_mode_virtual() },
+    { id: 'camera', icon: 'photo_camera', title: () => m.mirror_mode_camera() },
   ];
 
   let advancedArgs = $state('');
@@ -135,7 +137,7 @@
 {/snippet}
 
 <div class="mirror-material-page">
-  <section class="mirror-material-source-tabs" aria-label={i18n.t('mirror.source')}>
+  <section class="mirror-material-source-tabs" aria-label={m.mirror_source()}>
     <md-tabs>
       {#each MODES as item}
         <md-primary-tab 
@@ -143,7 +145,7 @@
           onclick={() => props.setMode(item.id as MirrorMode)}
         >
           <MaterialIcon slot="icon" name={item.icon} filled={props.mode === item.id} />
-          {i18n.t(item.titleKey)}
+          {item.title()}
         </md-primary-tab>
       {/each}
     </md-tabs>
@@ -152,28 +154,28 @@
   <div class="mirror-material-layout">
     <main class="mirror-material-main">
       <section class="mirror-material-card">
-        <header><MaterialIcon name="image" filled /><h3>{i18n.t('mirror.image.title')}</h3></header>
+        <header><MaterialIcon name="image" filled /><h3>{m.mirror_image_title()}</h3></header>
         <div class="mirror-material-fields">
           {#if !cameraMode}
-            {@render Field(i18n.t('mirror.image.maxSize'), props.maxSize, props.setMaxSize, 'number', i18n.t('mirror.image.noLimit'))}
+            {@render Field(m.mirror_image_maxSize(), props.maxSize, props.setMaxSize, 'number', m.mirror_image_noLimit())}
           {/if}
-          {@render Field(i18n.t('mirror.image.maxFps'), props.maxFps, props.setMaxFps, 'number', i18n.t('mirror.image.noLimit'))}
+          {@render Field(m.mirror_image_maxFps(), props.maxFps, props.setMaxFps, 'number', m.mirror_image_noLimit())}
         </div>
         <div class="mirror-material-toggles">
-          {@render Toggle('fullscreen', i18n.t('mirror.image.fullscreen'), props.fullscreen, props.setFullscreen)}
-          {@render Toggle('screen_lock_portrait', i18n.t('mirror.image.turnScreenOff'), props.turnScreenOff, props.setTurnScreenOff, cameraMode)}
+          {@render Toggle('fullscreen', m.mirror_image_fullscreen(), props.fullscreen, props.setFullscreen)}
+          {@render Toggle('screen_lock_portrait', m.mirror_image_turnScreenOff(), props.turnScreenOff, props.setTurnScreenOff, cameraMode)}
         </div>
       </section>
 
       {#if props.mode === 'virtual'}
         <section class="mirror-material-card">
-          <header><MaterialIcon name="ad_group" filled /><h3>{i18n.t('mirror.virtual.title')}</h3></header>
+          <header><MaterialIcon name="ad_group" filled /><h3>{m.mirror_virtual_title()}</h3></header>
           <div class="mirror-material-fields three">
-            {@render Field(i18n.t('mirror.virtual.width'), props.virtualWidth, props.setVirtualWidth, 'number', i18n.t('mirror.virtual.auto'))}
-            {@render Field(i18n.t('mirror.virtual.height'), props.virtualHeight, props.setVirtualHeight, 'number', i18n.t('mirror.virtual.auto'))}
-            {@render Field('DPI', props.virtualDpi, props.setVirtualDpi, 'number', i18n.t('mirror.virtual.auto'))}
+            {@render Field(m.mirror_virtual_width(), props.virtualWidth, props.setVirtualWidth, 'number', m.mirror_virtual_auto())}
+            {@render Field(m.mirror_virtual_height(), props.virtualHeight, props.setVirtualHeight, 'number', m.mirror_virtual_auto())}
+            {@render Field('DPI', props.virtualDpi, props.setVirtualDpi, 'number', m.mirror_virtual_auto())}
           </div>
-          {@render Toggle('aspect_ratio', i18n.t('mirror.virtual.resizable'), props.virtualResizable, props.setVirtualResizable)}
+          {@render Toggle('aspect_ratio', m.mirror_virtual_resizable(), props.virtualResizable, props.setVirtualResizable)}
         </section>
       {/if}
 
@@ -181,50 +183,50 @@
         <section class="mirror-material-card">
           <header>
             <MaterialIcon name="photo_camera" filled />
-            <h3>{i18n.t('mirror.camera.title')}</h3>
+            <h3>{m.mirror_camera_title()}</h3>
             <div class="mirror-material-spacer"></div>
-            <md-icon-button title={i18n.t('mirror.camera.refresh')} onclick={props.onRefreshData}>
+            <md-icon-button title={m.mirror_camera_refresh()} onclick={props.onRefreshData}>
               <MaterialIcon name="refresh" />
             </md-icon-button>
           </header>
-          {@render Select(i18n.t('mirror.camera.id'), props.cameraId, [['', i18n.t('mirror.camera.auto')], ...props.cameras.map(c => [c, c] as [string, string])], props.setCameraId)}
+          {@render Select(m.mirror_camera_id(), props.cameraId, [['', m.mirror_camera_auto()], ...props.cameras.map((c: string) => [c, c] as [string, string])], props.setCameraId)}
           <div class="mirror-material-fields">
-            {@render Field(i18n.t('mirror.camera.width'), props.cameraWidth, props.setCameraWidth, 'number', i18n.t('mirror.virtual.auto'))}
-            {@render Field(i18n.t('mirror.camera.height'), props.cameraHeight, props.setCameraHeight, 'number', i18n.t('mirror.virtual.auto'))}
+            {@render Field(m.mirror_camera_width(), props.cameraWidth, props.setCameraWidth, 'number', m.mirror_virtual_auto())}
+            {@render Field(m.mirror_camera_height(), props.cameraHeight, props.setCameraHeight, 'number', m.mirror_virtual_auto())}
           </div>
         </section>
       {/if}
 
       <section class="mirror-material-card">
-        <header><MaterialIcon name="fiber_manual_record" filled /><h3>{i18n.t('mirror.record.title')}</h3></header>
+        <header><MaterialIcon name="fiber_manual_record" filled /><h3>{m.mirror_record_title()}</h3></header>
         <div class="mirror-material-toggles">
-          {@render Toggle('videocam', i18n.t('mirror.record.toggle'), props.record, props.setRecord)}
-          {@render Field(i18n.t('mirror.record.path'), props.recordPath, props.setRecordPath, 'text', 'C:\\Videos\\captura.mkv', !props.record, 'folder_open', pickRecordPath)}
+          {@render Toggle('videocam', m.mirror_record_toggle(), props.record, props.setRecord)}
+          {@render Field(m.mirror_record_path(), props.recordPath, props.setRecordPath, 'text', 'C:\\Videos\\captura.mkv', !props.record, 'folder_open', pickRecordPath)}
         </div>
       </section>
     </main>
 
     <aside class="mirror-material-side">
       <section class="mirror-material-card">
-        <header><MaterialIcon name="tune" filled /><h3>{i18n.t('mirror.input.title')}</h3></header>
+        <header><MaterialIcon name="tune" filled /><h3>{m.mirror_input_title()}</h3></header>
         {#if !cameraMode}
-          {@render Toggle('visibility', i18n.t('mirror.input.readOnly'), props.readOnly, props.setReadOnly)}
+          {@render Toggle('visibility', m.mirror_input_readOnly(), props.readOnly, props.setReadOnly)}
         {/if}
-        {@render Select(i18n.t('mirror.input.audio'), props.audio, [['default', i18n.t('mirror.input.default')], ['none', i18n.t('mirror.input.none')], ['output', i18n.t('mirror.input.output')], ['mic', i18n.t('mirror.input.mic')]], props.setAudio)}
-        {@render Select(i18n.t('mirror.input.keyboard'), props.keyboard, [['default', i18n.t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', i18n.t('mirror.input.disabled')]], props.setKeyboard, inputDisabled)}
-        {@render Select(i18n.t('mirror.input.mouse'), props.mouse, [['default', i18n.t('mirror.input.default')], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', i18n.t('mirror.input.disabled')]], props.setMouse, inputDisabled)}
+        {@render Select(m.mirror_input_audio(), props.audio, [['default', m.mirror_input_default()], ['none', m.mirror_input_none()], ['output', m.mirror_input_output()], ['mic', m.mirror_input_mic()]], props.setAudio)}
+        {@render Select(m.mirror_input_keyboard(), props.keyboard, [['default', m.mirror_input_default()], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', m.mirror_input_disabled()]], props.setKeyboard, inputDisabled)}
+        {@render Select(m.mirror_input_mouse(), props.mouse, [['default', m.mirror_input_default()], ['sdk', 'SDK'], ['uhid', 'UHID'], ['aoa', 'AOA'], ['disabled', m.mirror_input_disabled()]], props.setMouse, inputDisabled)}
       </section>
 
       {#if !cameraMode}
         <section class="mirror-material-card">
-          <header><MaterialIcon name="rocket_launch" filled /><h3>{i18n.t('mirror.start.title')}</h3></header>
-          {@render Select(i18n.t('mirror.start.app'), props.app, [['', i18n.t('mirror.start.appPlaceholder')], ...props.apps.map(app => [app.package_name, app.display_name || app.package_name] as [string, string])], props.setApp)}
+          <header><MaterialIcon name="rocket_launch" filled /><h3>{m.mirror_start_title()}</h3></header>
+          {@render Select(m.mirror_start_app(), props.app, [['', m.mirror_start_appPlaceholder()], ...props.apps.map((app: AppSummary) => [app.package_name, app.display_name || app.package_name] as [string, string])], props.setApp)}
         </section>
       {/if}
 
       <section class="mirror-material-card">
-        <header><MaterialIcon name="terminal" /><h3>{i18n.t('mirror.advanced.title')}</h3></header>
-        {@render Field(i18n.t('mirror.advanced.args'), advancedArgs, (v) => advancedArgs = v, 'text', '--video-bit-rate=8M')}
+        <header><MaterialIcon name="terminal" /><h3>{m.mirror_advanced_title()}</h3></header>
+        {@render Field(m.mirror_advanced_args(), advancedArgs, (v) => advancedArgs = v, 'text', '--video-bit-rate=8M')}
       </section>
     </aside>
   </div>
@@ -232,18 +234,18 @@
   <footer class="mirror-material-footer">
     <div class="mirror-material-footer__info">
       <MaterialIcon name="info" />
-      <span>{cameraMode ? i18n.t('mirror.footer.cameraInfo') : i18n.t('mirror.footer.audioInfo')}</span>
+      <span>{cameraMode ? m.mirror_footer_cameraInfo() : m.mirror_footer_audioInfo()}</span>
     </div>
     <div class="mirror-material-footer__actions">
       {#if advancedArgs}
         <md-outlined-button disabled={!props.serial ? true : undefined} onclick={() => props.onDirectLaunch(advancedArgs)}>
           <span slot="icon"><MaterialIcon name="terminal" /></span>
-          {i18n.t('mirror.advanced.run')}
+          {m.mirror_advanced_run()}
         </md-outlined-button>
       {/if}
       <md-filled-button disabled={!props.serial || !scrcpyReady ? true : undefined} onclick={props.onLaunch}>
         <span slot="icon"><MaterialIcon name="cast" filled /></span>
-        {i18n.t('mirror.action.launch')}
+        {m.mirror_action_launch()}
       </md-filled-button>
     </div>
   </footer>
@@ -251,12 +253,12 @@
   <AppModal 
     open={showScrcpyModal} 
     onClose={() => showScrcpyModal = false} 
-    title={i18n.t('dialog.missingTool.title', { tool: 'scrcpy' })}
+    title={m.dialog_missingTool_title({ tool: 'scrcpy' })}
   >
-    <p>{i18n.t('dialog.missingTool.desc', { tool: 'scrcpy' })}</p>
+    <p>{m.dialog_missingTool_desc({ tool: 'scrcpy' })}</p>
     {#snippet actions()}
       <md-filled-button onclick={() => { showScrcpyModal = false; window.dispatchEvent(new CustomEvent('change-tab', { detail: 'settings' })); }}>
-        {i18n.t('dialog.missingTool.goToSettings')}
+        {m.dialog_missingTool_goToSettings()}
       </md-filled-button>
     {/snippet}
   </AppModal>

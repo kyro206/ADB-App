@@ -1,10 +1,12 @@
 <script lang="ts">
+import * as m from '../paraglide/messages';
+
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { save } from '@tauri-apps/plugin-dialog';
   import { getName } from '@tauri-apps/api/app';
   import { devicesState, type DeviceDetails } from '../context/devices.svelte';
-  import { i18n } from '../locales/index.svelte';
+  
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import PowerDialog from '../components/dialogs/PowerDialog.svelte';
   import './HomePage.css';
@@ -62,13 +64,13 @@
   let stateLabel = $derived.by(() => {
     if (!dd) return '-';
     const labels: Record<string, string> = { 
-      device: i18n.t('state.connected'), 
-      connecting: i18n.t('state.connecting'), 
-      unauthorized: i18n.t('state.unauthorized'), 
-      offline: i18n.t('state.offline'), 
-      recovery: i18n.t('state.recovery') 
+      device: m.state_connected(), 
+      connecting: m.state_connecting(), 
+      unauthorized: m.state_unauthorized(), 
+      offline: m.state_offline(), 
+      recovery: m.state_recovery() 
     };
-    return labels[dd.state] || i18n.t('state.unknown');
+    return labels[dd.state] || m.state_unknown();
   });
 
   async function captureScreenshot() {
@@ -83,7 +85,7 @@
   async function saveScreenshotData() {
     if (!screenshot || savingScreenshot) return;
     const destination = await save({
-      title: i18n.t('home.saveCapture'),
+      title: m.home_saveCapture(),
       defaultPath: `adb-captura-${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
       filters: [{ name: 'Imagen PNG', extensions: ['png'] }],
     });
@@ -122,17 +124,17 @@
   }
 
   let facts = $derived<Array<[string, string, string, string?]>>([
-    ['check_circle', i18n.t('home.field.state'), stateLabel],
+    ['check_circle', m.home_field_state(), stateLabel],
     ['android', "Android", dd ? `${dd.android_version} (API ${dd.api_level})` : '-'],
-    ['devices', i18n.t('home.field.deviceType'), dd ? i18n.t(`device.type.${dd.device_type}`) : '-'],
-    ['tablet_android', i18n.t('home.field.model'), dd?.model || '-'], 
-    ['factory', i18n.t('home.field.manufacturer'), dd?.manufacturer || '-'],
-    ['verified', i18n.t('home.field.brand'), dd?.brand || '-'], 
-    ['developer_board', i18n.t('home.field.architecture'), dd?.architecture || '-'],
-    ['inventory_2', i18n.t('home.field.product'), dd?.product_name || '-'], 
-    ['tag', i18n.t('home.field.codename'), dd?.codename || '-'],
-    ['fingerprint', i18n.t('home.field.serial'), dd?.serial || '-'], 
-    ['schedule', i18n.t('home.field.uptime'), bootDate?.short || '-', bootDate?.full || '-'],
+    ['devices', m.home_field_deviceType(), dd ? (m as any)[`device_type_${dd.device_type}`]?.() ?? '-' : '-'],
+    ['tablet_android', m.home_field_model(), dd?.model || '-'], 
+    ['factory', m.home_field_manufacturer(), dd?.manufacturer || '-'],
+    ['verified', m.home_field_brand(), dd?.brand || '-'], 
+    ['developer_board', m.home_field_architecture(), dd?.architecture || '-'],
+    ['inventory_2', m.home_field_product(), dd?.product_name || '-'], 
+    ['tag', m.home_field_codename(), dd?.codename || '-'],
+    ['fingerprint', m.home_field_serial(), dd?.serial || '-'], 
+    ['schedule', m.home_field_uptime(), bootDate?.short || '-', bootDate?.full || '-'],
   ]);
 </script>
 
@@ -141,7 +143,7 @@
     <section class="material-surface home-hero">
       <div>
         <h2>{deviceName}</h2>
-        <p>{dd ? secondaryTitle(dd) : i18n.t('home.summary.empty')}</p>
+        <p>{dd ? secondaryTitle(dd) : m.home_summary_empty()}</p>
         <div class="home-popular-actions" style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px;">
           <md-filled-tonal-button 
             disabled={!devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device' || shizukuStatus === 'busy' ? true : undefined} 
@@ -153,14 +155,14 @@
                 class={shizukuStatus === 'busy' ? 'home-spin' : ''} 
               />
             </span>
-            {i18n.t('home.action.shizuku')}
+            {m.home_action_shizuku()}
           </md-filled-tonal-button>
         </div>
       </div>
       <div class="home-hero__actions">
         <md-filled-tonal-icon-button 
-          aria-label={i18n.t('home.power.options')} 
-          title={i18n.t('home.power.options')} 
+          aria-label={m.home_power_options()} 
+          title={m.home_power_options()} 
           disabled={!devicesState.selectedDevice || powerBusy ? true : undefined} 
           onclick={() => powerOpen = true}
         >
@@ -173,9 +175,9 @@
       <section class="material-surface home-metric">
         <MaterialIcon name="battery_android_full" />
         <div>
-          <span>{i18n.t('home.field.battery')}</span>
+          <span>{m.home_field_battery()}</span>
           <strong>{dd?.battery_level_percent != null && dd.battery_level_percent >= 0 ? `${dd.battery_level_percent}%` : '-'}</strong>
-          <small>{i18n.t('home.battery.health')}: {dd?.battery_health ? (dd.battery_health.includes('%') ? dd.battery_health : i18n.t(`battery.health.${dd.battery_health}`)) : '-'}</small>
+          <small>{m.home_battery_health()}: {dd?.battery_health ? (dd.battery_health.includes('%') ? dd.battery_health : (m as any)[`battery_health_${dd.battery_health}`]?.() ?? '-') : '-'}</small>
           <md-linear-progress value={Math.max(0, Math.min(1, (dd?.battery_level_percent || 0) / 100))}></md-linear-progress>
         </div>
       </section>
@@ -183,9 +185,9 @@
       <section class="material-surface home-metric">
         <MaterialIcon name="memory" />
         <div>
-          <span>{i18n.t('home.ram.inUse')}</span>
+          <span>{m.home_ram_inUse()}</span>
           <strong>{dd ? formatMemory(dd.used_ram_mb) : '-'}</strong>
-          <small>{i18n.t('home.field.total')}: {dd ? formatMemory(dd.total_ram_mb) : '-'}</small>
+          <small>{m.home_field_total()}: {dd ? formatMemory(dd.total_ram_mb) : '-'}</small>
           <md-linear-progress value={dd?.total_ram_mb ? Math.max(0, Math.min(1, dd.used_ram_mb / dd.total_ram_mb)) : 0}></md-linear-progress>
         </div>
       </section>
@@ -193,9 +195,9 @@
       <section class="material-surface home-metric">
         <MaterialIcon name="hard_drive" />
         <div>
-          <span>{i18n.t('home.storage.inUse')}</span>
+          <span>{m.home_storage_inUse()}</span>
           <strong>{dd ? formatStorage(dd.used_storage_mb) : '-'}</strong>
-          <small>{i18n.t('home.field.total')}: {dd ? formatStorage(dd.total_storage_mb) : '-'}</small>
+          <small>{m.home_field_total()}: {dd ? formatStorage(dd.total_storage_mb) : '-'}</small>
           <md-linear-progress value={dd?.total_storage_mb ? Math.max(0, Math.min(1, dd.used_storage_mb / dd.total_storage_mb)) : 0}></md-linear-progress>
         </div>
       </section>
@@ -215,7 +217,7 @@
             </div>
             <button
               class="home-facts__item-copy"
-              title={i18n.t('common.copy')}
+              title={m.common_copy()}
               onclick={(e) => {
                 e.currentTarget.blur();
                 navigator.clipboard.writeText(copyValue);
@@ -231,19 +233,19 @@
 
   <section class="material-surface home-preview">
     <header>
-      <div><h3>{i18n.t('home.preview.title')}</h3></div>
+      <div><h3>{m.home_preview_title()}</h3></div>
       <div class="home-preview__actions">
         <md-icon-button 
-          aria-label={i18n.t('home.saveCapture')} 
-          title={i18n.t('home.saveCapture')} 
+          aria-label={m.home_saveCapture()} 
+          title={m.home_saveCapture()} 
           disabled={!screenshot || savingScreenshot ? true : undefined} 
           onclick={saveScreenshotData}
         >
           <MaterialIcon name="save" />
         </md-icon-button>
         <md-filled-icon-button 
-          aria-label={i18n.t('home.capture')} 
-          title={i18n.t('home.capture')} 
+          aria-label={m.home_capture()} 
+          title={m.home_capture()} 
           disabled={capturing || !devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device' ? true : undefined} 
           onclick={captureScreenshot}
         >
@@ -253,12 +255,12 @@
     </header>
     <div class="home-preview__body">
       {#if screenshot}
-        <img src={screenshot} alt={i18n.t('home.preview.alt')} />
+        <img src={screenshot} alt={m.home_preview_alt()} />
       {:else}
         <div>
           <MaterialIcon name="smartphone" />
-          <strong>{i18n.t('home.preview.empty.title')}</strong>
-          <span>{i18n.t('home.preview.empty.subtitle')}</span>
+          <strong>{m.home_preview_empty_title()}</strong>
+          <span>{m.home_preview_empty_subtitle()}</span>
         </div>
       {/if}
     </div>

@@ -1,19 +1,20 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+import * as m from '../../paraglide/messages';
+
+  import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import type { TabId } from './Sidebar.svelte';
   import Sidebar from './Sidebar.svelte';
   import TopBar from './TopBar.svelte';
   import AppModal from '../dialogs/AppModal.svelte';
-  import { i18n } from '../../locales/index.svelte';
-  import { devicesState } from '../../context/devices.svelte';
-  import type { ToolsStatus } from '../../pages/workbench/types';
   
+  import type { ToolsStatus } from '../../pages/workbench/types';
+
   import HomePage from '../../pages/HomePage.svelte';
   import WorkbenchPage from '../../pages/WorkbenchPage.svelte';
   import './AppLayout.css';
 
-  let activeTab = $state<TabId>('home');
+  let activeTab = $state<TabId>((sessionStorage.getItem('activeTab') as TabId) || 'home');
   let adbAvailable = $state(true);
   let showAdbModal = $state(false);
   let adbWarningShown = false;
@@ -39,6 +40,7 @@
   function changeTab(tab: TabId) {
     if (tab === activeTab) return;
     activeTab = tab;
+    sessionStorage.setItem('activeTab', tab);
   }
 
   $effect(() => {
@@ -123,12 +125,12 @@
   <AppModal 
     open={showAdbModal} 
     onClose={() => showAdbModal = false} 
-    title={i18n.t('dialog.missingTool.title', { tool: 'ADB' })}
+    title={m.dialog_missingTool_title({ tool: 'ADB' })}
   >
-    <p>{i18n.t('dialog.missingTool.adbDesc')}</p>
+    <p>{m.dialog_missingTool_adbDesc()}</p>
     {#snippet actions()}
       <md-filled-button onclick={() => { showAdbModal = false; changeTab('settings'); }}>
-        {i18n.t('dialog.missingTool.goToSettings')}
+        {m.dialog_missingTool_goToSettings()}
       </md-filled-button>
     {/snippet}
   </AppModal>

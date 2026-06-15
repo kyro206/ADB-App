@@ -1,17 +1,18 @@
 <script lang="ts" module>
+import * as m from '../paraglide/messages';
+
   export type Suggestion = { width: number; height: number; density: number };
 </script>
 
 <script lang="ts">
   import type { DeviceDetails } from '../context/devices.svelte';
   import MaterialIcon from '../components/MaterialIcon.svelte';
-  import { i18n } from '../locales/index.svelte';
+  
   import { formatRate } from './workbench/utils';
   import './DisplayPage.css';
 
   let {
     details,
-    deviceType,
     width,
     setWidth,
     height,
@@ -30,7 +31,6 @@
     onApply
   } = $props<{
     details: DeviceDetails | null;
-    deviceType: string;
     width: number; setWidth: (v: number) => void;
     height: number; setHeight: (v: number) => void;
     density: number; setDensity: (v: number) => void;
@@ -79,34 +79,34 @@
 
 <div class="display-page">
   <section class="display-info-grid">
-    {@render InfoCard("screenshot_monitor", i18n.t('display.info.currentRes'), details ? `${details.current_width} × ${details.current_height}` : '-')}
-    {@render InfoCard("aspect_ratio", i18n.t('display.info.physicalRes'), details ? `${details.physical_width} × ${details.physical_height}` : '-')}
-    {@render InfoCard("density_medium", i18n.t('display.info.physicalDensity'), details?.physical_density ? `${details.physical_density} dpi` : '-')}
-    {@render InfoCard("width", i18n.t('display.info.smallestWidth'), details?.smallest_width_dp ? `${details.smallest_width_dp} dp` : '-')}
+    {@render InfoCard("screenshot_monitor", m.display_info_currentRes(), details ? `${details.current_width} × ${details.current_height}` : '-')}
+    {@render InfoCard("aspect_ratio", m.display_info_physicalRes(), details ? `${details.physical_width} × ${details.physical_height}` : '-')}
+    {@render InfoCard("density_medium", m.display_info_physicalDensity(), details?.physical_density ? `${details.physical_density} dpi` : '-')}
+    {@render InfoCard("width", m.display_info_smallestWidth(), details?.smallest_width_dp ? `${details.smallest_width_dp} dp` : '-')}
   </section>
 
   <section class="display-editor-grid">
     {#snippet resChildren()}
       <div class="display-fields two">
-        {@render Field(i18n.t('display.edit.width'), width, 320, "px", setWidth)}
-        {@render Field(i18n.t('display.edit.height'), height, 320, "px", setHeight)}
+        {@render Field(m.display_edit_width(), width, 320, "px", setWidth)}
+        {@render Field(m.display_edit_height(), height, 320, "px", setHeight)}
       </div>
     {/snippet}
-    {@render EditCard("aspect_ratio", i18n.t('display.edit.res'), resChildren)}
+    {@render EditCard("aspect_ratio", m.display_edit_res(), resChildren)}
 
     {#snippet densityChildren()}
       <div class="display-fields">
-        {@render Field(i18n.t('display.edit.density'), density, 120, "dpi", setDensity)}
+        {@render Field(m.display_edit_density(), density, 120, "dpi", setDensity)}
       </div>
     {/snippet}
-    {@render EditCard("density_medium", i18n.t('display.edit.density'), densityChildren)}
+    {@render EditCard("density_medium", m.display_edit_density(), densityChildren)}
 
     {#snippet timeoutChildren()}
       <div class="display-fields">
-        {@render Field(i18n.t('display.edit.time'), timeout, 1, "s", setTimeout)}
+        {@render Field(m.display_edit_time(), timeout, 1, "s", setTimeout)}
       </div>
     {/snippet}
-    {@render EditCard("timer", i18n.t('display.edit.timeout'), timeoutChildren)}
+    {@render EditCard("timer", m.display_edit_timeout(), timeoutChildren)}
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -115,9 +115,9 @@
         <MaterialIcon name={darkMode ? 'dark_mode' : 'light_mode'} filled />
       </span>
       <div>
-        <span>{i18n.t('display.dark.title')}</span>
+        <span>{m.display_dark_title()}</span>
         <strong>
-          {darkModeLoading ? i18n.t('display.dark.changing') : darkMode ? i18n.t('display.dark.on') : i18n.t('display.dark.off')}
+          {darkModeLoading ? m.display_dark_changing() : darkMode ? m.display_dark_on() : m.display_dark_off()}
         </strong>
       </div>
       <!-- svelte-ignore a11y_missing_attribute -->
@@ -132,11 +132,11 @@
   <section class="display-actions">
     <md-outlined-button disabled={!details ? true : undefined} onclick={onReset}>
       <span slot="icon"><MaterialIcon name="restart_alt" size={22} /></span>
-      {i18n.t('common.reset')}
+      {m.common_reset()}
     </md-outlined-button>
     <md-filled-button disabled={!canApply ? true : undefined} onclick={onApply}>
       <span slot="icon"><MaterialIcon name="check" filled size={22} /></span>
-      {i18n.t('common.apply')}
+      {m.common_apply()}
     </md-filled-button>
   </section>
 
@@ -144,7 +144,7 @@
     <article class="display-panel">
       <header>
         <MaterialIcon name="auto_awesome" filled />
-        <h3>{i18n.t('display.presets.title')}</h3>
+        <h3>{m.display_presets_title()}</h3>
       </header>
       <div class="display-presets">
         {#each suggestions as item (`${item.width}-${item.height}`)}
@@ -161,7 +161,7 @@
     <article class="display-panel">
       <header>
         <MaterialIcon name="speed" filled />
-        <h3>{i18n.t('display.rates.title')}</h3>
+        <h3>{m.display_rates_title()}</h3>
       </header>
       <div class="display-rates">
         {#if details?.supported_refresh_rates_hz?.length}
@@ -173,7 +173,7 @@
             </button>
           {/each}
         {:else}
-          <span>{i18n.t('display.rates.empty')}</span>
+          <span>{m.display_rates_empty()}</span>
         {/if}
       </div>
     </article>
