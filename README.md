@@ -19,7 +19,7 @@
 
 ## About
 
-ADB App is a modern graphical interface built with [Tauri v2](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), and [React](https://react.dev/) featuring a [Material Design](https://github.com/material-components/material-web) UI. Our goal is to provide a powerful and lightweight tool to manage your Android devices through an intuitive and straightforward interface.
+ADB App is a modern graphical interface built with [Tauri v2](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), and [Svelte](https://svelte.dev/) featuring a [Material Design](https://github.com/material-components/material-web) UI. Our goal is to provide a powerful and lightweight tool to manage your Android devices through an intuitive and straightforward interface.
 
 ## Key Features
 
