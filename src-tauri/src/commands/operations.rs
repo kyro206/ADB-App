@@ -1409,7 +1409,10 @@ pub async fn list_directory(serial: String, path: String) -> Result<Vec<FileEntr
     } else {
         format!("{}/", path.trim_end_matches('/'))
     };
-    let result = adb::run_adb_for_serial(&serial, &["shell", "ls", "-la", &listing_path]).await?;
+    
+    // Escape single quotes and wrap in single quotes to prevent shell variable expansion
+    let escaped_path = format!("'{}'", listing_path.replace("'", "'\\''"));
+    let result = adb::run_adb_for_serial(&serial, &["shell", "ls", "-la", &escaped_path]).await?;
     if !result.ok() {
         return Err(result.output);
     }
@@ -1446,6 +1449,22 @@ pub async fn list_directory(serial: String, path: String) -> Result<Vec<FileEntr
         })
         .collect();
     Ok(entries)
+}
+
+#[tauri::command]
+pub async fn read_file_bytes(serial: String, path: String) -> Result<tauri::ipc::Response, String> {
+    let adb_path = tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;
+    
+    let output = std::process::Command::new(adb_path)
+        .args(["-s", &serial, "exec-out", "cat", &path])
+        .output()
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+        
+    if output.status.success() {
+        Ok(tauri::ipc::Response::new(output.stdout))
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
 }
 
 #[tauri::command]

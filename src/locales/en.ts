@@ -17,6 +17,7 @@ export const en = {
 
   // Common
   'common.none': 'none',
+  'common.name': 'Name',
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
   'common.continue': 'Continue',
@@ -177,6 +178,7 @@ export const en = {
   'files.status.selected': '{count} selected',
   'files.status.noSelection': 'No selection',
   'files.prompt.newFolder': 'New folder name',
+  'files.prompt.defaultNewFolder': 'New folder',
   'files.prompt.rename': 'New name',
   'files.prompt.copySuffix': ' - copy',
   'files.prompt.copyName': 'Copy name',

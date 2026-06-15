@@ -1,0 +1,402 @@
+<script lang="ts" module>
+  export type ConfigurableTool = 'adb' | 'scrcpy' | 'java';
+  export type InstallableTool = 'adb' | 'scrcpy';
+</script>
+
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { getVersion, getName } from '@tauri-apps/api/app';
+  import { open } from '@tauri-apps/plugin-dialog';
+  import type { ToolStatus, ToolsStatus } from './workbench/types';
+  import { i18n } from '../locales/index.svelte';
+  import MaterialIcon from '../components/MaterialIcon.svelte';
+  import AppModal from '../components/dialogs/AppModal.svelte';
+  import { APACHE_LICENSE_2_0, MIT_LICENSE } from '../utils/licenseTexts';
+  import './SettingsPage.css';
+
+  let {
+    theme,
+    language,
+    tools,
+    checkingUpdates,
+    adbPath,
+    scrcpyPath,
+    javaPath,
+    onThemeChange,
+    onLanguageChange,
+    onAdbPathChange,
+    onScrcpyPathChange,
+    onJavaPathChange,
+    onSaveToolPath,
+    onInstallTool,
+    onClearCache,
+    appSettings,
+    onSaveAppSettings,
+    defaultCacheDir
+  } = $props<{
+    theme: 'light' | 'dark' | 'auto';
+    language: 'es' | 'en';
+    tools: ToolsStatus | null;
+    checkingUpdates: boolean;
+    adbPath: string;
+    scrcpyPath: string;
+    javaPath: string;
+    onThemeChange: (theme: 'light' | 'dark' | 'auto') => void;
+    onLanguageChange: (language: 'es' | 'en') => void;
+    onAdbPathChange: (path: string) => void;
+    onScrcpyPathChange: (path: string) => void;
+    onJavaPathChange: (path: string) => void;
+    onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
+    onInstallTool: (tool: InstallableTool) => void;
+    onClearCache: () => void;
+    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string } | null;
+    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string }) => void;
+    defaultCacheDir: string;
+  }>();
+
+  let appVersion = $state('...');
+  let appName = $state('ADB App');
+  let localCachePath = $state<string | null>(null);
+  let licensesOpen = $state(false);
+
+  type LicenseInfo = { name: string; url: string; licenseType: string; licenseText: string };
+  const LICENSES: LicenseInfo[] = [
+    { name: 'ADB', url: 'https://android.googlesource.com/platform/packages/modules/adb/', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'scrcpy', url: 'https://github.com/Genymobile/scrcpy', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'Bundletool', url: 'https://github.com/google/bundletool', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'Material Web', url: 'https://github.com/material-components/material-web', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
+    { name: 'Tauri', url: 'https://github.com/tauri-apps/tauri', licenseType: 'MIT / Apache 2.0', licenseText: MIT_LICENSE + '\n\n---\n\n' + APACHE_LICENSE_2_0 },
+    { name: 'Svelte', url: 'https://github.com/sveltejs/svelte', licenseType: 'MIT License', licenseText: MIT_LICENSE }
+  ];
+
+  onMount(() => {
+    getVersion().then(v => appVersion = v).catch(() => appVersion = 'Unknown');
+    getName().then(n => appName = n).catch(() => {});
+  });
+
+  $effect(() => {
+    if (appSettings && localCachePath === null) {
+      localCachePath = appSettings.cache_path;
+    }
+  });
+
+  function getToolStateLabel(tool: ToolStatus, checking: boolean) {
+    if (!tool.available) return i18n.t('settings.notInstalled');
+    if (tool.update_available) return i18n.t('settings.updateAvailable');
+    if (checking) return i18n.t('settings.checkingUpdate');
+    if (tool.update_checked) return i18n.t('settings.updated');
+    return i18n.t('settings.checkFailed');
+  }
+
+  function getToolIconName(tool: ToolStatus, checking: boolean) {
+    if (!tool.available) return 'close';
+    if (tool.update_available) return 'new_releases';
+    if (checking) return 'sync';
+    if (tool.update_checked) return 'check_circle';
+    return 'help';
+  }
+
+  async function pickDirectory(onChange: (p: string) => void) {
+    const selected = await open({ directory: true, multiple: false });
+    if (selected && typeof selected === 'string') {
+      onChange(selected);
+    }
+  }
+</script>
+
+<div class="work-grid">
+  
+  <section class="md3-card">
+    <h3 class="md3-title">{i18n.t('settings.appearance')}</h3>
+    <div class="settings-appearance-row">
+      <div class="md3-segmented-button">
+        <button class={theme === 'light' ? 'active' : ''} onclick={() => onThemeChange('light')}>
+          <MaterialIcon name="light_mode" />
+          <span>{i18n.t('settings.theme.light')}</span>
+        </button>
+        <button class={theme === 'dark' ? 'active' : ''} onclick={() => onThemeChange('dark')}>
+          <MaterialIcon name="dark_mode" />
+          <span>{i18n.t('settings.theme.dark')}</span>
+        </button>
+        <button class={theme === 'auto' ? 'active' : ''} onclick={() => onThemeChange('auto')}>
+          <MaterialIcon name="brightness_auto" />
+          <span>{i18n.t('settings.theme.auto')}</span>
+        </button>
+      </div>
+
+      <md-outlined-select 
+        label={i18n.t('settings.language')}
+        value={language} 
+        onchange={(e: any) => onLanguageChange(e.target.value)}
+      >
+        <md-select-option value="es">
+          <div slot="headline">Español</div>
+        </md-select-option>
+        <md-select-option value="en">
+          <div slot="headline">English</div>
+        </md-select-option>
+      </md-outlined-select>
+    </div>
+  </section>
+  
+  {#snippet toolPanel(title: string, toolName: InstallableTool, tool: ToolStatus | undefined, path: string, placeholder: string, onChange: (p: string) => void)}
+    <section class="md3-card">
+      <h3 class="md3-title">{title}</h3>
+      {#if tool}
+        <div class="tool-status">
+          <div class="tool-status-header">
+            <MaterialIcon 
+              name={getToolIconName(tool, checkingUpdates)} 
+              size={20} 
+              style={!tool.available ? 'color: var(--md-sys-color-error)' : ''}
+            />
+            <strong style={!tool.available ? 'color: var(--md-sys-color-error)' : ''}>
+              {getToolStateLabel(tool, checkingUpdates)}
+            </strong>
+          </div>
+          <div class="tool-status-details">
+            <span>{i18n.t('settings.source')}: {tool.source || '-'}</span>
+            <span>{i18n.t('settings.installedVersion')}: {tool.version || '-'}</span>
+            {#if tool.latest_version}
+              <span>{i18n.t('settings.latestVersion')}: {tool.latest_version}</span>
+            {/if}
+          </div>
+        </div>
+      {/if}
+      <div class="form-stack">
+        <md-outlined-text-field
+          value={path}
+          oninput={(e: any) => onChange(e.target.value)}
+          label={placeholder}
+          style="width: 100%"
+        >
+          <md-icon-button slot="trailing-icon" onclick={() => pickDirectory(onChange)}>
+            <MaterialIcon name="folder_open" />
+          </md-icon-button>
+        </md-outlined-text-field>
+        <div class="button-row">
+          <md-filled-button onclick={() => onSaveToolPath(toolName, path)}>
+            {i18n.t('settings.savePath')}
+          </md-filled-button>
+          <md-outlined-button onclick={() => onSaveToolPath(toolName, '')}>
+            {i18n.t('settings.autoDetect')}
+          </md-outlined-button>
+          
+          {#if tool?.install_supported && !tool.available}
+            <md-filled-button onclick={() => onInstallTool(toolName)}>
+              <MaterialIcon name="download" slot="icon" />
+              {i18n.t('settings.install')} {title.split(' ')[0]}
+            </md-filled-button>
+          {/if}
+          {#if tool?.install_supported && tool.update_available}
+            <md-filled-button onclick={() => onInstallTool(toolName)}>
+              <MaterialIcon name="update" slot="icon" />
+              {i18n.t('settings.update')} {title.split(' ')[0]}
+            </md-filled-button>
+          {/if}
+        </div>
+      </div>
+    </section>
+  {/snippet}
+
+  {@render toolPanel("ADB", "adb", tools?.adb, adbPath, i18n.t('settings.adbPlaceholder'), onAdbPathChange)}
+  {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, i18n.t('settings.scrcpyPlaceholder'), onScrcpyPathChange)}
+  
+  <section class="md3-card">
+    <h3 class="md3-title">{i18n.t('settings.javaTitle')}</h3>
+    <div class="tool-status">
+      <div class="tool-status-header">
+        <MaterialIcon 
+          name={tools?.java.available ? 'check_circle' : 'warning'} 
+          size={20} 
+        />
+        <strong>{tools?.java.available ? i18n.t('settings.javaCompatible') : tools?.java.path ? i18n.t('settings.javaNotCompatible') : i18n.t('settings.javaNotDetected')}</strong>
+      </div>
+      <div class="tool-status-details">
+        <span>{i18n.t('settings.installedVersion')}: {tools?.java.version || '-'}</span>
+      </div>
+    </div>
+    <div class="form-stack">
+      <md-outlined-text-field 
+        value={javaPath} 
+        oninput={(e: any) => onJavaPathChange(e.target.value)} 
+        label={i18n.t('settings.javaPlaceholder')}
+        style="width: 100%"
+      >
+        <md-icon-button slot="trailing-icon" onclick={() => pickDirectory(onJavaPathChange)}>
+          <MaterialIcon name="folder_open" />
+        </md-icon-button>
+      </md-outlined-text-field>
+      <div class="button-row">
+        <md-filled-button onclick={() => onSaveToolPath('java', javaPath)}>{i18n.t('settings.savePath')}</md-filled-button>
+        <md-outlined-button onclick={() => onSaveToolPath('java', '')}>{i18n.t('settings.autoDetect')}</md-outlined-button>
+        <md-text-button href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">
+          <MaterialIcon name="open_in_new" slot="icon" />
+          {i18n.t('settings.downloadTemurin')}
+        </md-text-button>
+      </div>
+    </div>
+  </section>
+  
+  <section class="md3-card">
+    <h3 class="md3-title">{i18n.t('settings.cacheTitle')}</h3>
+    <div class="form-stack">          
+      <label class="settings-switch-row">
+        <span class="md3-body-large">{i18n.t('settings.enableCache')}</span>
+        <!-- svelte-ignore a11y_missing_attribute -->
+        <md-switch 
+          selected={appSettings?.cache_enabled ?? true ? true : undefined}
+          onchange={(e: any) => {
+            if (appSettings) {
+              onSaveAppSettings({ ...appSettings, cache_enabled: e.target.selected });
+            }
+          }}
+        ></md-switch>
+      </label>
+
+      <md-outlined-text-field 
+        value={localCachePath || appSettings?.cache_path || defaultCacheDir} 
+        oninput={(e: any) => localCachePath = e.target.value} 
+        label={i18n.t('settings.cachePathPlaceholder')}
+        style="width: 100%"
+      >
+        <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => localCachePath = p)}>
+          <MaterialIcon name="folder_open" />
+        </md-icon-button>
+      </md-outlined-text-field>
+
+      <div class="button-row settings-cache-actions" style="margin-top: 16px">
+        <md-filled-button onclick={() => {
+          if (appSettings && localCachePath !== null) {
+            onSaveAppSettings({ ...appSettings, cache_path: localCachePath });
+          }
+        }}>
+          {i18n.t('settings.savePath')}
+        </md-filled-button>
+
+        <md-outlined-button onclick={() => {
+          if (appSettings) {
+            localCachePath = '';
+            onSaveAppSettings({ ...appSettings, cache_path: '' });
+          }
+        }}>
+          {i18n.t('common.reset')}
+        </md-outlined-button>
+
+        <md-outlined-button onclick={onClearCache}>
+          <MaterialIcon name="delete" slot="icon" />
+          {i18n.t('common.clearCache')}
+        </md-outlined-button>
+      </div>
+      <p style="font-size: 13px; color: var(--md-sys-color-error); margin-top: 8px; display: flex; align-items: center; gap: 6px; margin: 8px 0 0 0">
+        <MaterialIcon name="info" size={16} />
+        {i18n.t('settings.cacheRestartWarning')}
+      </p>
+    </div>
+  </section>
+
+  <section class="md3-card">
+    <h3 class="md3-title">{i18n.t('settings.advancedTitle')}</h3>
+    <div class="form-stack">          
+      <label class="settings-switch-row">
+        <span class="md3-body-large">{i18n.t('settings.killAdbOnExit')}</span>
+        <!-- svelte-ignore a11y_missing_attribute -->
+        <md-switch 
+          selected={appSettings?.kill_adb_on_exit ?? true ? true : undefined}
+          onchange={(e: any) => {
+            if (appSettings) {
+              onSaveAppSettings({ ...appSettings, kill_adb_on_exit: e.target.selected });
+            }
+          }}
+        ></md-switch>
+      </label>
+    </div>
+  </section>
+
+  <section class="md3-card" style="grid-column: 1 / -1">
+    <h3 class="md3-title">{i18n.t('settings.aboutTitle')}</h3>
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px; text-align: left; padding: 16px 0">
+      
+      <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px">
+        <div style="display: flex; align-items: center; gap: 16px">
+          <img src="/icon.webp" style="width: 64px; height: 64px; pointer-events: none" alt="ADB App" />
+          <div style="display: flex; flex-direction: column; justify-content: center">
+            <h2 style="margin: 0 0 2px 0; font-size: 24px; line-height: 1.2">{appName}</h2>
+            <span style="color: var(--md-sys-color-on-surface-variant); font-size: 14px">{appVersion}</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <!-- svelte-ignore a11y_missing_attribute -->
+          <md-filled-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer">
+            <MaterialIcon name="code" slot="icon" />
+            GitHub
+          </md-filled-button>
+          <md-outlined-button onclick={() => licensesOpen = true}>
+            <MaterialIcon name="gavel" slot="icon" />
+            {i18n.t('settings.aboutLicenses')}
+          </md-outlined-button>
+        </div>
+      </div>
+
+      <p style="font-size: 13px; color: var(--md-sys-color-error); display: flex; align-items: center; gap: 6px; margin: 0 0 8px 0">
+        <MaterialIcon name="warning" size={16} />
+        {i18n.t('settings.aboutDisclaimer')}
+      </p>
+      
+      <div style="display: flex; align-items: center; gap: 12px; width: 100%">
+        <div style="position: relative">
+          <img 
+            src="https://github.com/kyro206.png?size=200" 
+            alt="Kyro206" 
+            style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--md-sys-color-surface-variant)"
+            onerror={(e) => {
+              (e.currentTarget as HTMLElement).style.display = 'none';
+              if (e.currentTarget.nextElementSibling) {
+                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+              }
+            }}
+          />
+          <div style="display: none; width: 40px; height: 40px; border-radius: 50%; background: var(--md-sys-color-surface-variant); align-items: center; justify-content: center; color: var(--md-sys-color-on-surface-variant)">
+            <MaterialIcon name="person" size={24} />
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column">
+          <span style="font-size: 12px; color: var(--md-sys-color-on-surface-variant)">
+            {i18n.t('settings.aboutCreator')}
+          </span>
+          <div style="display: flex; align-items: center; gap: 6px">
+            <strong style="font-size: 15px; color: var(--md-sys-color-on-surface)">Kyro206</strong>
+            <!-- svelte-ignore a11y_missing_attribute -->
+            <md-icon-button href="https://github.com/kyro206" target="_blank" rel="noopener noreferrer" title="GitHub Profile">
+              <MaterialIcon name="open_in_new" size={16} />
+            </md-icon-button>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </section>
+  <AppModal open={licensesOpen} onClose={() => licensesOpen = false} title={i18n.t('settings.aboutLicenses')} width="large">
+    <div style="display: flex; flex-direction: column; gap: 24px">
+      <div style="background: var(--md-sys-color-surface-container); padding: 16px; border-radius: 12px; overflow-y: auto; border: 1px solid var(--md-sys-color-outline-variant)">
+        {#each LICENSES as lic, index}
+          <div style="margin-bottom: {index === LICENSES.length - 1 ? '0' : '32px'}">
+            <div style="border-bottom: 1px dashed var(--md-sys-color-outline-variant); padding-bottom: 8px; margin-bottom: 12px">
+              <h4 style="margin: 0 0 4px 0; font-size: 16px; color: var(--md-sys-color-on-surface); display: flex; align-items: center; justify-content: space-between">
+                {lic.name}
+                <!-- svelte-ignore a11y_missing_attribute -->
+                <md-icon-button href={lic.url} target="_blank" rel="noopener noreferrer" title="Código original">
+                  <MaterialIcon name="open_in_new" size={18} />
+                </md-icon-button>
+              </h4>
+              <span style="font-size: 12px; color: var(--md-sys-color-on-surface-variant)">{lic.licenseType}</span>
+            </div>
+            <div style="font-size: 12px; font-family: monospace; white-space: pre-wrap; color: var(--md-sys-color-on-surface-variant)">
+              {lic.licenseText}
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+  </AppModal>
+</div>

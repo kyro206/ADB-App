@@ -1,5 +1,4 @@
-import type { TabId } from '../../components/layout/Sidebar';
-
+export type TabId = 'home' | 'display' | 'mirroring' | 'control' | 'apps' | 'files' | 'system' | 'settings';
 export type WorkTab = Exclude<TabId, 'home'>;
 export type AppSummary = { package_name: string; display_name: string; apk_path: string; system_app: boolean; disabled: boolean; icon_data_url: string };
 export type AppPermissionInfo = { name: string; granted: boolean; runtime: boolean };

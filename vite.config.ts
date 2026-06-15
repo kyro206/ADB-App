@@ -1,12 +1,21 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [svelte({
+    onwarn: (warning, handler) => {
+      // Ignore a11y warnings, especially for <md-*> custom elements
+      if (warning.code.startsWith('a11y_') || warning.code.startsWith('a11y-')) return;
+      // Handle locally referenced state warning which is a false positive for $state initializers
+      if (warning.code === 'state_referenced_locally') return;
+      
+      handler(warning);
+    }
+  })],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

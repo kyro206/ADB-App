@@ -184,6 +184,13 @@
 .file-grid-card.selected .file-grid-preview{background:var(--surface-container-high)}
 .file-grid-preview img{width:100%;height:100%;object-fit:cover}
 .file-grid-preview>.material-symbols-rounded{font-size:48px}
+.file-audio-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;display:grid;place-items:center;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;border:none;cursor:pointer;opacity:0;transition:all .2s ease;z-index:2}
+.file-grid-card:hover .file-audio-play,.file-list-row:hover .file-audio-play,.file-audio-play.playing{opacity:1}
+.file-audio-play:hover{background:rgba(0,0,0,.6);transform:translate(-50%,-50%) scale(1.1)}
+.file-audio-play .material-symbols-rounded{font-size:24px}
+.file-audio-play.list-mode{width:36px;height:36px;border-radius:11px}
+.file-audio-play.list-mode:hover{transform:translate(-50%,-50%) scale(1.05)}
+.file-audio-play.list-mode .material-symbols-rounded{font-size:20px}
 .file-grid-card>strong,.file-grid-card>span,.file-grid-card>code{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-grid-card>strong{font-size:13px}
 .file-grid-card>span,.file-grid-card>code{color:var(--on-surface-variant);font-size:10px}

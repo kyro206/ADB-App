@@ -1,0 +1,350 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { invoke } from '@tauri-apps/api/core';
+  import { i18n } from '../locales/index.svelte';
+  import MaterialIcon from '../components/MaterialIcon.svelte';
+  import { words } from './workbench/utils';
+  import type { MediaVolumeState, SoundMode } from './workbench/types';
+  import './ControlPage.css';
+
+  let {
+    serial,
+    run,
+    setStatus,
+    setBusy
+  } = $props<{
+    serial: string;
+    run: (args: string[], success?: string) => Promise<string | undefined>;
+    setStatus: (status: string) => void;
+    setBusy: (busy: boolean) => void;
+  }>();
+
+  let controlBrightness = $state(128);
+  let controlVolume = $state(7);
+  let controlVolumeMax = $state(15);
+  let rotationAuto = $state(true);
+  let rotation = $state(0);
+  let soundMode = $state<SoundMode>('NORMAL');
+  let inputText = $state('');
+  let inputArgs = $state('');
+
+  function loadDeviceState() {
+    if (!serial) return;
+
+    invoke<MediaVolumeState>('get_media_volume', { serial }).then(value => {
+      controlVolume = value.level;
+      controlVolumeMax = value.maximum;
+    }).catch(() => {});
+
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'screen_brightness'] }).then(res => {
+      if (res && !isNaN(Number(res))) controlBrightness = Number(res.trim());
+    }).catch(() => {});
+
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'accelerometer_rotation'] }).then(res => {
+      if (res) rotationAuto = res.trim() === '1';
+    }).catch(() => {});
+
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'user_rotation'] }).then(res => {
+      if (res && !isNaN(Number(res))) rotation = Number(res.trim());
+    }).catch(() => {});
+
+    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'global', 'mode_ringer'] }).then(res => {
+      const mode = res?.trim();
+      if (mode === '0') soundMode = 'SILENT';
+      else if (mode === '1') soundMode = 'VIBRATE';
+      else if (mode === '2') soundMode = 'NORMAL';
+    }).catch(() => {});
+  }
+
+  $effect(() => {
+    if (serial) {
+      loadDeviceState();
+    }
+  });
+
+  const sendKey = (code: string) => run(['shell', 'input', 'keyevent', code]);
+
+  async function applyMediaVolume(value: number) {
+    if (!serial) { setStatus(i18n.t('control.error.noDevice')); return; }
+    const safeValue = Math.max(0, Math.min(value, controlVolumeMax));
+    controlVolume = safeValue;
+    setBusy(true);
+    try {
+      await invoke<string>('set_media_volume', { serial, volume: safeValue });
+    } catch (error) { 
+      setStatus(String(error)); 
+    } finally { 
+      setBusy(false); 
+    }
+  }
+
+  async function setDeviceRotation(value: number) {
+    rotation = value;
+    rotationAuto = false;
+    await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0']);
+    await run(['shell', 'settings', 'put', 'system', 'user_rotation', String(value)]);
+  }
+
+  async function setDeviceSoundMode(mode: SoundMode) {
+    soundMode = mode;
+    await run(['shell', 'cmd', 'audio', 'set-ringer-mode', mode]);
+  }
+
+  function importMacro() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (typeof ev.target?.result === 'string') inputArgs = ev.target.result;
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  function exportMacro() {
+    if (!inputArgs) return;
+    const blob = new Blob([inputArgs], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'macro.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus(i18n.t('control.macro.saved') || 'Macro saved successfully');
+  }
+
+  async function runMacro() {
+    if (!inputArgs) return;
+    const lines = inputArgs.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    setBusy(true);
+    try {
+      for (const line of lines) {
+        if (line.startsWith('sleep ')) {
+          const ms = parseInt(line.split(' ')[1]) || 1000;
+          await new Promise(r => setTimeout(r, ms));
+        } else {
+          const args = words(line);
+          if (['keyevent', 'text', 'tap', 'swipe', 'roll', 'press'].includes(args[0])) {
+            await run(['shell', 'input', ...args]);
+          } else {
+            await run(['shell', ...args]);
+          }
+        }
+      }
+    } catch (e) {
+      setStatus(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+</script>
+
+<div class="control-page">
+  <div class="control-settings">
+    <!-- BRILLO Y VOLUMEN -->
+    <section class="md3-card">
+      <div class="md3-card-header">
+        <h3>{i18n.t('control.screenSound.title')}</h3>
+      </div>
+      <div class="md3-slider-group">
+        <label class="md3-slider-container">
+          <div class="md3-slider-info">
+            <MaterialIcon name="light_mode" />
+            <span>{i18n.t('control.screenSound.brightness')}</span>
+            <strong>{controlBrightness} / 255</strong>
+          </div>
+          <md-slider
+            min="0"
+            max="255"
+            value={controlBrightness}
+            oninput={(event: any) => controlBrightness = Number(event.target.value)}
+            onchange={(event: any) => run(['shell', 'settings', 'put', 'system', 'screen_brightness', String(event.target.value)])}
+          ></md-slider>
+        </label>
+
+        <label class="md3-slider-container">
+          <div class="md3-slider-info">
+            <MaterialIcon name="volume_up" />
+            <span>{i18n.t('control.screenSound.volume')}</span>
+            <strong>{controlVolume} / {controlVolumeMax}</strong>
+          </div>
+          <md-slider
+            min="0"
+            max={controlVolumeMax}
+            value={controlVolume}
+            oninput={(event: any) => controlVolume = Number(event.target.value)}
+            onchange={(event: any) => applyMediaVolume(Number(event.target.value))}
+          ></md-slider>
+        </label>
+      </div>
+    </section>
+
+    <!-- ROTACIÓN -->
+    <section class="md3-card">
+      <div class="md3-card-header">
+        <h3>{i18n.t('control.orientation.title')}</h3>
+        <label class="md3-switch-container">
+          <span>{i18n.t('control.orientation.auto')}</span>
+          <!-- svelte-ignore a11y_missing_attribute -->
+          <md-switch
+            selected={rotationAuto ? true : undefined}
+            onchange={async (event: any) => {
+              const isAuto = event.target.selected;
+              rotationAuto = isAuto;
+              await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', isAuto ? '1' : '0']);
+            }}
+          ></md-switch>
+        </label>
+      </div>
+      <div class="md3-segmented-button">
+        {#each [
+          ['stay_current_portrait', i18n.t('control.orientation.portrait'), 0], 
+          ['stay_current_landscape', i18n.t('control.orientation.landscape'), 1], 
+          ['stay_current_portrait', i18n.t('control.orientation.portraitRev'), 2], 
+          ['stay_current_landscape', i18n.t('control.orientation.landscapeRev'), 3]
+        ] as [icon, label, value]}
+          <button class={!rotationAuto && rotation === value ? 'active' : ''} onclick={() => setDeviceRotation(Number(value))}>
+            <MaterialIcon name={String(icon)} class={`rotation-${value}`} />
+            <span>{label}</span>
+          </button>
+        {/each}
+      </div>
+    </section>
+
+    <!-- MODO DE SONIDO -->
+    <section class="md3-card">
+      <div class="md3-card-header">
+        <h3>{i18n.t('control.sound.title')}</h3>
+      </div>
+      <div class="md3-segmented-button">
+        <button class={soundMode === 'NORMAL' ? 'active' : ''} onclick={() => setDeviceSoundMode('NORMAL')}>
+          <MaterialIcon name="volume_up" filled={soundMode === 'NORMAL'} />
+          <span>{i18n.t('control.sound.normal')}</span>
+        </button>
+        <button class={soundMode === 'VIBRATE' ? 'active' : ''} onclick={() => setDeviceSoundMode('VIBRATE')}>
+          <MaterialIcon name="vibration" filled={soundMode === 'VIBRATE'} />
+          <span>{i18n.t('control.sound.vibrate')}</span>
+        </button>
+        <button class={soundMode === 'SILENT' ? 'active' : ''} onclick={() => setDeviceSoundMode('SILENT')}>
+          <MaterialIcon name="volume_off" filled={soundMode === 'SILENT'} />
+          <span>{i18n.t('control.sound.silent')}</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- INTRODUCIR TEXTO -->
+    <section class="md3-card">
+      <div class="md3-card-header">
+        <h3>{i18n.t('control.input.title')}</h3>
+      </div>
+      <form class="md3-text-form" onsubmit={event => { event.preventDefault(); if (inputText) run(['shell', 'input', 'text', inputText.replace(/ /g, '%s')]); }}>
+        <md-outlined-text-field
+          label={i18n.t('control.input.text')}
+          value={inputText}
+          oninput={(e: any) => inputText = e.target.value}
+          style="flex: 1"
+        >
+          {#if inputText}
+            <md-icon-button slot="trailing-icon" type="button" onclick={() => inputText = ''}>
+              <MaterialIcon name="close" />
+            </md-icon-button>
+          {/if}
+        </md-outlined-text-field>
+        <button class="md3-btn-filled">{i18n.t('control.input.send')}</button>
+      </form>
+
+      <details class="md3-details" open>
+        <summary>{i18n.t('control.input.advanced')}</summary>
+        <div class="md3-text-form" style="flex-direction: column">
+          <md-chip-set style="margin-bottom: 8px">
+            <md-suggestion-chip label="+ Tap" onclick={() => inputArgs = inputArgs + (inputArgs && !inputArgs.endsWith('\n') ? '\n' : '') + 'tap x y'}></md-suggestion-chip>
+            <md-suggestion-chip label="+ Swipe" onclick={() => inputArgs = inputArgs + (inputArgs && !inputArgs.endsWith('\n') ? '\n' : '') + 'swipe x1 y1 x2 y2 duration'}></md-suggestion-chip>
+            <md-suggestion-chip label="+ Text" onclick={() => inputArgs = inputArgs + (inputArgs && !inputArgs.endsWith('\n') ? '\n' : '') + 'text "hello"'}></md-suggestion-chip>
+            <md-suggestion-chip label="+ Key" onclick={() => inputArgs = inputArgs + (inputArgs && !inputArgs.endsWith('\n') ? '\n' : '') + 'keyevent 26'}></md-suggestion-chip>
+            <md-suggestion-chip label="+ Sleep" onclick={() => inputArgs = inputArgs + (inputArgs && !inputArgs.endsWith('\n') ? '\n' : '') + 'sleep 1000'}></md-suggestion-chip>
+          </md-chip-set>
+          <div style="display: flex; gap: 8px; width: 100%">
+            <md-outlined-text-field
+              type="textarea"
+              rows="5"
+              label={i18n.t('control.input.advancedDesc')}
+              value={inputArgs}
+              oninput={(e: any) => inputArgs = e.target.value}
+              style="flex: 1; resize: vertical;"
+            ></md-outlined-text-field>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px">
+            <md-text-button onclick={importMacro}>
+              <MaterialIcon name="folder_open" slot="icon" />
+              {i18n.t('control.macro.import')}
+            </md-text-button>
+            <md-text-button onclick={exportMacro} disabled={!inputArgs ? true : undefined}>
+              <MaterialIcon name="save" slot="icon" />
+              {i18n.t('control.macro.export')}
+            </md-text-button>
+            <md-filled-button onclick={runMacro}>
+              <MaterialIcon name="play_arrow" slot="icon" />
+              {i18n.t('control.input.run')}
+            </md-filled-button>
+          </div>
+        </div>
+      </details>
+    </section>
+  </div>
+
+  <!-- MANDO ANDROID TV -->
+  <aside class="md3-remote-container">
+    <div class="md3-remote">
+      <div class="md3-remote-header">
+        <h3>Android TV</h3>
+        <button class="md3-remote-power" title={i18n.t('control.tv.power')} onclick={() => sendKey('KEYCODE_POWER')}>
+          <MaterialIcon name="power_settings_new" />
+        </button>
+      </div>
+
+      <div class="md3-remote-dpad">
+        <button class="dpad-btn dpad-up" onclick={() => sendKey('KEYCODE_DPAD_UP')}><MaterialIcon name="keyboard_arrow_up" /></button>
+        <button class="dpad-btn dpad-left" onclick={() => sendKey('KEYCODE_DPAD_LEFT')}><MaterialIcon name="keyboard_arrow_left" /></button>
+        <button class="dpad-btn dpad-ok" onclick={() => sendKey('KEYCODE_DPAD_CENTER')}>OK</button>
+        <button class="dpad-btn dpad-right" onclick={() => sendKey('KEYCODE_DPAD_RIGHT')}><MaterialIcon name="keyboard_arrow_right" /></button>
+        <button class="dpad-btn dpad-down" onclick={() => sendKey('KEYCODE_DPAD_DOWN')}><MaterialIcon name="keyboard_arrow_down" /></button>
+      </div>
+
+      <div class="md3-remote-main-actions">
+        <button class="md3-icon-btn-tonal" title={i18n.t('control.tv.back')} onclick={() => sendKey('KEYCODE_BACK')}><MaterialIcon name="arrow_back" /></button>
+        <button class="md3-icon-btn-tonal assistant-btn" title={i18n.t('control.tv.assistant')} onclick={() => sendKey('KEYCODE_ASSIST')}><MaterialIcon name="assistant" filled /></button>
+        <button class="md3-icon-btn-tonal" title={i18n.t('control.tv.home')} onclick={() => sendKey('KEYCODE_HOME')}><MaterialIcon name="home" filled /></button>
+      </div>
+
+      <div class="md3-remote-volume-row">
+        <button class="md3-icon-btn-tonal mute-btn" title={i18n.t('control.tv.mute')} onclick={() => sendKey('KEYCODE_VOLUME_MUTE')}>
+          <MaterialIcon name="volume_off" />
+        </button>
+        <div class="md3-volume-pill">
+          <button onclick={() => applyMediaVolume(controlVolume - 1)}><MaterialIcon name="remove" /></button>
+          <div class="volume-label"><span>{controlVolume}</span><small>VOL</small></div>
+          <button onclick={() => applyMediaVolume(controlVolume + 1)}><MaterialIcon name="add" /></button>
+        </div>
+      </div>
+
+      <div class="md3-remote-media-grid">
+        <button onclick={() => sendKey('KEYCODE_APP_SWITCH')}><MaterialIcon name="recent_actors" /><span>{i18n.t('control.tv.recent')}</span></button>
+        <button onclick={() => sendKey('KEYCODE_MENU')}><MaterialIcon name="menu" /><span>{i18n.t('control.tv.menu')}</span></button>
+        <button onclick={() => sendKey('KEYCODE_INFO')}><MaterialIcon name="info" /><span>{i18n.t('control.tv.info')}</span></button>
+
+        <button onclick={() => sendKey('KEYCODE_MEDIA_PREVIOUS')}><MaterialIcon name="skip_previous" filled /><span>{i18n.t('control.tv.previous')}</span></button>
+        <button onclick={() => sendKey('KEYCODE_MEDIA_PLAY_PAUSE')}><MaterialIcon name="play_pause" filled /><span>{i18n.t('control.tv.playPause')}</span></button>
+        <button onclick={() => sendKey('KEYCODE_MEDIA_NEXT')}><MaterialIcon name="skip_next" filled /><span>{i18n.t('control.tv.next')}</span></button>
+
+        <button onclick={() => sendKey('KEYCODE_GUIDE')}><MaterialIcon name="tv" /><span>{i18n.t('control.tv.guide')}</span></button>
+        <button onclick={() => sendKey('KEYCODE_CHANNEL_DOWN')}><MaterialIcon name="remove" /><span>{i18n.t('control.tv.chDown')}</span></button>
+        <button onclick={() => sendKey('KEYCODE_CHANNEL_UP')}><MaterialIcon name="add" /><span>{i18n.t('control.tv.chUp')}</span></button>
+      </div>
+    </div>
+  </aside>
+</div>

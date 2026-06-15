@@ -1,9 +1,6 @@
 .transfer-menu-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: fixed;
+  inset: var(--topbar-height) 0 0;
   z-index: 100;
   display: flex;
   justify-content: flex-end;

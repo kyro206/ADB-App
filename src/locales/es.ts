@@ -17,6 +17,7 @@ export const es: Record<string, string> = {
 
   // Comunes
   'common.none': 'ninguno',
+  'common.name': 'Nombre',
   'common.cancel': 'Cancelar',
   'common.confirm': 'Confirmar',
   'common.continue': 'Continuar',
@@ -177,7 +178,8 @@ export const es: Record<string, string> = {
   'files.status.selected': '{count} seleccionados',
   'files.status.noSelection': 'Sin selección',
   'files.prompt.newFolder': 'Nombre de la nueva carpeta',
-  'files.prompt.rename': 'Nuevo nombre',
+  'files.prompt.defaultNewFolder': 'Nueva carpeta',
+  'files.prompt.rename': 'Renombrar archivo/carpeta',
   'files.prompt.copySuffix': ' - copia',
   'files.prompt.copyName': 'Nombre de la copia',
   'files.confirm.deleteTitle': 'Confirmar eliminación',

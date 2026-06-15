@@ -77,7 +77,6 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
     // Run all info queries concurrently for maximum speed
     let (
         getprop,
-        dumpsys_meminfo,
         proc_meminfo,
         battery,
         storage,
@@ -90,7 +89,6 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
         uptime,
     ) = tokio::join!(
         run_or_empty(&serial, &["shell", "getprop"]),
-        run_or_empty(&serial, &["shell", "dumpsys", "meminfo"]),
         run_or_empty(&serial, &["shell", "cat", "/proc/meminfo"]),
         run_or_empty(&serial, &["shell", "dumpsys", "battery"]),
         run_or_empty(&serial, &["shell", "df", "-k", "/data"]),
@@ -103,7 +101,7 @@ pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String>
         run_or_empty(&serial, &["shell", "cat", "/proc/uptime"])
     );
 
-    let meminfo = format!("{dumpsys_meminfo}\n{proc_meminfo}");
+    let meminfo = proc_meminfo;
 
     if dark_mode.trim().is_empty() {
         dark_mode = run_or_empty(

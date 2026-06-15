@@ -104,6 +104,7 @@ pub fn run() {
             operations::get_default_cache_dir,
             operations::list_directory,
             operations::pull_file,
+            operations::read_file_bytes,
             operations::get_file_thumbnail,
             operations::launch_scrcpy,
             operations::list_scrcpy_cameras,
