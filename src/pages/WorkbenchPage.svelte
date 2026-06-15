@@ -4,7 +4,7 @@ import * as m from '../paraglide/messages';
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { devicesState } from '../context/devices.svelte';
-  import { i18n } from '../context/i18n.svelte';
+  import { i18n, type Language } from '../context/i18n.svelte';
   import { themeState } from '../context/theme.svelte';
   
   import DisplayPage from './DisplayPage.svelte';
@@ -328,8 +328,8 @@ import * as m from '../paraglide/messages';
     }
   }
 
-  async function handleLanguageChange(newLang: 'en' | 'es') {
-    i18n.setLanguage(newLang);
+  async function handleLanguageChange(newLang: string) {
+    i18n.setLanguage(newLang as Language);
     if (appSettings) {
       const updated = { ...appSettings, language: newLang };
       await saveAppSettings(updated);

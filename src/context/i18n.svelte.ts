@@ -1,7 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
-import { setLocale, getLocale } from '../paraglide/runtime';
+import { setLocale, getLocale, locales } from '../paraglide/runtime';
 
-export type Language = 'en' | 'es';
+export type Language = typeof locales[number];
+export const languages = locales;
+
+export function getLanguageName(tag: Language): string {
+    const names = new Intl.DisplayNames([tag], { type: 'language' });
+    const name = names.of(tag) || tag;
+    return name.charAt(0).toUpperCase() + name.slice(1);
+}
 
 class I18nState {
   language = $state<Language>('en');

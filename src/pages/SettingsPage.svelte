@@ -13,6 +13,7 @@ import * as m from '../paraglide/messages';
   
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import AppModal from '../components/dialogs/AppModal.svelte';
+  import { languages, getLanguageName } from '../context/i18n.svelte';
   import { APACHE_LICENSE_2_0, MIT_LICENSE } from '../utils/licenseTexts';
   import './SettingsPage.css';
 
@@ -37,14 +38,14 @@ import * as m from '../paraglide/messages';
     defaultCacheDir
   } = $props<{
     theme: 'light' | 'dark' | 'auto';
-    language: 'es' | 'en';
+    language: string;
     tools: ToolsStatus | null;
     checkingUpdates: boolean;
     adbPath: string;
     scrcpyPath: string;
     javaPath: string;
     onThemeChange: (theme: 'light' | 'dark' | 'auto') => void;
-    onLanguageChange: (language: 'es' | 'en') => void;
+    onLanguageChange: (language: string) => void;
     onAdbPathChange: (path: string) => void;
     onScrcpyPathChange: (path: string) => void;
     onJavaPathChange: (path: string) => void;
@@ -131,12 +132,11 @@ import * as m from '../paraglide/messages';
         value={language} 
         onchange={(e: any) => onLanguageChange(e.target.value)}
       >
-        <md-select-option value="es">
-          <div slot="headline">Español</div>
-        </md-select-option>
-        <md-select-option value="en">
-          <div slot="headline">English</div>
-        </md-select-option>
+        {#each languages as lang}
+          <md-select-option value={lang}>
+            <div slot="headline">{getLanguageName(lang)}</div>
+          </md-select-option>
+        {/each}
       </md-outlined-select>
     </div>
   </section>
