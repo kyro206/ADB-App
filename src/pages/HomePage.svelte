@@ -444,9 +444,9 @@ import * as m from '../paraglide/messages';
         >
           <div class="home-lockscreen__scrim"></div>
           <div class="home-lockscreen__top">
-            {#if carrierName}
-              <span class="home-lockscreen__operator" title={carrierName}>{carrierName}</span>
-            {/if}
+            <span class="home-lockscreen__operator" title={carrierName || undefined}>
+              {carrierName || '\u00A0'}
+            </span>
             <span class="home-lockscreen__date">
               {lockscreenDate}
             </span>
@@ -457,7 +457,7 @@ import * as m from '../paraglide/messages';
               <span>{lockscreenTimeParts[0]}</span>
               <span>{lockscreenTimeParts[1]}</span>
             </div>
-            <div class="home-lockscreen__state">
+            <div class="home-lockscreen__state" style={devicesState.selectedDevice?.state === 'device' ? 'display: none;' : ''}>
               {#if !devicesState.selectedDevice}
                 <MaterialIcon name="phonelink_off" size={16} />
                 {m.home_preview_empty_title()}

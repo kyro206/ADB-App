@@ -118,19 +118,19 @@ import * as m from '../paraglide/messages';
       </div>
       <!-- svelte-ignore a11y_missing_attribute -->
       <md-switch 
-        selected={darkMode ? true : undefined} 
-        disabled={!details || darkModeLoading ? true : undefined} 
+        selected={darkMode} 
+        disabled={!details || darkModeLoading} 
         onclick={onToggleDarkMode} 
       ></md-switch>
     </article>
   </section>
 
   <section class="display-actions">
-    <md-outlined-button disabled={!details ? true : undefined} onclick={onReset}>
+    <md-outlined-button disabled={!details} onclick={onReset}>
       <span slot="icon"><MaterialIcon name="restart_alt" size={18} /></span>
       {m.common_reset()}
     </md-outlined-button>
-    <md-filled-button disabled={!canApply ? true : undefined} onclick={onApply}>
+    <md-filled-button disabled={!canApply} onclick={onApply}>
       <span slot="icon"><MaterialIcon name="check" filled size={18} /></span>
       {m.common_apply()}
     </md-filled-button>
