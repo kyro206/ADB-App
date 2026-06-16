@@ -51,6 +51,10 @@ class DeviceState {
   loading = $state(false);
   error = $state<string | null>(null);
 
+  wallpaperImage = $state.raw<string | null>(null);
+  screenshot = $state.raw<string | null>(null);
+  wallpaperLoading = $state(false);
+
   #loadingInternally = false;
   #unlisten: (() => void) | undefined;
 
@@ -101,6 +105,9 @@ class DeviceState {
         this.selectedDevice = targetDevice;
         
         if (targetDevice.serial !== currentSerial || !this.deviceDetails) {
+          this.wallpaperImage = null;
+          this.screenshot = null;
+          
           try {
             const details: DeviceDetails = await invoke('get_device_details', {
               serial: targetDevice.serial,
@@ -114,12 +121,16 @@ class DeviceState {
       } else {
         this.selectedDevice = null;
         this.deviceDetails = null;
+        this.wallpaperImage = null;
+        this.screenshot = null;
       }
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
       this.devices = [];
       this.selectedDevice = null;
       this.deviceDetails = null;
+      this.wallpaperImage = null;
+      this.screenshot = null;
     } finally {
       this.#loadingInternally = false;
       this.loading = false;
@@ -132,6 +143,8 @@ class DeviceState {
 
     this.selectedDevice = device;
     this.deviceDetails = null;
+    this.wallpaperImage = null;
+    this.screenshot = null;
     this.loading = true;
 
     try {

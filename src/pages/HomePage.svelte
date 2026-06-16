@@ -15,8 +15,6 @@ import * as m from '../paraglide/messages';
   const formatStorage = (mb: number) => mb <= 0 ? '-' : mb >= 1024 * 1024 ? `${(mb / 1024 / 1024).toFixed(2)} TB` : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
   const secondaryTitle = (details: DeviceDetails) => [details.manufacturer, details.soc, details.model].filter(value => value && value !== '-').join(' · ');
 
-  let screenshot = $state<string | null>(null);
-  let wallpaperImage = $state<string | null>(null);
   let timeNow = $state(new Date());
   let capturing = $state(false);
   let savingScreenshot = $state(false);
@@ -55,18 +53,22 @@ import * as m from '../paraglide/messages';
         }
       }).catch(() => deviceName = appName);
 
-      // Cargar fondo de pantalla (si el extractor está disponible)
-      invoke<string>('get_device_wallpaper', { serial })
-        .then(base64 => {
-          wallpaperImage = `data:image/jpeg;base64,${base64}`;
-        })
-        .catch(() => {
-          wallpaperImage = null;
-        });
-    } else {
+      // Cargar fondo de pantalla (si no está cargado ya en el store)
+      if (!devicesState.wallpaperImage && !devicesState.wallpaperLoading) {
+        devicesState.wallpaperLoading = true;
+        invoke<string>('get_device_wallpaper', { serial })
+          .then(base64 => {
+            devicesState.wallpaperImage = `data:image/jpeg;base64,${base64}`;
+          })
+          .catch(() => {
+            devicesState.wallpaperImage = null;
+          })
+          .finally(() => {
+            devicesState.wallpaperLoading = false;
+          });
+      }
+    } else if (!devicesState.selectedDevice) {
       deviceName = appName;
-      wallpaperImage = null;
-      screenshot = null;
     }
   });
 
@@ -82,28 +84,74 @@ import * as m from '../paraglide/messages';
   });
 
   let stateLabel = $derived.by(() => {
-    if (!dd) return '-';
+    if (!devicesState.selectedDevice) return '-';
+    const state = devicesState.selectedDevice.state;
     const labels: Record<string, string> = { 
       device: m.state_connected(), 
       connecting: m.state_connecting(), 
       unauthorized: m.state_unauthorized(), 
       offline: m.state_offline(), 
-      recovery: m.state_recovery() 
+      recovery: m.power_btn_recovery ? m.power_btn_recovery() : 'Recovery',
+      bootloader: m.power_btn_bootloader ? m.power_btn_bootloader() : 'Bootloader',
+      fastboot: m.power_btn_fastbootd ? m.power_btn_fastbootd() : 'Fastbootd',
+      download: m.power_btn_download ? m.power_btn_download() : 'Download'
     };
-    return labels[dd.state] || m.state_unknown();
+    return labels[state] || state.charAt(0).toUpperCase() + state.slice(1);
+  });
+
+  let previewStateIcon = $derived.by(() => {
+    if (!devicesState.selectedDevice) return 'smartphone';
+    switch (devicesState.selectedDevice.state) {
+      case 'device': return 'check_circle';
+      case 'recovery': return 'health_and_safety';
+      case 'bootloader': return 'developer_board';
+      case 'fastboot': return 'terminal';
+      case 'fastbootd': return 'terminal';
+      case 'download': return 'download';
+      case 'unauthorized': return 'lock';
+      case 'offline': return 'phonelink_off';
+      case 'connecting': return 'sync';
+      default: return 'smartphone';
+    }
+  });
+
+  let previewStateColor = $derived.by(() => {
+    if (!devicesState.selectedDevice) return '';
+    switch (devicesState.selectedDevice.state) {
+      case 'device': return 'color: #4caf50;';
+      case 'recovery': return 'color: var(--md-sys-color-error, #f44336);';
+      case 'unauthorized': return 'color: var(--md-sys-color-error, #f44336);';
+      case 'offline': return 'color: var(--md-sys-color-outline, #9e9e9e);';
+      default: return 'color: var(--md-sys-color-primary);';
+    }
+  });
+
+  let previewStateHint = $derived.by(() => {
+    if (!devicesState.selectedDevice) return null;
+    switch (devicesState.selectedDevice.state) {
+      case 'recovery': return m.power_hint_recovery ? m.power_hint_recovery() : null;
+      case 'bootloader': return m.power_hint_bootloader ? m.power_hint_bootloader() : null;
+      case 'fastboot':
+      case 'fastbootd': return m.power_hint_fastbootd ? m.power_hint_fastbootd() : null;
+      case 'download': return m.power_hint_download ? m.power_hint_download() : null;
+      default: return null;
+    }
   });
 
   async function captureScreenshot() {
     if (!devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device') return;
     capturing = true;
     try { 
-      screenshot = `data:image/png;base64,${await invoke<string>('capture_screenshot', { serial: devicesState.selectedDevice.serial })}`; 
+      devicesState.screenshot = `data:image/png;base64,${await invoke<string>('capture_screenshot', { serial: devicesState.selectedDevice.serial })}`; 
+    } catch (e) {
+      console.error(e);
+    } finally {
+      capturing = false;
     }
-    finally { capturing = false; }
   }
 
   async function saveScreenshotData() {
-    if (!screenshot || savingScreenshot) return;
+    if (!devicesState.screenshot || !devicesState.selectedDevice || savingScreenshot) return;
     const destination = await save({
       title: m.home_saveCapture(),
       defaultPath: `adb-captura-${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
@@ -144,7 +192,6 @@ import * as m from '../paraglide/messages';
   }
 
   let facts = $derived<Array<[string, string, string, string?]>>([
-    ['check_circle', m.home_field_state(), stateLabel],
     ['android', "Android", dd ? `${dd.android_version} (API ${dd.api_level})` : '-'],
     ['devices', m.home_field_deviceType(), dd ? (m as any)[`device_type_${dd.device_type}`]?.() ?? '-' : '-'],
     ['tablet_android', m.home_field_model(), dd?.model || '-'], 
@@ -252,26 +299,22 @@ import * as m from '../paraglide/messages';
   </div>
 
   <section class="home-preview">
-    <header style="position: relative; z-index: 1; padding: 0 4px;">
-      <div></div>
-    </header>
-    
-    <div class="home-preview__body" style={wallpaperImage && !screenshot ? `background-image: url('${wallpaperImage}'); background-size: cover; background-position: center; position: relative; overflow: hidden;` : 'position: relative; z-index: 1;'}>
+    <div class="home-preview__body" style={devicesState.wallpaperImage && !devicesState.screenshot ? `background-image: url('${devicesState.wallpaperImage}'); background-size: cover; background-position: center; position: relative; overflow: hidden;` : (previewStateHint ? 'position: relative; z-index: 1; background: var(--surface-container-low);' : 'position: relative; z-index: 1;')}>
       
       {#if capturing}
         <div class="home-flash"></div>
       {/if}
 
-      {#if wallpaperImage && !screenshot}
+      {#if devicesState.wallpaperImage && !devicesState.screenshot}
         <div style="position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%); z-index: 0;"></div>
       {/if}
       
-      {#if screenshot}
+      {#if devicesState.screenshot}
         <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 16px; box-sizing: border-box;">
-          <img src={screenshot} alt={m.home_preview_alt()} style="max-height: calc(100% - 70px); object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+          <img src={devicesState.screenshot} alt={m.home_preview_alt()} style="max-height: calc(100% - 70px); object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
           
           <div class="home-screenshot-review">
-            <md-text-button onclick={() => screenshot = null} disabled={savingScreenshot ? true : undefined}>
+            <md-text-button onclick={() => devicesState.screenshot = null} disabled={savingScreenshot ? true : undefined}>
               <span slot="icon"><MaterialIcon name="close" size={18} /></span>
               {m.common_cancel()}
             </md-text-button>
@@ -291,9 +334,9 @@ import * as m from '../paraglide/messages';
             </md-filled-button>
           </div>
         </div>
-      {:else if wallpaperImage}
-        <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; width: 100%; padding: 40px 0 24px 0; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); box-sizing: border-box;">
-          <div style="display: flex; flex-direction: column; align-items: center;">
+      {:else if devicesState.wallpaperImage}
+        <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; width: 100%; padding: 24px 0; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); box-sizing: border-box;">
+          <div style="display: flex; flex-direction: column; align-items: center; margin-top: 30%;">
             <div style="font-size: 4.5rem; font-weight: 300; letter-spacing: -2px; line-height: 1;">
               {timeNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
             </div>
@@ -321,30 +364,60 @@ import * as m from '../paraglide/messages';
             {/if}
           </md-elevated-button>
         </div>
+      {:else if !devicesState.selectedDevice || devicesState.selectedDevice.state === 'offline'}
+        <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px;">
+          <MaterialIcon name="phonelink_off" size={48} />
+          <strong style="margin-top: 16px; font-size: 1.1rem; color: var(--on-surface-variant);">
+            {devicesState.selectedDevice ? m.state_offline() : m.home_preview_empty_title()}
+          </strong>
+        </div>
+      {:else if devicesState.selectedDevice.state === 'device'}
+        <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 32px;">
+          <div style="display: flex; flex-direction: column; align-items: center;">
+            <MaterialIcon name="check_circle" size={48} />
+            <strong style="margin-top: 16px; font-size: 1.1rem;">{m.state_connected()}</strong>
+            <span style="opacity: 0.7; margin-top: 4px;">{devicesState.selectedDevice.model}</span>
+          </div>
+
+          <md-filled-button onclick={captureScreenshot} disabled={capturing ? true : undefined} title={m.home_capture()}>
+            <span slot="icon">
+              {#if capturing}
+                <MaterialIcon name="sync" class="home-spin" size={18} />
+              {:else}
+                <MaterialIcon name="screenshot_monitor" size={18} />
+              {/if}
+            </span>
+            {#if capturing}
+              {m.common_processing()}
+            {:else}
+              {m.home_capture()}
+            {/if}
+          </md-filled-button>
+        </div>
       {:else}
         <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 32px;">
           <div style="display: flex; flex-direction: column; align-items: center;">
-            <MaterialIcon name="smartphone" size={48} />
-            <strong style="margin-top: 16px;">{m.home_preview_empty_title()}</strong>
-            <span style="opacity: 0.7;">{m.home_preview_empty_subtitle()}</span>
+            <MaterialIcon name={previewStateIcon} size={48} style={previewStateColor} />
+            <strong style="margin-top: 16px; font-size: 1.1rem; {previewStateColor}">{stateLabel}</strong>
+            {#if devicesState.selectedDevice.model}
+              <span style="opacity: 0.7; margin-top: 4px;">{devicesState.selectedDevice.model}</span>
+            {/if}
+            
+            {#if previewStateHint}
+              <div style="margin-top: 24px; font-size: 0.85rem; text-align: center; width: 90%; background: var(--surface-container-high); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--outline-variant); color: var(--on-surface-variant); display: flex; flex-direction: column; gap: 4px; align-items: center; box-sizing: border-box;">
+                <span style="display: flex; align-items: center; gap: 6px; font-weight: 500;">
+                  <MaterialIcon name="info" size={18} />
+                  {m.home_power_confirm_exit ? m.home_power_confirm_exit() : 'Exit:'}
+                </span>
+                <span style="opacity: 0.9;">{previewStateHint}</span>
+              </div>
+            {/if}
           </div>
 
-          {#if devicesState.selectedDevice?.state === 'device'}
-            <md-filled-button onclick={captureScreenshot} disabled={capturing ? true : undefined} title={m.home_capture()}>
-              <span slot="icon">
-                {#if capturing}
-                  <MaterialIcon name="sync" class="home-spin" size={18} />
-                {:else}
-                  <MaterialIcon name="screenshot_monitor" size={18} />
-                {/if}
-              </span>
-              {#if capturing}
-                {m.common_processing()}
-              {:else}
-                {m.home_capture()}
-              {/if}
-            </md-filled-button>
-          {/if}
+          <md-filled-tonal-button onclick={() => invoke('run_device_action', { serial: devicesState.selectedDevice!.serial, args: ['reboot'] }).catch(e => console.error(e))}>
+            <span slot="icon"><MaterialIcon name="restart_alt" size={18} /></span>
+            {m.power_btn_reboot ? m.power_btn_reboot() : 'Reboot'}
+          </md-filled-tonal-button>
         </div>
       {/if}
     </div>
