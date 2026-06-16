@@ -344,8 +344,8 @@ import * as m from '../paraglide/messages';
         {#if serial}
           <DisplayPage
             details={deviceDetails}
-            width={displayWidth} setWidth={w => displayWidth = w} height={displayHeight} setHeight={h => displayHeight = h}
-            density={displayDensity} setDensity={d => displayDensity = d} timeout={displayTimeout} setTimeout={t => displayTimeout = t}
+            bind:width={displayWidth} bind:height={displayHeight}
+            bind:density={displayDensity} bind:timeout={displayTimeout}
             refreshRate={displayRefreshRate}
             darkMode={displayDarkMode} {darkModeLoading} suggestions={displaySuggestions}
             onToggleDarkMode={toggleDeviceDarkMode} onSetRefreshRate={setDisplayRefreshRate} onReset={resetDisplay} onApply={applyDisplay}
@@ -360,18 +360,18 @@ import * as m from '../paraglide/messages';
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}
           <MirroringPage
-            {serial} {tools} mode={mirrorMode} setMode={m => mirrorMode = m}
-            fullscreen={mirrorFullscreen} setFullscreen={f => mirrorFullscreen = f}
-            turnScreenOff={mirrorTurnScreenOff} setTurnScreenOff={t => mirrorTurnScreenOff = t}
-            readOnly={mirrorReadOnly} setReadOnly={r => mirrorReadOnly = r}
-            maxSize={mirrorMaxSize} setMaxSize={s => mirrorMaxSize = s} maxFps={mirrorMaxFps} setMaxFps={f => mirrorMaxFps = f}
-            audio={mirrorAudio} setAudio={a => mirrorAudio = a} keyboard={mirrorKeyboard} setKeyboard={k => mirrorKeyboard = k} mouse={mirrorMouse} setMouse={m => mirrorMouse = m}
-            record={mirrorRecord} setRecord={r => mirrorRecord = r} recordPath={mirrorRecordPath} setRecordPath={p => mirrorRecordPath = p}
-            app={mirrorApp} setApp={a => mirrorApp = a} apps={mirrorApps}
-            {virtualWidth} setVirtualWidth={w => virtualWidth = w} {virtualHeight} setVirtualHeight={h => virtualHeight = h}
-            {virtualDpi} setVirtualDpi={d => virtualDpi = d} {virtualResizable} setVirtualResizable={r => virtualResizable = r}
-            {cameraId} setCameraId={c => cameraId = c} {cameraWidth} setCameraWidth={w => cameraWidth = w}
-            {cameraHeight} setCameraHeight={h => cameraHeight = h} {cameras}
+            {serial} {tools} bind:mode={mirrorMode}
+            bind:fullscreen={mirrorFullscreen}
+            bind:turnScreenOff={mirrorTurnScreenOff}
+            bind:readOnly={mirrorReadOnly}
+            bind:maxSize={mirrorMaxSize} bind:maxFps={mirrorMaxFps}
+            bind:audio={mirrorAudio} bind:keyboard={mirrorKeyboard} bind:mouse={mirrorMouse}
+            bind:record={mirrorRecord} bind:recordPath={mirrorRecordPath}
+            bind:app={mirrorApp} apps={mirrorApps}
+            bind:virtualWidth bind:virtualHeight
+            bind:virtualDpi bind:virtualResizable
+            bind:cameraId bind:cameraWidth
+            bind:cameraHeight {cameras}
             onRefreshData={refreshMirrorData} onLaunch={launchMirror} onDirectLaunch={args => scrcpy(words(args))}
           />
         {/if}
@@ -383,7 +383,7 @@ import * as m from '../paraglide/messages';
     <div style="display: {tab === 'control' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}
-          <ControlPage {serial} {run} setStatus={s => status = s} setBusy={b => busy = b} />
+          <ControlPage {serial} {run} bind:status bind:busy />
         {/if}
       </DeviceStateScreen>
     </div>
@@ -393,7 +393,7 @@ import * as m from '../paraglide/messages';
     <div style="display: {tab === 'apps' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={tab === 'apps' && busy}>
         {#if serial}
-          <AppsPage {serial} setStatus={s => status = s} setBusy={b => busy = b} {run} {scrcpy} {tab} {appSettings} javaAvailable={tools?.java.available ?? false} />
+          <AppsPage {serial} bind:status bind:busy {run} {scrcpy} {tab} {appSettings} javaAvailable={tools?.java.available ?? false} />
         {/if}
       </DeviceStateScreen>
     </div>
@@ -403,7 +403,7 @@ import * as m from '../paraglide/messages';
     <div style="display: {tab === 'files' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}
-          <FilesPage {serial} setStatus={s => status = s} setBusy={b => busy = b} {run} {tab} />
+          <FilesPage {serial} bind:status bind:busy {run} {tab} />
         {/if}
       </DeviceStateScreen>
     </div>
@@ -413,7 +413,7 @@ import * as m from '../paraglide/messages';
     <div style="display: {tab === 'system' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}
-          <SystemPage {serial} setStatus={s => status = s} />
+          <SystemPage {serial} bind:status />
         {/if}
       </DeviceStateScreen>
     </div>
@@ -421,7 +421,7 @@ import * as m from '../paraglide/messages';
 
   {#if mountedTabs.has('settings')}
     <div style="display: {tab === 'settings' ? 'contents' : 'none'}">
-      <SettingsPage {theme} {language} {tools} checkingUpdates={toolUpdatesChecking} {adbPath} {scrcpyPath} {javaPath} onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onAdbPathChange={p => adbPath = p} onScrcpyPathChange={p => scrcpyPath = p} onJavaPathChange={p => javaPath = p} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} {appSettings} onSaveAppSettings={saveAppSettings} {defaultCacheDir} />
+      <SettingsPage {theme} {language} {tools} checkingUpdates={toolUpdatesChecking} bind:adbPath bind:scrcpyPath bind:javaPath onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} {appSettings} onSaveAppSettings={saveAppSettings} {defaultCacheDir} />
     </div>
   {/if}
 </WorkbenchShell>

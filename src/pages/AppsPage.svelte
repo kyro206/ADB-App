@@ -18,8 +18,8 @@ import * as m from '../paraglide/messages';
 
   let {
     serial,
-    setStatus,
-    setBusy,
+    status = $bindable(),
+    busy = $bindable(),
     run,
     scrcpy,
     tab,
@@ -27,8 +27,8 @@ import * as m from '../paraglide/messages';
     javaAvailable
   } = $props<{
     serial: string;
-    setStatus: (s: string) => void;
-    setBusy: (b: boolean) => void;
+    status: string;
+    busy: boolean;
     run: (args: string[], success?: string) => Promise<string | undefined>;
     scrcpy?: (args: string[]) => Promise<void>;
     tab: string;
@@ -70,24 +70,20 @@ import * as m from '../paraglide/messages';
 
   let appsNeedingMetadata = $derived(filteredApps.filter(app => !app.icon_data_url));
 
-  let tabRef = $state(tab);
-  $effect(() => { tabRef = tab; });
 
-  let filterRef = $state(filter);
-  $effect(() => { filterRef = filter; });
 
   async function refreshApps() {
     if (!serial) return;
-    setBusy(true);
+    busy = true;
     attemptedMetadata = false;
     try {
       const value = await invoke<AppSummary[]>('list_apps', { serial });
       apps = value; 
-      setStatus('');
+      status = '';
     } catch (error) { 
-      setStatus(String(error)); 
+      status = String(error); 
     } finally { 
-      setBusy(false); 
+      busy = false; 
     }
   }
 
@@ -131,7 +127,7 @@ import * as m from '../paraglide/messages';
         icon_data_url: value.icon_data_url || app.icon_data_url,
       } : app);
     } catch (error) { 
-      setStatus(String(error)); 
+      status = String(error); 
     } finally { 
       detailsLoading = false; 
     }
@@ -162,15 +158,15 @@ import * as m from '../paraglide/messages';
   async function loadVisibleMetadata() {
     if (!serial || !appsNeedingMetadata.length || metadataLoading) return;
     metadataLoading = true;
-    if (tabRef === 'apps') {
-      setStatus(m.workbench_status_metadataLoading({ count: appsNeedingMetadata.length }));
+    if (tab === 'apps') {
+      status = m.workbench_status_metadataLoading({ count: appsNeedingMetadata.length });
     }
     let loaded = 0;
     let failed = 0;
-    const currentFilter = filterRef;
+    const currentFilter = filter;
     try {
       for (let start = 0; start < appsNeedingMetadata.length; start += 3) {
-        if (filterRef !== currentFilter || (!appSettings?.cache_enabled && tabRef !== 'apps')) {
+        if (filter !== currentFilter || (!appSettings?.cache_enabled && tab !== 'apps')) {
           break;
         }
         const batch = appsNeedingMetadata.slice(start, start + 3);
@@ -181,21 +177,24 @@ import * as m from '../paraglide/messages';
         loaded += summaries.length;
         failed += results.length - summaries.length;
         
-        apps = apps.map(app => summaries.find(summary => summary.package_name === app.package_name) || app);
-        
-        if (appDetails) {
-          const summary = summaries.find(item => item.package_name === appDetails!.package_name);
-          if (summary) {
-            appDetails = { ...appDetails, display_name: summary.display_name, icon_data_url: summary.icon_data_url };
+        if (summaries.length > 0) {
+          const summaryMap = new Map(summaries.map(s => [s.package_name, s]));
+          apps = apps.map(app => summaryMap.get(app.package_name) || app);
+          
+          if (appDetails) {
+            const summary = summaryMap.get(appDetails.package_name);
+            if (summary) {
+              appDetails = { ...appDetails, display_name: summary.display_name, icon_data_url: summary.icon_data_url };
+            }
           }
         }
         
-        if (tabRef === 'apps') {
-          setStatus(m.workbench_status_metadataProgress({ processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length }));
+        if (tab === 'apps') {
+          status = m.workbench_status_metadataProgress({ processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length });
         }
       }
-      if (tabRef === 'apps') {
-        setStatus(failed ? m.workbench_status_metadataFailed({ failed }) : '');
+      if (tab === 'apps') {
+        status = failed ? m.workbench_status_metadataFailed({ failed }) : '';
       }
     } finally { 
       metadataLoading = false; 
@@ -300,11 +299,11 @@ import * as m from '../paraglide/messages';
         filters: [{ name: 'Android Package', extensions: [extension] }],
       });
       if (destination) {
-        setStatus(m.workbench_status_exporting({ path: destination }));
+        status = m.workbench_status_exporting({ path: destination });
         await invoke('export_apk', { serial, packageName: appDetails.package_name, destination });
-        setStatus(m.workbench_status_apkSaved({ path: destination }));
+        status = m.workbench_status_apkSaved({ path: destination });
       }
-    } catch (error) { setStatus(String(error)); }
+    } catch (error) { status = String(error); }
   }
 
   async function clearApplicationCache() {
@@ -333,12 +332,12 @@ import * as m from '../paraglide/messages';
   }
 
   async function openAppInScrcpy(pkg: string) {
-    setStatus(m.workbench_status_launchingApp({ pkg }));
+    status = m.workbench_status_launchingApp({ pkg });
     try {
       await invoke<string>('run_device_action', { serial, args: ['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'] });
       if (scrcpy) await scrcpy([]);
     } catch (e) {
-      setStatus(String(e));
+      status = String(e);
     }
   }
 

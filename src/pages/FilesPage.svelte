@@ -115,8 +115,7 @@ import * as m from '../paraglide/messages';
     }
   });
 
-  let pathRef = $state(path);
-  $effect(() => { pathRef = path; });
+
 
   async function asyncPrompt(title: string, initialValue: string = ''): Promise<string | null> {
     return new Promise((resolve) => {
@@ -211,7 +210,7 @@ import * as m from '../paraglide/messages';
 
   async function refreshFiles(nextPath = path, addHistory = false) {
     if (!props.serial) return;
-    props.setBusy(true);
+    props.busy = true;
     try {
       const normalized = normalizeDevicePath(nextPath);
       const value = await invoke<FileEntry[]>('list_directory', { serial: props.serial, path: normalized });
@@ -219,15 +218,15 @@ import * as m from '../paraglide/messages';
       path = normalized;
       selectedFiles = [];
       lastSelectedIndex = null;
-      props.setStatus('');
+      props.status = '';
       if (addHistory && normalized !== fileHistory[fileHistoryIndex]) {
         fileHistory = [...fileHistory.slice(0, fileHistoryIndex + 1), normalized];
         fileHistoryIndex++;
       }
     } catch (error) { 
-      props.setStatus(String(error)); 
+      props.status = String(error); 
     } finally { 
-      props.setBusy(false); 
+      props.busy = false; 
     }
   }
 
@@ -259,7 +258,7 @@ import * as m from '../paraglide/messages';
       try {
         if (job.type === 'upload') {
           await invoke<string>('run_device_action', { serial: props.serial, args: ['push', job.source, job.destination] });
-          if (pathRef === job.destination) refreshFiles(pathRef);
+          if (path === job.destination) refreshFiles(path);
         } else {
           await invoke<string>('pull_file', { serial: props.serial, remotePath: job.source, localPath: job.destination });
         }
@@ -337,7 +336,7 @@ import * as m from '../paraglide/messages';
         console.error(e);
       }
       const name = localPath.split(/[\\/]/).pop() || localPath;
-      enqueueTransfer('upload', localPath, pathRef, name, isDirectory);
+      enqueueTransfer('upload', localPath, path, name, isDirectory);
     }
     if (!transfersOpen) transfersOpen = true;
   }

@@ -22,14 +22,11 @@ import * as m from '../paraglide/messages';
     language,
     tools,
     checkingUpdates,
-    adbPath,
-    scrcpyPath,
-    javaPath,
+    adbPath = $bindable(),
+    scrcpyPath = $bindable(),
+    javaPath = $bindable(),
     onThemeChange,
     onLanguageChange,
-    onAdbPathChange,
-    onScrcpyPathChange,
-    onJavaPathChange,
     onSaveToolPath,
     onInstallTool,
     onClearCache,
@@ -46,9 +43,6 @@ import * as m from '../paraglide/messages';
     javaPath: string;
     onThemeChange: (theme: 'light' | 'dark' | 'auto') => void;
     onLanguageChange: (language: string) => void;
-    onAdbPathChange: (path: string) => void;
-    onScrcpyPathChange: (path: string) => void;
-    onJavaPathChange: (path: string) => void;
     onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
     onInstallTool: (tool: InstallableTool) => void;
     onClearCache: () => void;
@@ -201,8 +195,8 @@ import * as m from '../paraglide/messages';
     </section>
   {/snippet}
 
-  {@render toolPanel("ADB", "adb", tools?.adb, adbPath, m.settings_adbPlaceholder(), onAdbPathChange)}
-  {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_scrcpyPlaceholder(), onScrcpyPathChange)}
+  {@render toolPanel("ADB", "adb", tools?.adb, adbPath, m.settings_adbPlaceholder(), p => adbPath = p)}
+  {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_scrcpyPlaceholder(), p => scrcpyPath = p)}
   
   <section class="md3-card">
     <h3 class="md3-title">{m.settings_javaTitle()}</h3>
@@ -221,11 +215,11 @@ import * as m from '../paraglide/messages';
     <div class="form-stack">
       <md-outlined-text-field 
         value={javaPath} 
-        oninput={(e: any) => onJavaPathChange(e.target.value)} 
+        oninput={(e: any) => javaPath = e.target.value} 
         label={m.settings_javaPlaceholder()}
         style="width: 100%"
       >
-        <md-icon-button slot="trailing-icon" onclick={() => pickDirectory(onJavaPathChange)}>
+        <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => javaPath = p)}>
           <MaterialIcon name="folder_open" />
         </md-icon-button>
       </md-outlined-text-field>

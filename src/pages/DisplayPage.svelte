@@ -13,14 +13,10 @@ import * as m from '../paraglide/messages';
 
   let {
     details,
-    width,
-    setWidth,
-    height,
-    setHeight,
-    density,
-    setDensity,
-    timeout,
-    setTimeout,
+    width = $bindable(),
+    height = $bindable(),
+    density = $bindable(),
+    timeout = $bindable(),
     refreshRate,
     darkMode,
     darkModeLoading,
@@ -31,10 +27,10 @@ import * as m from '../paraglide/messages';
     onApply
   } = $props<{
     details: DeviceDetails | null;
-    width: number; setWidth: (v: number) => void;
-    height: number; setHeight: (v: number) => void;
-    density: number; setDensity: (v: number) => void;
-    timeout: number; setTimeout: (v: number) => void;
+    width: number;
+    height: number;
+    density: number;
+    timeout: number;
     refreshRate: number;
     darkMode: boolean;
     darkModeLoading: boolean;
@@ -88,22 +84,22 @@ import * as m from '../paraglide/messages';
   <section class="display-editor-grid">
     {#snippet resChildren()}
       <div class="display-fields two">
-        {@render Field(m.display_edit_width(), width, 320, "px", setWidth)}
-        {@render Field(m.display_edit_height(), height, 320, "px", setHeight)}
+        {@render Field(m.display_edit_width(), width, 320, "px", v => width = v)}
+        {@render Field(m.display_edit_height(), height, 320, "px", v => height = v)}
       </div>
     {/snippet}
     {@render EditCard("aspect_ratio", m.display_edit_res(), resChildren)}
 
     {#snippet densityChildren()}
       <div class="display-fields">
-        {@render Field(m.display_edit_density(), density, 120, "dpi", setDensity)}
+        {@render Field(m.display_edit_density(), density, 120, "dpi", v => density = v)}
       </div>
     {/snippet}
     {@render EditCard("density_medium", m.display_edit_density(), densityChildren)}
 
     {#snippet timeoutChildren()}
       <div class="display-fields">
-        {@render Field(m.display_edit_time(), timeout, 1, "s", setTimeout)}
+        {@render Field(m.display_edit_time(), timeout, 1, "s", v => timeout = v)}
       </div>
     {/snippet}
     {@render EditCard("timer", m.display_edit_timeout(), timeoutChildren)}
@@ -148,7 +144,7 @@ import * as m from '../paraglide/messages';
       </header>
       <div class="display-presets">
         {#each suggestions as item (`${item.width}-${item.height}`)}
-          <button onclick={() => { setWidth(item.width); setHeight(item.height); setDensity(item.density); }}>
+          <button onclick={() => { width = item.width; height = item.height; density = item.density; }}>
             <MaterialIcon name="photo_size_select_large" />
             <span>
               <strong>{item.width} × {item.height}</strong>

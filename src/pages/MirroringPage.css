@@ -1,4 +1,4 @@
-.mirror-material-page{display:flex;min-height:100%;flex-direction:column;gap:20px;padding-bottom:100px;position:relative}
+.mirror-material-page{display:flex;min-height:100%;flex-direction:column;gap:20px;padding-bottom:100px}
 .mirror-material-source-tabs{margin-bottom:8px}
 .mirror-material-source-tabs md-tabs{background:transparent;--md-primary-tab-container-color:transparent}
 .mirror-material-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(320px,.7fr);align-items:start;gap:20px}
@@ -19,7 +19,7 @@
 .mirror-material-toggle__icon{display:grid;place-items:center;width:34px;height:34px;color:var(--primary);background:var(--surface-container-high);border-radius:10px}
 .mirror-material-toggle__label{font-size:13px;font-weight:500}
 .mirror-material-toggle md-switch{transform:scale(.85);transform-origin:right center}
-.mirror-material-footer{position:fixed;bottom:0;left:0;right:0;z-index:10;display:flex;align-items:center;justify-content:space-between;width:100%;gap:20px;padding:16px 24px;background:var(--surface-container-high);border-radius:0;border-top:1px solid var(--outline-variant);box-sizing:border-box}
+.mirror-material-footer{position:absolute;bottom:0;left:0;right:0;z-index:10;display:flex;align-items:center;justify-content:space-between;width:auto;gap:20px;padding:16px 24px;background:var(--surface-container-high);border-radius:0;border-top:1px solid var(--outline-variant);box-sizing:border-box}
 .mirror-material-footer__info{display:flex;align-items:center;gap:10px;color:var(--on-surface-variant);font-size:12px;font-weight:500;flex:1;min-width:0}
 .mirror-material-footer__info .material-symbols-rounded{font-size:20px}
 .mirror-material-footer__info span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

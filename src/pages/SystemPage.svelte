@@ -35,23 +35,23 @@ import * as m from '../paraglide/messages';
         ? selectedKeyboard 
         : value.current_keyboard_id;
         
-      setStatus('');
+      status = '';
     } catch (error) {
-      setStatus(String(error));
+      status = String(error);
     } finally {
       systemLoading = false;
     }
   }
 
   async function applySystemAction(args: string[], success: string) {
-    if (!serial) return setStatus(m.control_error_noDevice());
+    if (!serial) return status = m.control_error_noDevice();
     systemLoading = true;
     try {
       await invoke<string>('run_device_action', { serial, args });
-      setStatus(success);
+      status = success;
       await refreshSystemState();
     } catch (error) {
-      setStatus(String(error));
+      status = String(error);
     } finally {
       systemLoading = false;
     }
@@ -59,7 +59,7 @@ import * as m from '../paraglide/messages';
 
   async function createSystemUser() {
     const name = newSystemUser.trim();
-    if (!name) return setStatus(m.system_error_noUserName());
+    if (!name) return status = m.system_error_noUserName();
     await applySystemAction(['shell', 'pm', 'create-user', name], m.system_status_userCreated({ name }));
     newSystemUser = '';
   }

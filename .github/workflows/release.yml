@@ -8,30 +8,59 @@ permissions:
   contents: write
 
 jobs:
-  build-tauri:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v6
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Sincronizar versiones
+        shell: bash
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          
+          # Actualizar package.json
+          bun pm version $VERSION --no-git-tag-version
+          
+          # Actualizar Cargo.toml y tauri.conf.json rápidamente
+          node -e '
+            const fs = require("fs");
+            const version = "'"$VERSION"'";
+            
+            // tauri.conf.json
+            let tauriConf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
+            tauriConf.version = version;
+            fs.writeFileSync("src-tauri/tauri.conf.json", JSON.stringify(tauriConf, null, 2));
+            
+            // Cargo.toml
+            let cargo = fs.readFileSync("src-tauri/Cargo.toml", "utf8");
+            cargo = cargo.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
+            fs.writeFileSync("src-tauri/Cargo.toml", cargo);
+          '
+
+      - name: Subir código modificado
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-code
+          path: .
+          include-hidden-files: true
+
+  build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            args: "--bundles deb,updater"
+            args: "--bundles deb,appimage,updater"
             name: "linux-x64"
-
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            args: "--bundles appimage,updater"
-            name: "appimage-x64"
-
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            args: "--bundles nsis,updater"
-            name: "windows-x64"
-
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            args: "--bundles nsis,updater"
-            name: "windows-arm64"
 
           - os: macos-latest
             target: x86_64-apple-darwin
@@ -43,36 +72,22 @@ jobs:
             args: "--bundles dmg,updater"
             name: "macos-arm64"
 
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            args: "--bundles nsis,updater"
+            name: "windows-x64"
+
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            args: "--bundles nsis,updater"
+            name: "windows-arm64"
+
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout del repositorio
-        uses: actions/checkout@v6
-
-      - name: Sincronizar versiones de Tauri y Cargo con el Tag
-        shell: bash
-        run: |
-          node -e '
-            const fs = require("fs");
-            const tag = "${{ github.event.release.tag_name }}";
-            const version = tag.replace(/^v/, "");
-            
-            const tauriPath = "src-tauri/tauri.conf.json";
-            if (fs.existsSync(tauriPath)) {
-              const config = JSON.parse(fs.readFileSync(tauriPath, "utf8"));
-              config.version = version;
-              
-              fs.writeFileSync(tauriPath, JSON.stringify(config, null, 2));
-              console.log("✓ tauri.conf.json sincronizado a la versión: " + version);
-            }
-
-            const cargoPath = "src-tauri/Cargo.toml";
-            if (fs.existsSync(cargoPath)) {
-              let cargoContent = fs.readFileSync(cargoPath, "utf8");
-              cargoContent = cargoContent.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
-              fs.writeFileSync(cargoPath, cargoContent);
-              console.log("✓ Cargo.toml sincronizado a la versión: " + version);
-            }
-          '
+      - name: Descargar código fuente modificado
+        uses: actions/download-artifact@v4
+        with:
+          name: source-code
 
       - name: Configurar Rust y el Target de compilación
         uses: dtolnay/rust-toolchain@stable
@@ -98,18 +113,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.event.release.tag_name }}
           releaseId: ${{ github.event.release.id }}
           args: --target ${{ matrix.target }} ${{ matrix.args }}
+          updaterJsonPreferNsis: true
+          updaterJsonKeepUniversalMacos: true
 
   publish-updater:
-    needs: build-tauri
+    needs: build
     runs-on: ubuntu-latest
     if: github.event.release.prerelease == false
     steps:
-      - name: Renombrar Assets y Generar latest.json con Action
+      - name: Checkout del repositorio
+        uses: actions/checkout@v6
+
+      - name: Generar latest.json y actualizar Release
         uses: actions/github-script@v7
         with:
           script: |
@@ -122,85 +141,69 @@ jobs:
 
             const version = release.data.tag_name.replace(/^v/, '');
             const assets = release.data.assets;
-            const newAssets = [];
-
-            // 1. Renombrar assets con la API para aplicar la arquitectura
+            
+            // 1. Pre-fetch de las firmas (.sig)
+            const signatureCache = new Map();
             for (const asset of assets) {
-              let newName = asset.name;
-              const isSig = newName.endsWith('.sig');
-              const baseName = isSig ? newName.slice(0, -4) : newName;
-              const lowerBase = baseName.toLowerCase();
-
-              let platformType = '';
-              
-              if (lowerBase.includes('windows') || lowerBase.includes('nsis') || lowerBase.endsWith('.exe')) {
-                if (lowerBase.includes('arm64') || lowerBase.includes('aarch64')) {
-                  platformType = 'arm64.exe';
+              if (asset.name.endsWith('.sig')) {
+                const sigResponse = await fetch(asset.browser_download_url);
+                if (sigResponse.ok) {
+                  signatureCache.set(asset.name, (await sigResponse.text()).trim());
                 } else {
-                  platformType = 'x64.exe';
-                }
-              } else if (lowerBase.endsWith('.dmg')) {
-                if (lowerBase.includes('arm64') || lowerBase.includes('aarch64')) {
-                  platformType = 'silicon.dmg';
-                } else {
-                  platformType = 'intel.dmg';
-                }
-              } else if (lowerBase.endsWith('.appimage')) {
-                platformType = 'x64.AppImage';
-              } else if (lowerBase.endsWith('.deb')) {
-                platformType = 'x64.deb';
-              }
-
-              if (platformType) {
-                const finalNewName = `ADB.App_${version}_${platformType}${isSig ? '.sig' : ''}`;
-                if (finalNewName !== asset.name) {
-                  console.log(`Renombrando ${asset.name} -> ${finalNewName}`);
-                  await github.rest.repos.updateReleaseAsset({
-                    owner,
-                    repo,
-                    asset_id: asset.id,
-                    name: finalNewName
-                  });
-                  newName = finalNewName;
+                  console.warn(`Error al descargar firma original: ${asset.name}`);
                 }
               }
-              const newUrl = asset.browser_download_url.substring(0, asset.browser_download_url.lastIndexOf('/') + 1) + newName;
-              newAssets.push({ ...asset, name: newName, browser_download_url: newUrl });
             }
 
-            // 2. Generar latest.json
             const platforms = {};
-            for (const asset of newAssets) {
+            const downloads = {
+              Windows: [],
+              macOS: [],
+              Linux: []
+            };
+
+            for (const asset of assets) {
               if (asset.name.endsWith('.sig') || asset.name === 'latest.json') continue;
               
-              const sigAsset = newAssets.find(a => a.name === asset.name + '.sig');
-              if (!sigAsset) {
-                console.warn(`No signature found for ${asset.name}`);
-                continue;
-              }
-              
-              // Descargar firma
-              const sigResponse = await fetch(sigAsset.browser_download_url);
-              if (!sigResponse.ok) {
-                console.warn(`Failed to fetch signature for ${asset.name}`);
-                continue;
-              }
-              const signature = (await sigResponse.text()).trim();
-
               const lowerName = asset.name.toLowerCase();
               let platformKey = null;
-              if (lowerName.includes('arm64.exe')) platformKey = 'windows-aarch64';
-              else if (lowerName.includes('x64.exe')) platformKey = 'windows-x86_64';
-              else if (lowerName.includes('silicon.dmg')) platformKey = 'darwin-aarch64';
-              else if (lowerName.includes('intel.dmg')) platformKey = 'darwin-x86_64';
-              else if (lowerName.includes('.appimage')) platformKey = 'linux-x86_64';
-              
-              if (platformKey) {
-                platforms[platformKey] = {
-                  signature,
-                  url: asset.browser_download_url
-                };
+
+              if (lowerName.endsWith('.exe')) {
+                if (lowerName.includes('arm64') || lowerName.includes('aarch64')) {
+                  platformKey = 'windows-aarch64';
+                  downloads.Windows.push(`[ARM64 (.exe)](${asset.browser_download_url})`);
+                } else {
+                  platformKey = 'windows-x86_64';
+                  downloads.Windows.push(`[x64 (.exe)](${asset.browser_download_url})`);
+                }
+              } else if (lowerName.endsWith('.dmg')) {
+                if (lowerName.includes('arm64') || lowerName.includes('aarch64')) {
+                  platformKey = 'darwin-aarch64';
+                  downloads.macOS.push(`[Apple Silicon (.dmg)](${asset.browser_download_url})`);
+                } else {
+                  platformKey = 'darwin-x86_64';
+                  downloads.macOS.push(`[Intel (.dmg)](${asset.browser_download_url})`);
+                }
+              } else if (lowerName.endsWith('.appimage')) {
+                platformKey = 'linux-x86_64';
+                downloads.Linux.push(`[x64 (.AppImage)](${asset.browser_download_url})`);
+              } else if (lowerName.endsWith('.deb')) {
+                downloads.Linux.push(`[x64 (.deb)](${asset.browser_download_url})`);
               }
+              
+              if (!platformKey) continue;
+              
+              const sigName = asset.name + '.sig';
+              let signature = signatureCache.get(sigName) || "";
+              
+              if (!signature) {
+                core.warning(`No se encontró o no se pudo leer la firma (.sig) para: ${asset.name}`);
+              }
+
+              platforms[platformKey] = {
+                signature,
+                url: asset.browser_download_url
+              };
             }
 
             const latestJson = {
@@ -212,8 +215,27 @@ jobs:
 
             const fs = require('fs');
             fs.writeFileSync('latest.json', JSON.stringify(latestJson, null, 2));
-            console.log("latest.json generado exitosamente:");
-            console.log(JSON.stringify(latestJson, null, 2));
+
+            // 4. Generar lista de descargas y actualizar el Release
+            let tableMarkdown = "| Sistema Operativo | Descargas |\n|---|---|\n";
+            for (const os of ['Windows', 'macOS', 'Linux']) {
+              if (downloads[os].length > 0) {
+                tableMarkdown += `| **${os}** | ${downloads[os].join('<br>')} |\n`;
+              }
+            }
+            tableMarkdown += '\n---\n\n';
+            
+            const originalBody = release.data.body || '';
+            const newBody = originalBody.includes('| Sistema Operativo | Descargas |') 
+              ? originalBody 
+              : tableMarkdown + originalBody;
+            
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.data.id,
+              body: newBody
+            });
 
       - name: Desplegar latest.json en la rama gh-pages
         run: |

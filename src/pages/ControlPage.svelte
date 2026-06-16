@@ -12,13 +12,13 @@ import * as m from '../paraglide/messages';
   let {
     serial,
     run,
-    setStatus,
-    setBusy
+    status = $bindable(),
+    busy = $bindable()
   } = $props<{
     serial: string;
     run: (args: string[], success?: string) => Promise<string | undefined>;
-    setStatus: (status: string) => void;
-    setBusy: (busy: boolean) => void;
+    status: string;
+    busy: boolean;
   }>();
 
   let controlBrightness = $state(128);
@@ -67,16 +67,16 @@ import * as m from '../paraglide/messages';
   const sendKey = (code: string) => run(['shell', 'input', 'keyevent', code]);
 
   async function applyMediaVolume(value: number) {
-    if (!serial) { setStatus(m.control_error_noDevice()); return; }
+    if (!serial) { status = m.control_error_noDevice(); return; }
     const safeValue = Math.max(0, Math.min(value, controlVolumeMax));
     controlVolume = safeValue;
-    setBusy(true);
+    busy = true;
     try {
       await invoke<string>('set_media_volume', { serial, volume: safeValue });
     } catch (error) { 
-      setStatus(String(error)); 
+      status = String(error); 
     } finally { 
-      setBusy(false); 
+      busy = false; 
     }
   }
 
@@ -117,13 +117,13 @@ import * as m from '../paraglide/messages';
     a.download = 'macro.txt';
     a.click();
     URL.revokeObjectURL(url);
-    setStatus(m.control_macro_saved() || 'Macro saved successfully');
+    status = m.control_macro_saved() || 'Macro saved successfully';
   }
 
   async function runMacro() {
     if (!inputArgs) return;
     const lines = inputArgs.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    setBusy(true);
+    busy = true;
     try {
       for (const line of lines) {
         if (line.startsWith('sleep ')) {
@@ -139,9 +139,9 @@ import * as m from '../paraglide/messages';
         }
       }
     } catch (e) {
-      setStatus(String(e));
+      status = String(e);
     } finally {
-      setBusy(false);
+      busy = false;
     }
   }
 </script>
