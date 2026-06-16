@@ -178,16 +178,22 @@ import * as m from '../paraglide/messages';
     finally { powerBusy = false; }
   }
 
+  let shizukuError = $state<string | null>(null);
+
   async function startShizuku() {
     if (!devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device' || shizukuStatus === 'busy') return;
     shizukuStatus = 'busy';
+    shizukuError = null;
     try {
-      await invoke('run_device_action', { serial: devicesState.selectedDevice.serial, args: ['shell', 'sh', '/sdcard/Android/data/moe.shizuku.privileged.api/start.sh'] });
+      await invoke('run_device_action', { serial: devicesState.selectedDevice.serial, args: ['shell', 'sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh &'] });
       shizukuStatus = 'success';
     } catch (e) {
+      shizukuError = String(e);
       shizukuStatus = 'error';
     } finally {
-      setTimeout(() => shizukuStatus = 'idle', 2000);
+      setTimeout(() => {
+        if (shizukuStatus !== 'error') shizukuStatus = 'idle';
+      }, 2000);
     }
   }
 
@@ -211,7 +217,7 @@ import * as m from '../paraglide/messages';
       <div>
         <h2>{deviceName}</h2>
         <p>{dd ? secondaryTitle(dd) : m.home_summary_empty()}</p>
-        <div class="home-popular-actions" style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px;">
+        <div class="home-popular-actions" style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
           <md-filled-tonal-button 
             disabled={!devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device' || shizukuStatus === 'busy' ? true : undefined} 
             onclick={startShizuku}
@@ -224,6 +230,9 @@ import * as m from '../paraglide/messages';
             </span>
             {m.home_action_shizuku()}
           </md-filled-tonal-button>
+          {#if shizukuError}
+            <span style="color: var(--md-sys-color-error, #f44336); font-size: 0.85rem; max-width: 250px; line-height: 1.2;">{shizukuError}</span>
+          {/if}
         </div>
       </div>
       <div class="home-hero__actions">
@@ -233,7 +242,7 @@ import * as m from '../paraglide/messages';
           disabled={!devicesState.selectedDevice || powerBusy ? true : undefined} 
           onclick={() => powerOpen = true}
         >
-          <MaterialIcon name="power_settings_new" />
+          <span class="material-symbols-rounded">power_settings_new</span>
         </md-filled-tonal-icon-button>
       </div>
     </section>
@@ -344,8 +353,19 @@ import * as m from '../paraglide/messages';
               {timeNow.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
             </div>
             <div style="margin-top: 32px; display: flex; align-items: center; gap: 8px; opacity: 0.9; font-weight: 500; font-size: 0.9rem;">
-              <MaterialIcon name="lock" size={16} />
-              {m.state_connected()}
+              {#if !devicesState.selectedDevice}
+                <MaterialIcon name="phonelink_off" size={16} />
+                {m.home_preview_empty_title()}
+              {:else if devicesState.selectedDevice.state === 'offline'}
+                <md-circular-progress indeterminate style="--md-circular-progress-size: 22px;"></md-circular-progress>
+                {m.state_connecting ? m.state_connecting() : 'Connecting...'}
+              {:else if devicesState.selectedDevice.state === 'device'}
+                <MaterialIcon name="check_circle" size={16} />
+                {m.state_connected()}
+              {:else}
+                <MaterialIcon name={previewStateIcon} size={16} />
+                {stateLabel}
+              {/if}
             </div>
           </div>
           
@@ -364,11 +384,18 @@ import * as m from '../paraglide/messages';
             {/if}
           </md-elevated-button>
         </div>
-      {:else if !devicesState.selectedDevice || devicesState.selectedDevice.state === 'offline'}
+      {:else if !devicesState.selectedDevice}
         <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px;">
           <MaterialIcon name="phonelink_off" size={48} />
           <strong style="margin-top: 16px; font-size: 1.1rem; color: var(--on-surface-variant);">
-            {devicesState.selectedDevice ? m.state_offline() : m.home_preview_empty_title()}
+            {m.home_preview_empty_title()}
+          </strong>
+        </div>
+      {:else if devicesState.selectedDevice.state === 'offline'}
+        <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px;">
+          <md-circular-progress indeterminate style="--md-circular-progress-size: 48px;"></md-circular-progress>
+          <strong style="margin-top: 16px; font-size: 1.1rem; color: var(--on-surface-variant);">
+            {m.state_connecting ? m.state_connecting() : 'Connecting...'}
           </strong>
         </div>
       {:else if devicesState.selectedDevice.state === 'device'}

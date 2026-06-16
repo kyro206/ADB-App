@@ -142,7 +142,8 @@ import * as m from '../paraglide/messages';
 {/snippet}
 
 <div class="mirror-material-page">
-  <section class="mirror-material-source-tabs" aria-label={m.mirror_source()}>
+  <div class="mirror-material-content">
+    <section class="mirror-material-source-tabs" aria-label={m.mirror_source()}>
     <md-tabs>
       {#each MODES as item}
         <md-primary-tab 
@@ -234,6 +235,7 @@ import * as m from '../paraglide/messages';
         {@render Field(m.mirror_advanced_args(), advancedArgs, (v) => advancedArgs = v, 'text', '--video-bit-rate=8M')}
       </section>
     </aside>
+  </div>
   </div>
 
   <footer class="mirror-material-footer">
