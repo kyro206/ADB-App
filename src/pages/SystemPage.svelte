@@ -11,10 +11,10 @@ import * as m from '../paraglide/messages';
 
   let {
     serial,
-    setStatus
+    status = $bindable()
   } = $props<{
     serial: string;
-    setStatus: (status: string) => void;
+    status: string;
   }>();
 
   let systemState = $state.raw<SystemState | null>(null);

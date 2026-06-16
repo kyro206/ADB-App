@@ -1,7 +1,7 @@
 
 
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
@@ -53,7 +53,6 @@
   let contextMenu = $state<{ x: number; y: number; file: FileEntry } | null>(null);
   
   let osDragHover = $state(false);
-  let thumbnailRefresh = $state(0);
   let transfersOpen = $state(false);
   let transferJobs = $state<TransferJob[]>([]);
   let pendingThumbnails = new Set<string>();
@@ -93,14 +92,12 @@
         navigator.mediaSession.setActionHandler('pause', () => audioPlayer?.pause());
       }
       
-      // Wait for Svelte to update the audio element's src
-      setTimeout(() => {
-        if (audioPlayer) {
-          audioPlayer.play().catch(console.error);
-        }
-      }, 50);
+      await tick();
+      audioPlayer?.play().catch(error => {
+        status = translateError(error);
+      });
     } catch (e) {
-      console.error(e);
+      status = translateError(e);
       audioPlayingPath = null;
     } finally {
       audioLoading = false;
@@ -207,10 +204,11 @@
     });
   });
 
+  let selectedFileSet = $derived(new Set(selectedFiles));
+
   let selectedFileEntries = $derived.by(() => {
     if (!selectedFiles.length) return [];
-    const set = new Set(selectedFiles);
-    return files.filter(file => set.has(file.name));
+    return files.filter(file => selectedFileSet.has(file.name));
   });
 
   async function refreshFiles(nextPath = path, addHistory = false) {
@@ -338,7 +336,7 @@
         const metadata = await stat(localPath);
         isDirectory = metadata.isDirectory;
       } catch (e) {
-        console.error(e);
+        status = translateError(e);
       }
       const name = localPath.split(/[\\/]/).pop() || localPath;
       enqueueTransfer('upload', localPath, path, name, isDirectory);
@@ -516,7 +514,7 @@
   function handleContextMenu(e: MouseEvent, file: FileEntry) {
     e.preventDefault();
     e.stopPropagation();
-    if (!selectedFiles.includes(file.name)) selectedFiles = [file.name];
+    if (!selectedFileSet.has(file.name)) selectedFiles = [file.name];
     contextMenu = { x: e.clientX, y: e.clientY, file };
   }
 
@@ -825,8 +823,9 @@
 </div>
 
 {#snippet fileRow(file: FileEntry, index: number)}
+  {@const remotePath = filePath(file)}
   <button 
-    class="file-list-row {selectedFiles.includes(file.name) ? 'selected' : ''}" 
+    class="file-list-row {selectedFileSet.has(file.name) ? 'selected' : ''}" 
     onclick={event => selectFileEntry(event, file, index)} 
     ondblclick={() => openFileEntry(file)}
     oncontextmenu={e => handleContextMenu(e, file)}
@@ -836,15 +835,15 @@
         <MaterialIcon name={fileIcon(file)} />
         {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <div class="file-audio-play list-mode {audioPlayingPath === filePath(file) && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
-            {#if audioPlayingPath === filePath(file)}
+          <div class="file-audio-play list-mode {audioPlayingPath === remotePath && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
+            {#if audioPlayingPath === remotePath}
               {#if audioLoading}
                 <md-circular-progress indeterminate style="--md-circular-progress-size: 36px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
               {:else}
                 <md-circular-progress value={audioProgress} style="--md-circular-progress-size: 36px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
               {/if}
             {/if}
-            <MaterialIcon name={audioPlayingPath === filePath(file) && audioIsPlaying ? 'pause' : 'play_arrow'} />
+            <MaterialIcon name={audioPlayingPath === remotePath && audioIsPlaying ? 'pause' : 'play_arrow'} />
           </div>
         {/if}
       </b>
@@ -861,9 +860,10 @@
 {/snippet}
 
 {#snippet fileCard(file: FileEntry, index: number)}
+  {@const remotePath = filePath(file)}
   <button 
-    class="file-grid-card {selectedFiles.includes(file.name) ? 'selected' : ''}" 
-    use:lazyLoadThumbnail={filePath(file)}
+    class="file-grid-card {selectedFileSet.has(file.name) ? 'selected' : ''}" 
+    use:lazyLoadThumbnail={remotePath}
     onclick={event => selectFileEntry(event, file, index)} 
     ondblclick={() => openFileEntry(file)}
     oncontextmenu={e => handleContextMenu(e, file)}
@@ -876,22 +876,22 @@
       </span>
     {:else}
       <span class="file-grid-preview">
-        {#if fileThumbnails[filePath(file)]}
-          <img src={fileThumbnails[filePath(file)]} alt="" loading="lazy" />
+        {#if fileThumbnails[remotePath]}
+          <img src={fileThumbnails[remotePath]} alt="" loading="lazy" />
         {:else}
           <MaterialIcon name={fileIcon(file)} size={48} />
         {/if}
         {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <div class="file-audio-play {audioPlayingPath === filePath(file) && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
-            {#if audioPlayingPath === filePath(file)}
+          <div class="file-audio-play {audioPlayingPath === remotePath && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
+            {#if audioPlayingPath === remotePath}
               {#if audioLoading}
                 <md-circular-progress indeterminate style="--md-circular-progress-size: 40px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
               {:else}
                 <md-circular-progress value={audioProgress} style="--md-circular-progress-size: 40px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
               {/if}
             {/if}
-            <MaterialIcon name={audioPlayingPath === filePath(file) && audioIsPlaying ? 'pause' : 'play_arrow'} />
+            <MaterialIcon name={audioPlayingPath === remotePath && audioIsPlaying ? 'pause' : 'play_arrow'} />
           </div>
         {/if}
       </span>

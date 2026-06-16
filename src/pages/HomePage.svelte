@@ -23,25 +23,25 @@ import * as m from '../paraglide/messages';
   let shizukuStatus = $state<'idle' | 'busy' | 'success' | 'error'>('idle');
   let appName = $state('ADB App');
   let deviceName = $state('ADB App');
+  let actionError = $state<string | null>(null);
+  let shizukuError = $state<string | null>(null);
 
   let dd = $derived(devicesState.deviceDetails);
+  let selectedDevice = $derived(devicesState.selectedDevice);
+  let selectedSerial = $derived(selectedDevice?.serial ?? '');
+  let selectedState = $derived(selectedDevice?.state ?? '');
+  let wallpaperRequestSerial: string | null = null;
 
   onMount(() => {
     getName().then(name => {
       appName = name;
       deviceName = name;
     }).catch(() => { });
-
-    const clockInterval = setInterval(() => {
-      timeNow = new Date();
-    }, 1000);
-
-    return () => clearInterval(clockInterval);
   });
 
   $effect(() => {
-    if (devicesState.selectedDevice?.serial && devicesState.selectedDevice.state === 'device') {
-      const serial = devicesState.selectedDevice.serial;
+    if (selectedSerial && selectedState === 'device') {
+      const serial = selectedSerial;
       invoke<string>('run_device_action', {
         serial,
         args: ['shell', 'settings', 'get', 'global', 'device_name']
@@ -53,23 +53,43 @@ import * as m from '../paraglide/messages';
         }
       }).catch(() => deviceName = appName);
 
-      // Cargar fondo de pantalla (si no está cargado ya en el store)
-      if (!devicesState.wallpaperImage && !devicesState.wallpaperLoading) {
-        devicesState.wallpaperLoading = true;
-        invoke<string>('get_device_wallpaper', { serial })
-          .then(base64 => {
-            devicesState.wallpaperImage = `data:image/jpeg;base64,${base64}`;
-          })
-          .catch(() => {
-            devicesState.wallpaperImage = null;
-          })
-          .finally(() => {
-            devicesState.wallpaperLoading = false;
-          });
-      }
-    } else if (!devicesState.selectedDevice) {
+    } else if (!selectedDevice) {
       deviceName = appName;
     }
+  });
+
+  $effect(() => {
+    const serial = selectedSerial;
+    if (!serial || selectedState !== 'device' || devicesState.wallpaperImage || wallpaperRequestSerial === serial) return;
+
+    wallpaperRequestSerial = serial;
+    devicesState.wallpaperLoading = true;
+    invoke<string>('get_device_wallpaper', { serial })
+      .then(base64 => {
+        if (selectedSerial === serial) devicesState.wallpaperImage = `data:image/jpeg;base64,${base64}`;
+      })
+      .catch(error => {
+        if (selectedSerial === serial) {
+          devicesState.wallpaperImage = null;
+          actionError = String(error);
+        }
+      })
+      .finally(() => {
+        if (wallpaperRequestSerial === serial) {
+          wallpaperRequestSerial = null;
+          devicesState.wallpaperLoading = false;
+        }
+      });
+  });
+
+  $effect(() => {
+    if (!devicesState.wallpaperImage || devicesState.screenshot) return;
+
+    const clockInterval = window.setInterval(() => {
+      timeNow = new Date();
+    }, 1000);
+
+    return () => window.clearInterval(clockInterval);
   });
 
   let bootDate = $derived.by(() => {
@@ -139,19 +159,20 @@ import * as m from '../paraglide/messages';
   });
 
   async function captureScreenshot() {
-    if (!devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device') return;
+    if (!selectedDevice || selectedState !== 'device') return;
     capturing = true;
+    actionError = null;
     try { 
-      devicesState.screenshot = `data:image/png;base64,${await invoke<string>('capture_screenshot', { serial: devicesState.selectedDevice.serial })}`; 
+      devicesState.screenshot = `data:image/png;base64,${await invoke<string>('capture_screenshot', { serial: selectedDevice.serial })}`; 
     } catch (e) {
-      console.error(e);
+      actionError = String(e);
     } finally {
       capturing = false;
     }
   }
 
   async function saveScreenshotData() {
-    if (!devicesState.screenshot || !devicesState.selectedDevice || savingScreenshot) return;
+    if (!devicesState.screenshot || !selectedDevice || savingScreenshot) return;
     const destination = await save({
       title: m.home_saveCapture(),
       defaultPath: `adb-captura-${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
@@ -159,33 +180,35 @@ import * as m from '../paraglide/messages';
     });
     if (!destination) return;
     savingScreenshot = true;
+    actionError = null;
     try {
-      await invoke<string>('save_screenshot', { path: destination, pngBase64: screenshot.replace(/^data:image\/png;base64,/, '') });
+      await invoke<string>('save_screenshot', { path: destination, pngBase64: devicesState.screenshot.replace(/^data:image\/png;base64,/, '') });
+    } catch (e) {
+      actionError = String(e);
     } finally {
       savingScreenshot = false;
     }
   }
 
   async function performPowerAction(_label: string, args: string[]) {
-    if (!devicesState.selectedDevice || powerBusy) return;
+    if (!selectedDevice || powerBusy) return;
     powerBusy = true; 
     powerOpen = false;
+    actionError = null;
     try { 
-      await invoke<string>('run_device_action', { serial: devicesState.selectedDevice.serial, args }); 
+      await invoke<string>('run_device_action', { serial: selectedDevice.serial, args }); 
       window.setTimeout(() => devicesState.refreshDevices(), 4000); 
     }
-    catch (error) { console.error(error); }
+    catch (error) { actionError = String(error); }
     finally { powerBusy = false; }
   }
 
-  let shizukuError = $state<string | null>(null);
-
   async function startShizuku() {
-    if (!devicesState.selectedDevice || devicesState.selectedDevice.state !== 'device' || shizukuStatus === 'busy') return;
+    if (!selectedDevice || selectedState !== 'device' || shizukuStatus === 'busy') return;
     shizukuStatus = 'busy';
     shizukuError = null;
     try {
-      await invoke('run_device_action', { serial: devicesState.selectedDevice.serial, args: ['shell', 'sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh &'] });
+      await invoke('run_device_action', { serial: selectedDevice.serial, args: ['shell', 'sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh &'] });
       shizukuStatus = 'success';
     } catch (e) {
       shizukuError = String(e);
@@ -194,6 +217,16 @@ import * as m from '../paraglide/messages';
       setTimeout(() => {
         if (shizukuStatus !== 'error') shizukuStatus = 'idle';
       }, 2000);
+    }
+  }
+
+  async function rebootFromPreview() {
+    if (!selectedDevice) return;
+    actionError = null;
+    try {
+      await invoke('run_device_action', { serial: selectedDevice.serial, args: ['reboot'] });
+    } catch (error) {
+      actionError = String(error);
     }
   }
 
@@ -232,6 +265,9 @@ import * as m from '../paraglide/messages';
           </md-filled-tonal-button>
           {#if shizukuError}
             <span style="color: var(--md-sys-color-error, #f44336); font-size: 0.85rem; max-width: 250px; line-height: 1.2;">{shizukuError}</span>
+          {/if}
+          {#if actionError}
+            <span style="color: var(--md-sys-color-error, #f44336); font-size: 0.85rem; max-width: 250px; line-height: 1.2;">{actionError}</span>
           {/if}
         </div>
       </div>
@@ -441,7 +477,7 @@ import * as m from '../paraglide/messages';
             {/if}
           </div>
 
-          <md-filled-tonal-button onclick={() => invoke('run_device_action', { serial: devicesState.selectedDevice!.serial, args: ['reboot'] }).catch(e => console.error(e))}>
+          <md-filled-tonal-button onclick={rebootFromPreview}>
             <span slot="icon"><MaterialIcon name="restart_alt" size={18} /></span>
             {m.power_btn_reboot ? m.power_btn_reboot() : 'Reboot'}
           </md-filled-tonal-button>

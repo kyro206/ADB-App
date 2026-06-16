@@ -15,7 +15,6 @@
     "checkJs": true,
     "types": ["node"],
     "noEmit": true,
-    "jsx": "react-jsx",
 
     /* Linting */
     "strict": true,

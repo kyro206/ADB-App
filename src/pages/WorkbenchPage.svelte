@@ -34,7 +34,7 @@ import * as m from '../paraglide/messages';
   let serial = $derived(selectedDevice?.serial ?? '');
   let status = $state('');
   let busy = $state(false);
-  let mountedTabs = $state<Set<WorkTab>>(new Set([tab]));
+  let mountedTabs = $state<Set<WorkTab>>(new Set());
 
   $effect(() => {
     if (!mountedTabs.has(tab)) {

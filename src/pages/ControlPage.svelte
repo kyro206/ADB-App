@@ -28,28 +28,35 @@ import * as m from '../paraglide/messages';
   let soundMode = $state<SoundMode>('NORMAL');
   let inputText = $state('');
   let inputArgs = $state('');
+  let loadRequestId = 0;
 
   function loadDeviceState() {
     if (!serial) return;
+    const requestId = ++loadRequestId;
 
     invoke<MediaVolumeState>('get_media_volume', { serial }).then(value => {
+      if (requestId !== loadRequestId) return;
       controlVolume = value.level;
       controlVolumeMax = value.maximum;
     }).catch(() => {});
 
     invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'screen_brightness'] }).then(res => {
+      if (requestId !== loadRequestId) return;
       if (res && !isNaN(Number(res))) controlBrightness = Number(res.trim());
     }).catch(() => {});
 
     invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'accelerometer_rotation'] }).then(res => {
+      if (requestId !== loadRequestId) return;
       if (res) rotationAuto = res.trim() === '1';
     }).catch(() => {});
 
     invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'user_rotation'] }).then(res => {
+      if (requestId !== loadRequestId) return;
       if (res && !isNaN(Number(res))) rotation = Number(res.trim());
     }).catch(() => {});
 
     invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'global', 'mode_ringer'] }).then(res => {
+      if (requestId !== loadRequestId) return;
       const mode = res?.trim();
       if (mode === '0') soundMode = 'SILENT';
       else if (mode === '1') soundMode = 'VIBRATE';

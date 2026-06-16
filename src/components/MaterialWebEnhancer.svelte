@@ -12,17 +12,39 @@
 
   onMount(() => {
     document.querySelectorAll<HTMLButtonElement>('button').forEach(enhanceButton);
+    const pendingElements = new Set<HTMLElement>();
+    let animationFrame = 0;
+
+    const flushPendingElements = () => {
+      animationFrame = 0;
+      for (const element of pendingElements) {
+        if (element instanceof HTMLButtonElement) enhanceButton(element);
+        element.querySelectorAll<HTMLButtonElement>('button').forEach(enhanceButton);
+      }
+      pendingElements.clear();
+    };
+
+    const queueElement = (element: HTMLElement) => {
+      pendingElements.add(element);
+      if (!animationFrame) {
+        animationFrame = requestAnimationFrame(flushPendingElements);
+      }
+    };
+
     const observer = new MutationObserver(records => {
       for (const record of records) {
         for (const node of record.addedNodes) {
           if (!(node instanceof HTMLElement)) continue;
-          if (node instanceof HTMLButtonElement) enhanceButton(node);
-          node.querySelectorAll<HTMLButtonElement>('button').forEach(enhanceButton);
+          queueElement(node);
         }
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
     
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      pendingElements.clear();
+    };
   });
 </script>

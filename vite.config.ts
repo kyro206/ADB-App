@@ -45,7 +45,6 @@ export default defineConfig(async () => ({
           if (id.includes('node_modules')) {
             if (id.includes('@material/web')) return 'material';
             if (id.includes('@tauri-apps')) return 'tauri';
-            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
             return 'vendor-other';
           }
         }

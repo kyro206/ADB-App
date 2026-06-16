@@ -101,10 +101,10 @@ import * as m from '../paraglide/messages';
   }
 </script>
 
-<div class="work-grid">
+<div class="settings-grid">
   
-  <section class="md3-card">
-    <h3 class="md3-title">{m.settings_appearance()}</h3>
+  <section class="settings-card">
+    <h3 class="settings-title">{m.settings_appearance()}</h3>
     <div class="settings-appearance-row">
       <div class="md3-segmented-button">
         <button class={theme === 'light' ? 'active' : ''} onclick={() => onThemeChange('light')}>
@@ -136,8 +136,8 @@ import * as m from '../paraglide/messages';
   </section>
   
   {#snippet toolPanel(title: string, toolName: InstallableTool, tool: ToolStatus | undefined, path: string, placeholder: string, onChange: (p: string) => void)}
-    <section class="md3-card">
-      <h3 class="md3-title">{title}</h3>
+    <section class="settings-card">
+      <h3 class="settings-title">{title}</h3>
       {#if tool}
         <div class="tool-status">
           <div class="tool-status-header">
@@ -198,8 +198,8 @@ import * as m from '../paraglide/messages';
   {@render toolPanel("ADB", "adb", tools?.adb, adbPath, m.settings_adbPlaceholder(), p => adbPath = p)}
   {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_scrcpyPlaceholder(), p => scrcpyPath = p)}
   
-  <section class="md3-card">
-    <h3 class="md3-title">{m.settings_javaTitle()}</h3>
+  <section class="settings-card">
+    <h3 class="settings-title">{m.settings_javaTitle()}</h3>
     <div class="tool-status">
       <div class="tool-status-header">
         <MaterialIcon 
@@ -234,8 +234,8 @@ import * as m from '../paraglide/messages';
     </div>
   </section>
   
-  <section class="md3-card">
-    <h3 class="md3-title">{m.settings_cacheTitle()}</h3>
+  <section class="settings-card">
+    <h3 class="settings-title">{m.settings_cacheTitle()}</h3>
     <div class="form-stack">          
       <label class="settings-switch-row">
         <span class="md3-body-large">{m.settings_enableCache()}</span>
@@ -291,8 +291,8 @@ import * as m from '../paraglide/messages';
     </div>
   </section>
 
-  <section class="md3-card">
-    <h3 class="md3-title">{m.settings_advancedTitle()}</h3>
+  <section class="settings-card">
+    <h3 class="settings-title">{m.settings_advancedTitle()}</h3>
     <div class="form-stack">          
       <label class="settings-switch-row">
         <span class="md3-body-large">{m.settings_killAdbOnExit()}</span>
@@ -309,8 +309,8 @@ import * as m from '../paraglide/messages';
     </div>
   </section>
 
-  <section class="md3-card" style="grid-column: 1 / -1">
-    <h3 class="md3-title">{m.settings_aboutTitle()}</h3>
+  <section class="settings-card" style="grid-column: 1 / -1">
+    <h3 class="settings-title">{m.settings_aboutTitle()}</h3>
     <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px; text-align: left; padding: 16px 0">
       
       <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px">

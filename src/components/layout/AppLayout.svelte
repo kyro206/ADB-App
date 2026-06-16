@@ -87,7 +87,7 @@ import * as m from '../../paraglide/messages';
         if (nextIndex >= tabOrder.length) nextIndex = 0;
         if (nextIndex < 0) nextIndex = tabOrder.length - 1;
 
-        activeTab = tabOrder[nextIndex];
+        changeTab(tabOrder[nextIndex]);
       }
     };
 

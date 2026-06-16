@@ -71,6 +71,7 @@ import * as m from '../paraglide/messages';
   });
 
   let appsNeedingMetadata = $derived(filteredApps.filter(app => !app.icon_data_url));
+  let grantedPermissionCount = $derived(appDetails?.permissions.filter(permission => permission.granted).length ?? 0);
 
 
 
@@ -220,7 +221,7 @@ import * as m from '../paraglide/messages';
         newFiles.forEach(f => { if (!nextStatuses[f]) nextStatuses[f] = 'idle'; });
         installStatuses = nextStatuses;
       }
-    } catch (error) { console.error(error); }
+    } catch (error) { status = String(error); }
   }
 
   async function installSelectedApps() {
@@ -598,7 +599,7 @@ import * as m from '../paraglide/messages';
                 <h3>{m.apps_detail_permissions()}</h3>
               </span>
               <span class="apps-material-section__meta">
-                <span>{m.apps_permissions_count({ granted: appDetails.permissions.filter((p: AppPermissionInfo)=>p.granted).length, total: appDetails.permissions.length })}</span>
+                <span>{m.apps_permissions_count({ granted: grantedPermissionCount, total: appDetails.permissions.length })}</span>
               </span>
             </header>
             <div class="apps-material-permissions">

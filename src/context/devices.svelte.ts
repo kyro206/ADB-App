@@ -57,8 +57,10 @@ class DeviceState {
 
   #loadingInternally = false;
   #unlisten: (() => void) | undefined;
+  #detailsRequestId = 0;
 
   async init() {
+    if (this.#unlisten) return;
     this.refreshDevices();
     this.#unlisten = await listen('device-list-changed', () => {
       this.refreshDevices();
@@ -67,6 +69,7 @@ class DeviceState {
 
   destroy() {
     if (this.#unlisten) this.#unlisten();
+    this.#unlisten = undefined;
   }
 
   async refreshDevices(targetSerialToSelect?: string) {
@@ -109,16 +112,20 @@ class DeviceState {
           this.screenshot = null;
           
           try {
+            const requestId = ++this.#detailsRequestId;
             const details: DeviceDetails = await invoke('get_device_details', {
               serial: targetDevice.serial,
             });
-            this.deviceDetails = details;
+            if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === targetDevice.serial) {
+              this.deviceDetails = details;
+            }
           } catch (detailsError) {
-            console.error('Failed to get device details:', detailsError);
+            this.error = detailsError instanceof Error ? detailsError.message : String(detailsError);
             this.deviceDetails = null;
           }
         }
       } else {
+        this.#detailsRequestId++;
         this.selectedDevice = null;
         this.deviceDetails = null;
         this.wallpaperImage = null;
@@ -146,14 +153,20 @@ class DeviceState {
     this.wallpaperImage = null;
     this.screenshot = null;
     this.loading = true;
+    this.error = null;
+    const requestId = ++this.#detailsRequestId;
 
     try {
       const details: DeviceDetails = await invoke('get_device_details', { serial });
-      this.deviceDetails = details;
+      if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
+        this.deviceDetails = details;
+      }
     } catch (err) {
-      console.error('Failed to get device details:', err);
+      this.error = err instanceof Error ? err.message : String(err);
     } finally {
-      this.loading = false;
+      if (requestId === this.#detailsRequestId) {
+        this.loading = false;
+      }
     }
   }
 }
