@@ -113,6 +113,7 @@ pub fn run() {
             operations::set_tool_path,
             operations::install_or_update_tool,
             operations::set_window_theme,
+            operations::get_device_wallpaper,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

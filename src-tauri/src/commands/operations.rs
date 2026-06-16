@@ -220,6 +220,62 @@ pub async fn save_app_settings(settings: AppSettings) -> Result<Option<String>, 
 }
 
 #[tauri::command]
+pub async fn get_device_wallpaper(serial: String) -> Result<String, String> {
+    if WALLPAPER_DAEMON_BYTES.is_empty() {
+        return Err("Wallpaper Extractor JAR is not compiled yet.".to_string());
+    }
+
+    let java_tools_dir = crate::app_paths::cache_dir().join("tools").join("java");
+    if !java_tools_dir.exists() {
+        let _ = fs::create_dir_all(&java_tools_dir);
+    }
+    
+    let daemon_local_path = java_tools_dir.join("wallpaper_extractor.jar");
+    let daemon_device_path = "/data/local/tmp/wallpaper_extractor.jar";
+
+    // Escribimos temporalmente en el PC porque `adb shell cat` corrompe binarios en Windows
+    fs::write(&daemon_local_path, WALLPAPER_DAEMON_BYTES).map_err(|e| e.to_string())?;
+
+    // Comprobamos si el JAR ya está en el móvil y si el tamaño coincide para ahorrar escrituras
+    let check_daemon = adb::run_adb_for_serial(&serial, &["shell", "ls", "-l", daemon_device_path]).await?;
+    let needs_push = if check_daemon.ok() && !check_daemon.output.contains("No such file") {
+        let size_str = check_daemon.output.split_whitespace().nth(4).unwrap_or("");
+        size_str.parse::<usize>().unwrap_or(0) != WALLPAPER_DAEMON_BYTES.len()
+    } else {
+        true
+    };
+
+    if needs_push {
+        adb::run_adb_for_serial(&serial, &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"]).await?;
+        adb::run_adb_for_serial(&serial, &["push", &daemon_local_path.to_string_lossy(), daemon_device_path]).await?;
+        adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path]).await?;
+    }
+
+    // Ejecutar el jar
+    let result = adb::run_adb_for_serial(
+        &serial,
+        &[
+            "shell",
+            &format!("CLASSPATH={} app_process / com.kyro.adbapp.extractwallpaper.WallpaperExtractor", daemon_device_path)
+        ]
+    ).await?;
+
+    if !result.ok() {
+        return Err(format!("Failed to extract wallpaper: {}", result.output));
+    }
+
+    let output = result.output;
+    if let (Some(start_idx), Some(end_idx)) = (output.find("WALLPAPER_START"), output.find("WALLPAPER_END")) {
+        let base64 = output[start_idx + 15..end_idx].replace("\r", "").replace("\n", "").replace(" ", "");
+        if !base64.is_empty() {
+            return Ok(base64);
+        }
+    }
+
+    Err("Extractor did not return encoded image.".to_string())
+}
+
+#[tauri::command]
 pub fn set_window_theme(window: tauri::Window, theme: String) {
     #[cfg(target_os = "windows")]
     {
@@ -1126,7 +1182,8 @@ struct DaemonResponse {
     error: Option<String>,
 }
 
-static DAEMON_BYTES: &[u8] = include_bytes!("info_apps.jar");
+static DAEMON_BYTES: &[u8] = include_bytes!("../../../tools/java/info_apps.jar");
+static WALLPAPER_DAEMON_BYTES: &[u8] = include_bytes!("../../../tools/java/wallpaper_extractor.jar");
 
 #[tauri::command]
 pub async fn enrich_app_summary(
@@ -1154,8 +1211,12 @@ pub async fn enrich_app_summary(
         }
     }
 
-    let daemon_local_path = crate::app_paths::cache_dir().join("info_apps.jar");
-    let daemon_device_path = "/data/local/tmp/info_apps.jar";
+    let java_tools_dir = crate::app_paths::cache_dir().join("tools").join("java");
+    if !java_tools_dir.exists() {
+        let _ = fs::create_dir_all(&java_tools_dir);
+    }
+    let daemon_local_path = java_tools_dir.join("info_apps.jar");
+    let daemon_device_path = "/data/local/tmp/tools/java/info_apps.jar";
 
     if !daemon_local_path.exists() {
         fs::write(&daemon_local_path, DAEMON_BYTES).map_err(|e| e.to_string())?;
@@ -1164,6 +1225,7 @@ pub async fn enrich_app_summary(
     // Solo enviamos el daemon si no existe ya en el dispositivo
     let check_daemon = adb::run_adb_for_serial(&serial, &["shell", "ls", daemon_device_path]).await?;
     if !check_daemon.ok() || check_daemon.output.contains("No such file") {
+        adb::run_adb_for_serial(&serial, &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"]).await?;
         adb::run_adb_for_serial(&serial, &["push", &daemon_local_path.to_string_lossy(), daemon_device_path]).await?;
         adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path]).await?;
     }

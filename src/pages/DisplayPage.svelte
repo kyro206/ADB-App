@@ -127,11 +127,11 @@ import * as m from '../paraglide/messages';
 
   <section class="display-actions">
     <md-outlined-button disabled={!details ? true : undefined} onclick={onReset}>
-      <span slot="icon"><MaterialIcon name="restart_alt" size={22} /></span>
+      <span slot="icon"><MaterialIcon name="restart_alt" size={18} /></span>
       {m.common_reset()}
     </md-outlined-button>
     <md-filled-button disabled={!canApply ? true : undefined} onclick={onApply}>
-      <span slot="icon"><MaterialIcon name="check" filled size={22} /></span>
+      <span slot="icon"><MaterialIcon name="check" filled size={18} /></span>
       {m.common_apply()}
     </md-filled-button>
   </section>

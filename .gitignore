@@ -41,7 +41,5 @@ pids
 /.vs
 DS_Store
 Thumbs.db
-*.sublime*
-idea
 debug.log
 TODO.md
