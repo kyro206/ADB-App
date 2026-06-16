@@ -58,6 +58,8 @@ class DeviceState {
   #loadingInternally = false;
   #unlisten: (() => void) | undefined;
   #detailsRequestId = 0;
+  #wallpaperRequestId = 0;
+  #wallpaperSerial: string | null = null;
 
   async init() {
     if (this.#unlisten) return;
@@ -108,6 +110,8 @@ class DeviceState {
         this.selectedDevice = targetDevice;
         
         if (targetDevice.serial !== currentSerial || !this.deviceDetails) {
+          this.#wallpaperRequestId++;
+          this.#wallpaperSerial = null;
           this.wallpaperImage = null;
           this.screenshot = null;
           
@@ -124,8 +128,14 @@ class DeviceState {
             this.deviceDetails = null;
           }
         }
+
+        if (targetDevice.state === 'device' && !this.wallpaperImage) {
+          void this.loadWallpaper(targetDevice.serial);
+        }
       } else {
         this.#detailsRequestId++;
+        this.#wallpaperRequestId++;
+        this.#wallpaperSerial = null;
         this.selectedDevice = null;
         this.deviceDetails = null;
         this.wallpaperImage = null;
@@ -150,6 +160,8 @@ class DeviceState {
 
     this.selectedDevice = device;
     this.deviceDetails = null;
+    this.#wallpaperRequestId++;
+    this.#wallpaperSerial = null;
     this.wallpaperImage = null;
     this.screenshot = null;
     this.loading = true;
@@ -161,11 +173,37 @@ class DeviceState {
       if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
         this.deviceDetails = details;
       }
+      void this.loadWallpaper(serial);
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
     } finally {
       if (requestId === this.#detailsRequestId) {
         this.loading = false;
+      }
+    }
+  }
+
+  async loadWallpaper(serial: string) {
+    if (!serial || this.selectedDevice?.serial !== serial) return;
+    if (this.wallpaperImage || (this.wallpaperLoading && this.#wallpaperSerial === serial)) return;
+
+    const requestId = ++this.#wallpaperRequestId;
+    this.#wallpaperSerial = serial;
+    this.wallpaperLoading = true;
+
+    try {
+      const base64 = await invoke<string>('get_device_wallpaper', { serial });
+      if (requestId === this.#wallpaperRequestId && this.selectedDevice?.serial === serial) {
+        this.wallpaperImage = `data:image/jpeg;base64,${base64}`;
+      }
+    } catch {
+      if (requestId === this.#wallpaperRequestId && this.selectedDevice?.serial === serial) {
+        this.wallpaperImage = null;
+      }
+    } finally {
+      if (requestId === this.#wallpaperRequestId) {
+        this.wallpaperLoading = false;
+        this.#wallpaperSerial = null;
       }
     }
   }

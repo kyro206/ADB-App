@@ -46,8 +46,8 @@ import * as m from '../paraglide/messages';
     onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
     onInstallTool: (tool: InstallableTool) => void;
     onClearCache: () => void;
-    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string } | null;
-    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string }) => void;
+    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; theme: string; language: string } | null;
+    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; theme: string; language: string }) => void;
     defaultCacheDir: string;
   }>();
 
@@ -104,6 +104,37 @@ import * as m from '../paraglide/messages';
 <div class="settings-grid">
   
   <section class="settings-card">
+    <h3 class="settings-title">{m.settings_generalTitle()}</h3>
+    <div class="form-stack">          
+      <md-outlined-select 
+        label={m.settings_language()}
+        value={language} 
+        onchange={(e: any) => onLanguageChange(e.target.value)}
+        style="width: 100%"
+      >
+        {#each languages as lang}
+          <md-select-option value={lang}>
+            <div slot="headline">{getLanguageName(lang)}</div>
+          </md-select-option>
+        {/each}
+      </md-outlined-select>
+
+      <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
+        <span class="md3-body-large">{m.settings_killAdbOnExit()}</span>
+        <!-- svelte-ignore a11y_missing_attribute -->
+        <md-switch 
+          selected={appSettings?.kill_adb_on_exit ?? true}
+          onchange={(e: any) => {
+            if (appSettings) {
+              onSaveAppSettings({ ...appSettings, kill_adb_on_exit: e.target.selected });
+            }
+          }}
+        ></md-switch>
+      </label>
+    </div>
+  </section>
+
+  <section class="settings-card">
     <h3 class="settings-title">{m.settings_appearance()}</h3>
     <div class="settings-appearance-row">
       <div class="md3-segmented-button">
@@ -121,17 +152,31 @@ import * as m from '../paraglide/messages';
         </button>
       </div>
 
-      <md-outlined-select 
-        label={m.settings_language()}
-        value={language} 
-        onchange={(e: any) => onLanguageChange(e.target.value)}
-      >
-        {#each languages as lang}
-          <md-select-option value={lang}>
-            <div slot="headline">{getLanguageName(lang)}</div>
-          </md-select-option>
-        {/each}
-      </md-outlined-select>
+      <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
+        <span class="md3-body-large">{m.settings_materialYouWallpaper()}</span>
+        <!-- svelte-ignore a11y_missing_attribute -->
+        <md-switch 
+          selected={appSettings?.material_you_enabled ?? true}
+          onchange={(e: any) => {
+            if (appSettings) {
+              onSaveAppSettings({ ...appSettings, material_you_enabled: e.target.selected });
+            }
+          }}
+        ></md-switch>
+      </label>
+      <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
+        <span class="md3-body-large">{m.settings_materialYouTint()}</span>
+        <!-- svelte-ignore a11y_missing_attribute -->
+        <md-switch
+          selected={appSettings?.material_you_background_tint ?? true}
+          disabled={appSettings ? !appSettings.material_you_enabled : false}
+          onchange={(e: any) => {
+            if (appSettings) {
+              onSaveAppSettings({ ...appSettings, material_you_background_tint: e.target.selected });
+            }
+          }}
+        ></md-switch>
+      </label>
     </div>
   </section>
   
@@ -241,7 +286,7 @@ import * as m from '../paraglide/messages';
         <span class="md3-body-large">{m.settings_enableCache()}</span>
         <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
-          selected={appSettings?.cache_enabled ?? true ? true : undefined}
+          selected={appSettings?.cache_enabled ?? true}
           onchange={(e: any) => {
             if (appSettings) {
               onSaveAppSettings({ ...appSettings, cache_enabled: e.target.selected });
@@ -291,23 +336,7 @@ import * as m from '../paraglide/messages';
     </div>
   </section>
 
-  <section class="settings-card">
-    <h3 class="settings-title">{m.settings_advancedTitle()}</h3>
-    <div class="form-stack">          
-      <label class="settings-switch-row">
-        <span class="md3-body-large">{m.settings_killAdbOnExit()}</span>
-        <!-- svelte-ignore a11y_missing_attribute -->
-        <md-switch 
-          selected={appSettings?.kill_adb_on_exit ?? true ? true : undefined}
-          onchange={(e: any) => {
-            if (appSettings) {
-              onSaveAppSettings({ ...appSettings, kill_adb_on_exit: e.target.selected });
-            }
-          }}
-        ></md-switch>
-      </label>
-    </div>
-  </section>
+
 
   <section class="settings-card" style="grid-column: 1 / -1">
     <h3 class="settings-title">{m.settings_aboutTitle()}</h3>

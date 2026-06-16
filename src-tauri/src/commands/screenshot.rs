@@ -27,7 +27,10 @@ pub async fn save_screenshot(path: String, png_base64: String) -> Result<String,
         .decode(png_base64)
         .map_err(|error| format!("Invalid screenshot data: {error}"))?;
 
-    if bytes.len() < 8 || &bytes[0..4] != b"\x89PNG" {
+    let is_png = &bytes[0..4] == b"\x89PNG";
+    let is_jpeg = &bytes[0..3] == b"\xFF\xD8\xFF";
+
+    if bytes.len() < 8 || (!is_png && !is_jpeg) {
         return Err("Invalid screenshot data received".to_string());
     }
 

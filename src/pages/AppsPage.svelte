@@ -1,7 +1,7 @@
 <script lang="ts" module>
 import * as m from '../paraglide/messages';
 
-  export interface AppSettings { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; }
+  export interface AppSettings { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; }
 </script>
 
 <script lang="ts">

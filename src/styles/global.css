@@ -17,6 +17,7 @@ html, body, #root {
   width: 100%;
   overflow: hidden;
   background: var(--bg);
+  transition: background-color 0.4s ease, background 0.4s ease, color 0.4s ease;
 }
 
 body {
@@ -179,6 +180,7 @@ html.platform-macos .sidebar {
 html.platform-windows .app-layout__content,
 html.platform-macos .app-layout__content {
   background: var(--bg) !important;
+  transition: background-color 0.4s ease, background 0.4s ease;
 }
 
 .md-btn-danger {

@@ -158,7 +158,7 @@ import * as m from '../paraglide/messages';
         </div>
         <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
-          selected={systemState?.app_languages_enabled ? true : undefined}
+          selected={systemState?.app_languages_enabled ?? false}
           onclick={() => applySystemAction(
             ['shell', 'settings', 'put', 'global', 'settings_app_locale_opt_in_enabled', systemState?.app_languages_enabled ? '0' : '1'], 
             m.system_status_langUpdated()
@@ -173,7 +173,7 @@ import * as m from '../paraglide/messages';
         </div>
         <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
-          selected={systemState?.gestural_navigation ? true : undefined}
+          selected={systemState?.gestural_navigation ?? false}
           onclick={() => applySystemAction(
             ['shell', 'cmd', 'overlay', systemState?.gestural_navigation ? 'disable' : 'enable', 'com.android.internal.systemui.navbar.gestural'], 
             m.system_status_navUpdated()

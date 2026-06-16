@@ -43,7 +43,8 @@ import * as m from '../paraglide/messages';
   });
 
   let tools = $state<ToolsStatus | null>(null);
-  let appSettings = $state<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string } | null>(null);
+  type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; theme: string; language: string };
+  let appSettings = $state<AppSettings | null>(null);
   let defaultCacheDir = $state('');
   let toolUpdatesChecking = $state(false);
   
@@ -174,18 +175,22 @@ import * as m from '../paraglide/messages';
 
   async function refreshSettings() {
     try {
-      const value = await invoke<{ cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string }>('get_app_settings');
+      const value = await invoke<AppSettings>('get_app_settings');
       const defaultDir = await invoke<string>('get_default_cache_dir');
       appSettings = value;
+      themeState.setMaterialYouEnabled(value.material_you_enabled ?? true);
+      themeState.setMaterialYouBackgroundTint(value.material_you_background_tint ?? true);
       defaultCacheDir = defaultDir;
     } catch (error: any) { status = translateError(error); }
   }
 
-  async function saveAppSettings(settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string }) {
+  async function saveAppSettings(settings: AppSettings) {
     busy = true;
+    appSettings = settings;
+    themeState.setMaterialYouEnabled(settings.material_you_enabled ?? true);
+    themeState.setMaterialYouBackgroundTint(settings.material_you_background_tint ?? true);
     try {
       const oldPath = await invoke<string | null>('save_app_settings', { settings });
-      appSettings = settings;
       
       if (oldPath) {
         await refreshTools();

@@ -6,6 +6,8 @@ import * as m from '../paraglide/messages';
   import { save } from '@tauri-apps/plugin-dialog';
   import { getName } from '@tauri-apps/api/app';
   import { devicesState, type DeviceDetails } from '../context/devices.svelte';
+  import { i18n } from '../context/i18n.svelte';
+  import { themeState } from '../context/theme.svelte';
   
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import PowerDialog from '../components/dialogs/PowerDialog.svelte';
@@ -15,6 +17,13 @@ import * as m from '../paraglide/messages';
   const formatStorage = (mb: number) => mb <= 0 ? '-' : mb >= 1024 * 1024 ? `${(mb / 1024 / 1024).toFixed(2)} TB` : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
   const secondaryTitle = (details: DeviceDetails) => [details.manufacturer, details.soc, details.model].filter(value => value && value !== '-').join(' · ');
 
+  const normalizeCarrierName = (value: string) => [...new Set(value
+    .trim()
+    .split(',')
+    .map(part => part.trim())
+    .filter(part => part && part.toLowerCase() !== 'unknown' && part.toLowerCase() !== 'null'))]
+    .join(' / ');
+
   let timeNow = $state(new Date());
   let capturing = $state(false);
   let savingScreenshot = $state(false);
@@ -23,6 +32,7 @@ import * as m from '../paraglide/messages';
   let shizukuStatus = $state<'idle' | 'busy' | 'success' | 'error'>('idle');
   let appName = $state('ADB App');
   let deviceName = $state('ADB App');
+  let carrierName = $state('');
   let actionError = $state<string | null>(null);
   let shizukuError = $state<string | null>(null);
 
@@ -30,7 +40,6 @@ import * as m from '../paraglide/messages';
   let selectedDevice = $derived(devicesState.selectedDevice);
   let selectedSerial = $derived(selectedDevice?.serial ?? '');
   let selectedState = $derived(selectedDevice?.state ?? '');
-  let wallpaperRequestSerial: string | null = null;
 
   onMount(() => {
     getName().then(name => {
@@ -53,33 +62,45 @@ import * as m from '../paraglide/messages';
         }
       }).catch(() => deviceName = appName);
 
+      const checkAirplaneMode = (serialNum: string) => {
+        invoke<string>('run_device_action', {
+          serial: serialNum,
+          args: ['shell', 'settings', 'get', 'global', 'airplane_mode_on']
+        }).then(res => {
+          if (serialNum === selectedSerial) {
+            if (res && res.trim() === '1') {
+              carrierName = m.home_airplane_mode ? m.home_airplane_mode() : 'Airplane Mode';
+            } else {
+              carrierName = '';
+            }
+          }
+        }).catch(() => {
+          if (serialNum === selectedSerial) carrierName = '';
+        });
+      };
+
+      invoke<string>('run_device_action', {
+        serial,
+        args: ['shell', 'getprop', 'gsm.operator.alpha']
+      }).then(name => {
+        if (serial === selectedSerial) {
+          const normalized = normalizeCarrierName(name);
+          if (normalized) {
+            carrierName = normalized;
+          } else {
+            checkAirplaneMode(serial);
+          }
+        }
+      }).catch(() => {
+        if (serial === selectedSerial) checkAirplaneMode(serial);
+      });
+
     } else if (!selectedDevice) {
       deviceName = appName;
+      carrierName = '';
+    } else {
+      carrierName = '';
     }
-  });
-
-  $effect(() => {
-    const serial = selectedSerial;
-    if (!serial || selectedState !== 'device' || devicesState.wallpaperImage || wallpaperRequestSerial === serial) return;
-
-    wallpaperRequestSerial = serial;
-    devicesState.wallpaperLoading = true;
-    invoke<string>('get_device_wallpaper', { serial })
-      .then(base64 => {
-        if (selectedSerial === serial) devicesState.wallpaperImage = `data:image/jpeg;base64,${base64}`;
-      })
-      .catch(error => {
-        if (selectedSerial === serial) {
-          devicesState.wallpaperImage = null;
-          actionError = String(error);
-        }
-      })
-      .finally(() => {
-        if (wallpaperRequestSerial === serial) {
-          wallpaperRequestSerial = null;
-          devicesState.wallpaperLoading = false;
-        }
-      });
   });
 
   $effect(() => {
@@ -158,6 +179,14 @@ import * as m from '../paraglide/messages';
     }
   });
 
+  let lockscreenTimeParts = $derived.by(() => {
+    const time = timeNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+    const parts = time.match(/\d+/g) ?? ['--', '--'];
+    return [parts[0] ?? '--', parts[1] ?? '--'];
+  });
+
+  let lockscreenDate = $derived(timeNow.toLocaleDateString(i18n.language, { weekday: 'short', month: 'short', day: 'numeric' }));
+
   async function captureScreenshot() {
     if (!selectedDevice || selectedState !== 'device') return;
     capturing = true;
@@ -183,6 +212,39 @@ import * as m from '../paraglide/messages';
     actionError = null;
     try {
       await invoke<string>('save_screenshot', { path: destination, pngBase64: devicesState.screenshot.replace(/^data:image\/png;base64,/, '') });
+    } catch (e) {
+      actionError = String(e);
+    } finally {
+      savingScreenshot = false;
+    }
+  }
+
+  async function saveWallpaperData() {
+    if (!devicesState.wallpaperImage || !selectedDevice || savingScreenshot) return;
+    const destination = await save({
+      title: m.home_saveWallpaper(),
+      defaultPath: `adb-wallpaper-${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
+      filters: [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg'] }],
+    });
+    if (!destination) return;
+    savingScreenshot = true;
+    actionError = null;
+    try {
+      const output = await invoke<string>('run_device_action', {
+        serial: selectedDevice.serial,
+        args: [
+          'shell',
+          'CLASSPATH=/data/local/tmp/wallpaper_extractor.jar app_process / com.kyro.adbapp.extractwallpaper.WallpaperExtractor --max-res'
+        ]
+      });
+
+      let base64ToWrite = devicesState.wallpaperImage.replace(/^data:image\/[^;]+;base64,/, '');
+      const match = output.match(/WALLPAPER_START([\s\S]*?)WALLPAPER_END/);
+      if (match && match[1]) {
+        base64ToWrite = match[1].replace(/[\r\n\s]/g, '');
+      }
+
+      await invoke<string>('save_screenshot', { path: destination, pngBase64: base64ToWrite });
     } catch (e) {
       actionError = String(e);
     } finally {
@@ -350,10 +412,6 @@ import * as m from '../paraglide/messages';
         <div class="home-flash"></div>
       {/if}
 
-      {#if devicesState.wallpaperImage && !devicesState.screenshot}
-        <div style="position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%); z-index: 0;"></div>
-      {/if}
-      
       {#if devicesState.screenshot}
         <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 16px; box-sizing: border-box;">
           <img src={devicesState.screenshot} alt={m.home_preview_alt()} style="max-height: calc(100% - 70px); object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
@@ -380,15 +438,26 @@ import * as m from '../paraglide/messages';
           </div>
         </div>
       {:else if devicesState.wallpaperImage}
-        <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; width: 100%; padding: 24px 0; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); box-sizing: border-box;">
-          <div style="display: flex; flex-direction: column; align-items: center; margin-top: 30%;">
-            <div style="font-size: 4.5rem; font-weight: 300; letter-spacing: -2px; line-height: 1;">
-              {timeNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+        <div
+          class="home-lockscreen"
+          style={`--home-clock-color: ${themeState.wallpaperClockColor || '#eef3ff'};`}
+        >
+          <div class="home-lockscreen__scrim"></div>
+          <div class="home-lockscreen__top">
+            {#if carrierName}
+              <span class="home-lockscreen__operator" title={carrierName}>{carrierName}</span>
+            {/if}
+            <span class="home-lockscreen__date">
+              {lockscreenDate}
+            </span>
+          </div>
+
+          <div class="home-lockscreen__center">
+            <div class="home-lockscreen__clock" aria-label={timeNow.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}>
+              <span>{lockscreenTimeParts[0]}</span>
+              <span>{lockscreenTimeParts[1]}</span>
             </div>
-            <div style="font-size: 1.1rem; opacity: 0.8; margin-top: 8px;">
-              {timeNow.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-            </div>
-            <div style="margin-top: 32px; display: flex; align-items: center; gap: 8px; opacity: 0.9; font-weight: 500; font-size: 0.9rem;">
+            <div class="home-lockscreen__state">
               {#if !devicesState.selectedDevice}
                 <MaterialIcon name="phonelink_off" size={16} />
                 {m.home_preview_empty_title()}
@@ -405,7 +474,11 @@ import * as m from '../paraglide/messages';
             </div>
           </div>
           
-          <md-elevated-button onclick={captureScreenshot} disabled={capturing ? true : undefined} title={m.home_capture()}>
+          <md-icon-button class="home-wallpaper-download" title={m.home_saveWallpaper()} onclick={saveWallpaperData}>
+            <MaterialIcon name="download" size={20} />
+          </md-icon-button>
+          
+          <md-elevated-button class="home-lockscreen__capture" onclick={captureScreenshot} disabled={capturing ? true : undefined} title={m.home_capture()}>
             <span slot="icon">
               {#if capturing}
                 <MaterialIcon name="sync" class="home-spin" size={18} />
