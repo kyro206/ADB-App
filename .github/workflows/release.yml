@@ -48,7 +48,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: source-code
-          path: .
+          path: |
+            .
+            !.git
+            !node_modules
+            !src-tauri/target
           include-hidden-files: true
 
   build:
@@ -93,6 +97,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Cachear dependencias de Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri"
 
       - name: Instalar dependencias de Linux (Gtk / WebKit)
         if: matrix.os == 'ubuntu-latest'

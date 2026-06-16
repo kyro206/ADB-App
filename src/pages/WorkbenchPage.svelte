@@ -16,7 +16,7 @@ import * as m from '../paraglide/messages';
   import SettingsPage from './SettingsPage.svelte';
   import WorkbenchShell from './workbench/WorkbenchShell.svelte';
   import DeviceStateScreen from '../components/layout/DeviceStateScreen.svelte';
-  import { words } from './workbench/utils';
+  import { words, translateError } from './workbench/utils';
   import type { AppSummary, MirrorMode, ToolsStatus, WorkTab } from './workbench/types';
   import './WorkbenchPage.css';
 
@@ -90,8 +90,8 @@ import * as m from '../paraglide/messages';
       const output = await invoke<string>('run_device_action', { serial, args });
       status = output || success;
       return output;
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error); 
     } finally { 
       busy = false; 
     }
@@ -104,8 +104,8 @@ import * as m from '../paraglide/messages';
     }
     try { 
       status = await invoke<string>('launch_scrcpy', { serial, extraArgs });
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error); 
     }
   }
 
@@ -165,8 +165,8 @@ import * as m from '../paraglide/messages';
       toolUpdatesChecking = true;
       const updated = await invoke<ToolsStatus>('check_tool_updates');
       tools = updated;
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error); 
     } finally { 
       toolUpdatesChecking = false; 
     }
@@ -178,7 +178,7 @@ import * as m from '../paraglide/messages';
       const defaultDir = await invoke<string>('get_default_cache_dir');
       appSettings = value;
       defaultCacheDir = defaultDir;
-    } catch (error) { status = String(error); }
+    } catch (error: any) { status = translateError(error); }
   }
 
   async function saveAppSettings(settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; theme: string; language: string }) {
@@ -191,8 +191,8 @@ import * as m from '../paraglide/messages';
         await refreshTools();
         await invoke('close_app', { oldDataDir: oldPath });
       }
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error); 
     } finally { 
       busy = false; 
     }
@@ -203,8 +203,8 @@ import * as m from '../paraglide/messages';
     try {
       await invoke('clear_cache');
       status = m.workbench_status_cacheCleared();
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error); 
     } finally { 
       busy = false; 
     }
@@ -221,8 +221,8 @@ import * as m from '../paraglide/messages';
       status = m.workbench_status_toolPathSaved({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
       await refreshTools();
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error); 
     } finally { 
       busy = false; 
     }
@@ -240,8 +240,8 @@ import * as m from '../paraglide/messages';
       status = m.workbench_status_toolInstalled({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
       await refreshTools();
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error); 
     } finally { 
       busy = false; 
     }
@@ -302,9 +302,9 @@ import * as m from '../paraglide/messages';
     try {
       status = await invoke<string>('set_device_dark_mode', { serial, enabled: nextValue });
       await devicesState.refreshDevices();
-    } catch (error) {
+    } catch (error: any) {
       displayDarkMode = !nextValue;
-      status = String(error);
+      status = translateError(error);
     } finally {
       darkModeLoading = false;
     }

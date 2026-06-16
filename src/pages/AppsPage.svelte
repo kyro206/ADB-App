@@ -8,6 +8,7 @@ import * as m from '../paraglide/messages';
 
   import { invoke } from '@tauri-apps/api/core';
   import { open, save } from '@tauri-apps/plugin-dialog';
+  import { getCurrentWebview } from '@tauri-apps/api/webview';
   
   import type { AppSummary, AppDetailsInfo, AppPermissionInfo } from './workbench/types';
   import DestructiveActionDialog from '../components/dialogs/DestructiveActionDialog.svelte';
@@ -56,6 +57,7 @@ import * as m from '../paraglide/messages';
   let selectedPackage = $state('');
   let destructiveAction = $state<'uninstall' | 'clear-data' | null>(null);
   let destructiveBusy = $state(false);
+  let osDragHover = $state(false);
 
   let filteredApps = $derived.by(() => {
     let result = apps;
@@ -350,9 +352,49 @@ import * as m from '../paraglide/messages';
   
   let pending = $derived(filteredApps.filter(app => !app.icon_data_url || app.display_name === app.package_name).length);
   const count = (value: string) => apps.filter(app => value === 'all' ? true : value === 'disabled' ? app.disabled : value === 'system' ? app.system_app && !app.disabled : !app.system_app && !app.disabled).length;
+
+  $effect(() => {
+    let unlisten: (() => void) | undefined;
+    let isMounted = true;
+
+    if (tab === 'apps') {
+      getCurrentWebview().onDragDropEvent((event) => {
+        if (event.payload.type === 'over' || event.payload.type === 'enter') {
+          osDragHover = true;
+        } else if (event.payload.type === 'leave') {
+          osDragHover = false;
+        } else if (event.payload.type === 'drop') {
+          osDragHover = false;
+          const paths = (event.payload as any).paths || [];
+          const apks = paths.filter((p: string) => /\.(apk|apks|xapk|apkm|aab|zip)$/i.test(p));
+          if (apks.length > 0) {
+            installFiles = [...new Set([...installFiles, ...apks])];
+            const nextStatuses = { ...installStatuses };
+            apks.forEach((f: string) => { if (!nextStatuses[f]) nextStatuses[f] = 'idle'; });
+            installStatuses = nextStatuses;
+            installOpen = true;
+          }
+        }
+      }).then((fn) => {
+        unlisten = fn;
+        if (!isMounted) unlisten();
+      });
+    }
+
+    return () => {
+      isMounted = false;
+      if (unlisten) unlisten();
+    };
+  });
 </script>
 
-<div class="apps-material-host">
+<div class="apps-material-host {osDragHover ? 'os-drag-hover' : ''}">
+  {#if osDragHover}
+    <div class="file-os-drag-overlay" style="position: absolute; inset: 0; z-index: 100; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 16px; border-radius: 24px; backdrop-filter: blur(4px);">
+      <MaterialIcon name="install_mobile" size={64} />
+      <span style="font-size: 24px; font-weight: 500;">{m.apps_action_install()}</span>
+    </div>
+  {/if}
   <div class="apps-material-page {selectedPackage ? 'detail-open' : ''}">
     <section class="apps-material-catalog">
       <header class="apps-material-toolbar">

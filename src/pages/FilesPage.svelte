@@ -1,14 +1,4 @@
-<script lang="ts" module>
-import * as m from '../paraglide/messages';
 
-  export interface FilesPageProps {
-    serial: string;
-    setStatus: (status: string) => void;
-    setBusy: (busy: boolean) => void;
-    run: (args: string[], success?: string) => Promise<any>;
-    tab: string;
-  }
-</script>
 
 <script lang="ts">
   import { onDestroy } from 'svelte';
@@ -22,13 +12,27 @@ import * as m from '../paraglide/messages';
   import ConfirmDialog from '../components/dialogs/ConfirmDialog.svelte';
   import ContextMenu from '../components/layout/ContextMenu.svelte';
   
-  import { formatBytes } from './workbench/utils';
+  import { formatBytes, translateError } from './workbench/utils';
   import type { FileEntry, FileSortKey, FileView } from './workbench/types';
   import TransferMenu from '../components/layout/TransferMenu.svelte';
   import type { TransferJob, TransferStatus, TransferType } from '../components/layout/TransferMenu.svelte';
   import './FilesPage.css';
 
-  let props: FilesPageProps = $props();
+  import * as m from '../paraglide/messages';
+
+  let {
+    serial,
+    run,
+    tab,
+    status = $bindable(),
+    busy = $bindable()
+  } = $props<{
+    serial: string;
+    run: (args: string[], success?: string) => Promise<any>;
+    tab: string;
+    status: string;
+    busy: boolean;
+  }>();
 
   let path = $state('/sdcard');
   let files = $state.raw<FileEntry[]>([]);
@@ -75,8 +79,9 @@ import * as m from '../paraglide/messages';
     audioProgress = 0;
     audioPlayingPath = remotePath;
     try {
-      const bytes = await invoke<Uint8Array>('read_file_bytes', { serial: props.serial, path: remotePath });
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/mpeg' });
+      const response = await invoke<ArrayBuffer | Uint8Array | number[]>('read_file_bytes', { serial: serial, path: remotePath });
+      const data = response instanceof ArrayBuffer ? response : new Uint8Array(response as any);
+      const blob = new Blob([data], { type: 'audio/mpeg' });
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       audioUrl = URL.createObjectURL(blob);
       
@@ -187,7 +192,7 @@ import * as m from '../paraglide/messages';
 
   let filteredFiles = $derived.by(() => {
     const query = fileFilter.trim().toLowerCase();
-    const matching = files.filter(file => !query || file.name.toLowerCase().includes(query) || file.link_target.toLowerCase().includes(query));
+    const matching = files.filter(file => !query || (file.name || '').toLowerCase().includes(query) || (file.link_target || '').toLowerCase().includes(query));
     const direction = fileSort.direction === 'asc' ? 1 : -1;
     
     return [...matching].sort((left, right) => {
@@ -209,24 +214,24 @@ import * as m from '../paraglide/messages';
   });
 
   async function refreshFiles(nextPath = path, addHistory = false) {
-    if (!props.serial) return;
-    props.busy = true;
+    if (!serial) return;
+    busy = true;
     try {
       const normalized = normalizeDevicePath(nextPath);
-      const value = await invoke<FileEntry[]>('list_directory', { serial: props.serial, path: normalized });
+      const value = await invoke<FileEntry[]>('list_directory', { serial: serial, path: normalized });
       files = value;
       path = normalized;
       selectedFiles = [];
       lastSelectedIndex = null;
-      props.status = '';
+      status = '';
       if (addHistory && normalized !== fileHistory[fileHistoryIndex]) {
         fileHistory = [...fileHistory.slice(0, fileHistoryIndex + 1), normalized];
         fileHistoryIndex++;
       }
     } catch (error) { 
-      props.status = String(error); 
+      status = translateError(error);
     } finally { 
-      props.busy = false; 
+      busy = false; 
     }
   }
 
@@ -257,10 +262,10 @@ import * as m from '../paraglide/messages';
       transferJobs = transferJobs.map(j => j.id === job.id ? { ...j, status: 'transferring', error: undefined, children: undefined } : j);
       try {
         if (job.type === 'upload') {
-          await invoke<string>('run_device_action', { serial: props.serial, args: ['push', job.source, job.destination] });
+          await invoke<string>('run_device_action', { serial: serial, args: ['push', job.source, job.destination] });
           if (path === job.destination) refreshFiles(path);
         } else {
-          await invoke<string>('pull_file', { serial: props.serial, remotePath: job.source, localPath: job.destination });
+          await invoke<string>('pull_file', { serial: serial, remotePath: job.source, localPath: job.destination });
         }
         transferJobs = transferJobs.map(j => j.id === job.id ? { ...j, status: 'success' } : j);
       } catch (error: any) {
@@ -366,15 +371,15 @@ import * as m from '../paraglide/messages';
   async function createDeviceFolder() {
     const defaultName = m.files_prompt_defaultNewFolder();
     const name = await asyncPrompt(m.files_prompt_newFolder(), defaultName);
-    if (name?.trim() && name !== defaultName) await props.run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
-    else if (name?.trim() === defaultName) await props.run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
+    if (name?.trim() && name !== defaultName) await run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
+    else if (name?.trim() === defaultName) await run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
   }
 
   async function renameSelectedFile() {
     const file = selectedFileEntries[0];
     if (!file) return;
     const name = await asyncPrompt(m.files_prompt_rename(), file.name);
-    if (name?.trim() && name !== file.name) await props.run(['shell', 'mv', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
+    if (name?.trim() && name !== file.name) await run(['shell', 'mv', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
   }
 
   async function duplicateSelectedFile() {
@@ -385,7 +390,7 @@ import * as m from '../paraglide/messages';
       ? `${file.name.slice(0, extensionIndex)}${m.files_prompt_copySuffix()}${file.name.slice(extensionIndex)}`
       : `${file.name}${m.files_prompt_copySuffix()}`;
     const name = await asyncPrompt(m.files_prompt_copyName(), suggestedName);
-    if (name?.trim()) await props.run(['shell', 'cp', '-r', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
+    if (name?.trim()) await run(['shell', 'cp', '-r', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
   }
 
   async function deleteSelectedFiles() {
@@ -398,7 +403,7 @@ import * as m from '../paraglide/messages';
     );
     if (!accepted) return;
     
-    for (const file of selectedFileEntries) await props.run(['shell', 'rm', '-rf', escapeAdbPath(filePath(file))]);
+    for (const file of selectedFileEntries) await run(['shell', 'rm', '-rf', escapeAdbPath(filePath(file))]);
     await refreshFiles();
   }
 
@@ -428,7 +433,7 @@ import * as m from '../paraglide/messages';
 
     const mode = await asyncPermissions(m.files_action_permissions(), initialMode);
     if (!mode?.match(/^[0-7]{3,4}$/)) return;
-    for (const file of selectedFileEntries) await props.run(['shell', 'chmod', mode, escapeAdbPath(filePath(file))]);
+    for (const file of selectedFileEntries) await run(['shell', 'chmod', mode, escapeAdbPath(filePath(file))]);
     await refreshFiles();
   }
 
@@ -441,7 +446,7 @@ import * as m from '../paraglide/messages';
     let unlisten: (() => void) | undefined;
     let isMounted = true;
 
-    if (props.tab === 'files') {
+    if (tab === 'files') {
       getCurrentWebview().onDragDropEvent((event) => {
         if (event.payload.type === 'over' || event.payload.type === 'enter') {
           osDragHover = true;
@@ -466,28 +471,32 @@ import * as m from '../paraglide/messages';
     };
   });
 
-  $effect(() => {
-    if (fileView !== 'grid' || !props.serial) return;
-    
-    const toRequest = filteredFiles.filter(file => {
-      if (file.is_directory || file.is_link || file.size > 5 * 1024 * 1024 || !/\.(png|jpe?g|webp|gif)$/i.test(file.name)) return false;
-      const remotePath = filePath(file);
-      return fileThumbnails[remotePath] === undefined && !pendingThumbnails.has(remotePath);
-    });
+  import type { Action } from 'svelte/action';
 
-    toRequest.slice(0, 12).forEach(file => {
-      const remotePath = filePath(file);
-      pendingThumbnails.add(remotePath);
-      
-      invoke<string>('get_file_thumbnail', { serial: props.serial, path: remotePath })
-        .then(value => { fileThumbnails = { ...fileThumbnails, [remotePath]: value }; })
-        .catch(() => { fileThumbnails = { ...fileThumbnails, [remotePath]: '' }; })
-        .finally(() => {
-          pendingThumbnails.delete(remotePath);
-          thumbnailRefresh++;
-        });
-    });
-  });
+  const lazyLoadThumbnail: Action<HTMLElement, string> = (node, remotePath) => {
+    if (!/\.(png|jpe?g|webp|gif)$/i.test(remotePath)) return;
+    
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          if (!pendingThumbnails.has(remotePath) && fileThumbnails[remotePath] === undefined) {
+            pendingThumbnails.add(remotePath);
+            invoke<string>('get_file_thumbnail', { serial, path: remotePath })
+              .then(value => { fileThumbnails[remotePath] = value; })
+              .catch(() => { fileThumbnails[remotePath] = ''; })
+              .finally(() => { pendingThumbnails.delete(remotePath); });
+          }
+          observer.unobserve(node);
+        }
+      });
+    }, { rootMargin: '100px' });
+    
+    observer.observe(node);
+    
+    return {
+      destroy() { observer.disconnect(); }
+    };
+  };
 
   function selectFileEntry(event: MouseEvent, file: FileEntry, index: number) {
     keyboardFocusIndex = index;
@@ -513,7 +522,17 @@ import * as m from '../paraglide/messages';
 
   const fileType = (file: FileEntry) => file.is_link ? m.files_type_symlink() : file.is_directory ? m.files_type_folder() : m.files_type_file();
   const fileSize = (file: FileEntry) => file.is_directory || file.is_link ? '-' : formatBytes(file.size);
-  const fileIcon = (file: FileEntry) => file.is_link ? 'shortcut' : file.is_directory ? 'folder' : 'draft';
+  const fileIcon = (file: FileEntry) => {
+    if (file.is_link) return 'shortcut';
+    if (file.is_directory) return 'folder';
+    if (/\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(file.name)) return 'image';
+    if (/\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)) return 'audio_file';
+    if (/\.(mp4|mkv|avi|webm|mov)$/i.test(file.name)) return 'video_file';
+    if (/\.(zip|tar|gz|rar|7z)$/i.test(file.name)) return 'folder_zip';
+    if (/\.(apk)$/i.test(file.name)) return 'android';
+    if (/\.(pdf)$/i.test(file.name)) return 'picture_as_pdf';
+    return 'draft';
+  };
   
   let pathParts = $derived(path.split('/').filter(Boolean));
   
@@ -709,39 +728,7 @@ import * as m from '../paraglide/messages';
           {/each}
         </div>
         {#each filteredFiles as file, index (file.name)}
-          <button 
-            class="file-list-row {selectedFiles.includes(file.name) ? 'selected' : ''}" 
-            onclick={event => selectFileEntry(event, file, index)} 
-            ondblclick={() => openFileEntry(file)}
-            oncontextmenu={e => handleContextMenu(e, file)}
-          >
-            <span class="file-name-cell {file.is_link ? 'symbolic' : ''}">
-              <b style="position: relative;">
-                <MaterialIcon name={fileIcon(file)} />
-                {#if /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(file.name)}
-                  <!-- svelte-ignore a11y_click_events_have_key_events -->
-                  <div class="file-audio-play list-mode {audioPlayingPath === filePath(file) && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
-                    {#if audioPlayingPath === filePath(file)}
-                      {#if audioLoading}
-                        <md-circular-progress indeterminate style="--md-circular-progress-size: 36px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
-                      {:else}
-                        <md-circular-progress value={audioProgress} style="--md-circular-progress-size: 36px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
-                      {/if}
-                    {/if}
-                    <MaterialIcon name={audioPlayingPath === filePath(file) && audioIsPlaying ? 'pause' : 'play_arrow'} />
-                  </div>
-                {/if}
-              </b>
-              <span>
-                <strong>{file.name}{#if file.is_link}<small title={file.link_target}> → {file.link_target}</small>{/if}</strong>
-              </span>
-            </span>
-            <span>{fileType(file)}</span>
-            <span>{fileSize(file)}</span>
-            <code>{file.permissions}</code>
-            <span>{file.modified}</span>
-            <md-ripple></md-ripple>
-          </button>
+          {@render fileRow(file, index)}
         {/each}
       </div>
     {/if}
@@ -749,47 +736,7 @@ import * as m from '../paraglide/messages';
     {#if fileView === 'grid'}
       <div class="file-grid-view">
         {#each filteredFiles as file, index (file.name)}
-          <button 
-            class="file-grid-card {selectedFiles.includes(file.name) ? 'selected' : ''}" 
-            onclick={event => selectFileEntry(event, file, index)} 
-            ondblclick={() => openFileEntry(file)}
-            oncontextmenu={e => handleContextMenu(e, file)}
-          >
-            {#if file.is_link}
-              <span class="file-grid-symbolic">
-                <MaterialIcon name="shortcut" />
-                <strong>{file.name}</strong>
-                <small title={file.link_target}> → {file.link_target}</small>
-              </span>
-            {:else}
-              <span class="file-grid-preview">
-                {#if fileThumbnails[filePath(file)]}
-                  <img src={fileThumbnails[filePath(file)]} alt="" loading="lazy" />
-                {:else}
-                  <MaterialIcon name={fileIcon(file)} size={48} />
-                {/if}
-                {#if /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(file.name)}
-                  <!-- svelte-ignore a11y_click_events_have_key_events -->
-                  <div class="file-audio-play {audioPlayingPath === filePath(file) && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
-                    {#if audioPlayingPath === filePath(file)}
-                      {#if audioLoading}
-                        <md-circular-progress indeterminate style="--md-circular-progress-size: 40px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
-                      {:else}
-                        <md-circular-progress value={audioProgress} style="--md-circular-progress-size: 40px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
-                      {/if}
-                    {/if}
-                    <MaterialIcon name={audioPlayingPath === filePath(file) && audioIsPlaying ? 'pause' : 'play_arrow'} />
-                  </div>
-                {/if}
-              </span>
-            {/if}
-            {#if !file.is_link}
-              <strong title={file.name}>{file.name}</strong>
-            {/if}
-            <span>{fileType(file)} · {fileSize(file)}</span>
-            <code>{file.permissions}</code>
-            <md-ripple></md-ripple>
-          </button>
+          {@render fileCard(file, index)}
         {/each}
       </div>
     {/if}
@@ -876,3 +823,84 @@ import * as m from '../paraglide/messages';
     onRetry={handleRetryTransfer}
   />
 </div>
+
+{#snippet fileRow(file: FileEntry, index: number)}
+  <button 
+    class="file-list-row {selectedFiles.includes(file.name) ? 'selected' : ''}" 
+    onclick={event => selectFileEntry(event, file, index)} 
+    ondblclick={() => openFileEntry(file)}
+    oncontextmenu={e => handleContextMenu(e, file)}
+  >
+    <span class="file-name-cell {file.is_link ? 'symbolic' : ''}">
+      <b style="position: relative;">
+        <MaterialIcon name={fileIcon(file)} />
+        {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div class="file-audio-play list-mode {audioPlayingPath === filePath(file) && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
+            {#if audioPlayingPath === filePath(file)}
+              {#if audioLoading}
+                <md-circular-progress indeterminate style="--md-circular-progress-size: 36px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
+              {:else}
+                <md-circular-progress value={audioProgress} style="--md-circular-progress-size: 36px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
+              {/if}
+            {/if}
+            <MaterialIcon name={audioPlayingPath === filePath(file) && audioIsPlaying ? 'pause' : 'play_arrow'} />
+          </div>
+        {/if}
+      </b>
+      <span>
+        <strong>{file.name}{#if file.is_link}<small title={file.link_target}> → {file.link_target}</small>{/if}</strong>
+      </span>
+    </span>
+    <span>{fileType(file)}</span>
+    <span>{fileSize(file)}</span>
+    <code>{file.permissions}</code>
+    <span>{file.modified}</span>
+    <md-ripple></md-ripple>
+  </button>
+{/snippet}
+
+{#snippet fileCard(file: FileEntry, index: number)}
+  <button 
+    class="file-grid-card {selectedFiles.includes(file.name) ? 'selected' : ''}" 
+    use:lazyLoadThumbnail={filePath(file)}
+    onclick={event => selectFileEntry(event, file, index)} 
+    ondblclick={() => openFileEntry(file)}
+    oncontextmenu={e => handleContextMenu(e, file)}
+  >
+    {#if file.is_link}
+      <span class="file-grid-symbolic">
+        <MaterialIcon name="shortcut" />
+        <strong>{file.name}</strong>
+        <small title={file.link_target}> → {file.link_target}</small>
+      </span>
+    {:else}
+      <span class="file-grid-preview">
+        {#if fileThumbnails[filePath(file)]}
+          <img src={fileThumbnails[filePath(file)]} alt="" loading="lazy" />
+        {:else}
+          <MaterialIcon name={fileIcon(file)} size={48} />
+        {/if}
+        {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div class="file-audio-play {audioPlayingPath === filePath(file) && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
+            {#if audioPlayingPath === filePath(file)}
+              {#if audioLoading}
+                <md-circular-progress indeterminate style="--md-circular-progress-size: 40px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
+              {:else}
+                <md-circular-progress value={audioProgress} style="--md-circular-progress-size: 40px; position: absolute; inset: 0; width: 100%; height: 100%;"></md-circular-progress>
+              {/if}
+            {/if}
+            <MaterialIcon name={audioPlayingPath === filePath(file) && audioIsPlaying ? 'pause' : 'play_arrow'} />
+          </div>
+        {/if}
+      </span>
+    {/if}
+    {#if !file.is_link}
+      <strong title={file.name}>{file.name}</strong>
+    {/if}
+    <span>{fileType(file)} · {fileSize(file)}</span>
+    <code>{file.permissions}</code>
+    <md-ripple></md-ripple>
+  </button>
+{/snippet}

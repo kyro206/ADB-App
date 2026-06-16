@@ -8,7 +8,7 @@ Estás trabajando en una aplicación de escritorio usando Tauri v2, Rust en el b
 4. Plugins: En Tauri v2, las APIs del sistema están en plugins separados.
    - Frontend: Usa importaciones como `import { baseDir } from '@tauri-apps/plugin-fs'`.
    - Backend: Asegúrate de que los plugins estén inicializados en `Builder::new().plugin(...)` en `main.rs`.
-5. IPC (Comandos): Los comandos de Rust siempre deben devolver un `Result<T, String>` para un manejo de errores limpio en el frontend.
+5. IPC (Comandos): Los comandos de Rust deben devolver un `Result<T, AppError>` (implementando `Serialize`) para un manejo de errores estructurado y limpio en el frontend.
 
 Los textos se guardan en src/locales, tienes que añadirlos en formato TypeScript, cuando añadas un texto añadelo, cuando lo quites a no ser que sea común, quitalo, trata siempre de usar comunes
 

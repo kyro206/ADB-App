@@ -1,5 +1,28 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppError {
+    pub message: String,
+}
+
+impl From<String> for AppError {
+    fn from(error: String) -> Self {
+        Self { message: error }
+    }
+}
+
+impl From<&str> for AppError {
+    fn from(error: &str) -> Self {
+        Self { message: error.to_string() }
+    }
+}
+
+impl From<AppError> for String {
+    fn from(error: AppError) -> Self {
+        error.message
+    }
+}
+
 /// A connected ADB device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Device {

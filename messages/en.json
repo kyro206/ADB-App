@@ -417,5 +417,10 @@
   "apps_info_updateDate": "Update date",
   "apps_detail_permissions": "Permissions",
   "apps_permissions_count": "{granted} of {total}",
-  "apps_permissions_empty": "This app declares no permissions."
+  "apps_permissions_empty": "This app declares no permissions.",
+  
+  "error_device_not_found": "Device not found.",
+  "error_unauthorized": "The device is unauthorized. Accept the prompt on the screen.",
+  "error_timeout": "Connection timed out.",
+  "error_connection_failed": "Failed to establish connection."
 }

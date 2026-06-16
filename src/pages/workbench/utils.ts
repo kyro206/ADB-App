@@ -1,3 +1,5 @@
+import * as m from '../../paraglide/messages';
+
 export const words = (value: string) =>
   value.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(part => part.replace(/^"|"$/g, '')) ?? [];
 
@@ -26,4 +28,24 @@ export function formatBytes(bytes: number): string {
 
 export function appTone(packageName: string): string {
   return `tone-${[...packageName].reduce((total, character) => total + character.charCodeAt(0), 0) % 6}`;
+}
+
+export function translateError(error: any): string {
+  const msg = error?.message || String(error);
+  const lowerMsg = msg.toLowerCase();
+  
+  if (msg === 'ERROR_DEVICE_NOT_FOUND' || (lowerMsg.includes('device') && lowerMsg.includes('not found'))) {
+    return m.error_device_not_found();
+  }
+  if (msg === 'ERROR_UNAUTHORIZED' || lowerMsg.includes('unauthorized')) {
+    return m.error_unauthorized();
+  }
+  if (msg === 'ERROR_TIMEOUT' || lowerMsg.includes('timeout')) {
+    return m.error_timeout();
+  }
+  if (msg === 'ERROR_CONNECTION_FAILED' || lowerMsg.includes('failed to connect') || lowerMsg.includes('connection refused') || lowerMsg.includes('connection failed')) {
+    return m.error_connection_failed();
+  }
+
+  return msg;
 }

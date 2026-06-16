@@ -3,9 +3,8 @@ import * as m from '../paraglide/messages';
 
 
   import { invoke } from '@tauri-apps/api/core';
-  
   import MaterialIcon from '../components/MaterialIcon.svelte';
-  import { words } from './workbench/utils';
+  import { words, translateError } from './workbench/utils';
   import type { MediaVolumeState, SoundMode } from './workbench/types';
   import './ControlPage.css';
 
@@ -73,8 +72,8 @@ import * as m from '../paraglide/messages';
     busy = true;
     try {
       await invoke<string>('set_media_volume', { serial, volume: safeValue });
-    } catch (error) { 
-      status = String(error); 
+    } catch (error: any) { 
+      status = translateError(error);
     } finally { 
       busy = false; 
     }
@@ -138,8 +137,8 @@ import * as m from '../paraglide/messages';
           }
         }
       }
-    } catch (e) {
-      status = String(e);
+    } catch (e: any) {
+      status = e.message || String(e);
     } finally {
       busy = false;
     }

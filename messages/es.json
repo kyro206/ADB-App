@@ -417,5 +417,10 @@
   "apps_info_updateDate": "Fecha de actualización",
   "apps_detail_permissions": "Permisos",
   "apps_permissions_count": "{granted} de {total}",
-  "apps_permissions_empty": "Esta aplicación no declara permisos."
+  "apps_permissions_empty": "Esta aplicación no declara permisos.",
+  
+  "error_device_not_found": "Dispositivo no encontrado.",
+  "error_unauthorized": "El dispositivo no está autorizado. Acepta el aviso en la pantalla.",
+  "error_timeout": "Se ha agotado el tiempo de espera.",
+  "error_connection_failed": "No se pudo establecer la conexión."
 }
