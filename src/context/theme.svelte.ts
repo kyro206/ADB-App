@@ -21,7 +21,17 @@ class ThemeState {
 
   async init() {
     try {
-      const settings = await invoke<{ theme: string; material_you_enabled?: boolean; material_you_background_tint?: boolean }>('get_app_settings');
+      const w = window as any;
+      const cached = sessionStorage.getItem('cached_settings');
+      let settings;
+      if (cached) {
+        settings = JSON.parse(cached);
+      } else if (w.__APP_SETTINGS__) {
+        settings = w.__APP_SETTINGS__;
+      } else {
+        settings = await invoke<{ theme: string; material_you_enabled?: boolean; material_you_background_tint?: boolean }>('get_app_settings');
+      }
+      
       let t: Theme = 'auto';
       if (settings.theme === '1') t = 'dark';
       else if (settings.theme === '0') t = 'light';

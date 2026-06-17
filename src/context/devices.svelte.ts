@@ -118,7 +118,7 @@ class DeviceState {
           try {
             const requestId = ++this.#detailsRequestId;
             const details: DeviceDetails = await invoke('get_device_details', {
-              serial: targetDevice.serial,
+              device: targetDevice,
             });
             if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === targetDevice.serial) {
               this.deviceDetails = details;
@@ -154,6 +154,20 @@ class DeviceState {
     }
   }
 
+  async refreshDeviceDetailsSilent() {
+    if (!this.selectedDevice || this.selectedDevice.state !== 'device') return;
+    const serial = this.selectedDevice.serial;
+    const requestId = ++this.#detailsRequestId;
+    try {
+      const details: DeviceDetails = await invoke('get_device_details', { device: this.selectedDevice });
+      if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
+        this.deviceDetails = details;
+      }
+    } catch {
+      // Fallo silencioso, mantenemos los datos antiguos
+    }
+  }
+
   async selectDevice(serial: string) {
     const device = this.devices.find(d => d.serial === serial);
     if (!device) return;
@@ -169,7 +183,7 @@ class DeviceState {
     const requestId = ++this.#detailsRequestId;
 
     try {
-      const details: DeviceDetails = await invoke('get_device_details', { serial });
+      const details: DeviceDetails = await invoke('get_device_details', { device: this.selectedDevice });
       if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
         this.deviceDetails = details;
       }

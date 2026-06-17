@@ -136,7 +136,6 @@ import * as m from '../../paraglide/messages';
 </div>
 
 <style>
-:global {
 .transfer-menu-overlay {
   position: fixed;
   inset: var(--topbar-height) 0 0;
@@ -324,6 +323,5 @@ import * as m from '../../paraglide/messages';
   display: flex;
   align-items: center;
   gap: 4px;
-}
 }
 </style>

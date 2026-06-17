@@ -29,13 +29,17 @@ pub fn run() {
                 }
             );
 
+            let settings_json = serde_json::to_string(&settings).unwrap_or_else(|_| "{}".to_string());
+            let init_script = format!("window.__APP_SETTINGS__ = {};", settings_json);
+
             #[allow(unused_mut)]
             let mut builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
                 .title("ADB App")
                 .inner_size(1180.0, 760.0)
                 .min_inner_size(920.0, 620.0)
                 .transparent(true)
-                .data_directory(crate::app_paths::data_dir());
+                .data_directory(crate::app_paths::data_dir())
+                .initialization_script(&init_script);
 
             #[cfg(target_os = "macos")]
             {
@@ -97,6 +101,7 @@ pub fn run() {
             operations::install_application_packages,
             operations::get_app_details,
             operations::export_apk,
+            operations::get_home_details,
             operations::clear_application_cache,
             operations::get_app_settings,
             operations::save_app_settings,

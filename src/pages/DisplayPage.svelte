@@ -104,7 +104,7 @@ import * as m from '../paraglide/messages';
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <article class="display-dark-card {darkModeLoading ? 'loading' : ''}">
+    <article class="display-dark-card {darkMode ? 'active' : ''} {darkModeLoading ? 'loading' : ''}">
       <span class="display-dark-card__icon">
         <MaterialIcon name={darkMode ? 'dark_mode' : 'light_mode'} filled />
       </span>
@@ -175,7 +175,6 @@ import * as m from '../paraglide/messages';
 </div>
 
 <style>
-:global {
 .display-page{container-type:inline-size;display:flex;min-height:100%;flex-direction:column;gap:16px}
 .display-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .display-info-card{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:14px;row-gap:2px;align-items:center;padding:16px;background:var(--surface-container-low);border:1px solid var(--outline-variant);border-radius:18px}
@@ -192,6 +191,5 @@ import * as m from '../paraglide/messages';
 .display-actions md-filled-button{--md-filled-button-container-shape:16px;height:48px}
 .display-actions md-outlined-button{--md-outlined-button-container-shape:16px;height:48px}
 .display-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.display-panel{display:flex;flex-direction:column;gap:13px}.display-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.display-presets button,.display-rates button{display:flex;align-items:center;gap:8px;min-height:42px;padding:8px 11px;color:var(--on-surface);background:var(--surface-container);border:1px solid var(--outline-variant);border-radius:12px;text-align:left}.display-presets button:hover,.display-rates button:hover,.display-rates button.selected{color:var(--on-primary-container);background:var(--primary-container);border-color:transparent}.display-presets button>:global(.material-symbols-rounded),.display-rates button>:global(.material-symbols-rounded){color:var(--primary);font-size:19px}.display-presets button span{display:flex;flex-direction:column}.display-presets small{color:var(--on-surface-variant);font-size:11px}.display-rates{display:flex;flex-wrap:wrap;gap:8px}.display-rates button{min-height:36px;padding:6px 11px}
-@media(max-width:1200px){.display-editor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:850px){.display-bottom-grid{grid-template-columns:1fr}.display-info-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.display-info-card{aspect-ratio:auto;min-height:150px}}@media(max-width:620px){.display-editor-grid,.display-fields.two,.display-presets{grid-template-columns:1fr}.display-actions{align-items:stretch;flex-wrap:wrap}.display-actions>div{width:100%}}
-}
+@media(max-width:1200px){.display-editor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:850px){.display-bottom-grid{grid-template-columns:1fr}.display-info-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.display-info-card{aspect-ratio:auto;min-height:150px}}@media(max-width:620px){.display-editor-grid,.display-fields.two,.display-presets{grid-template-columns:1fr}.display-actions{align-items:stretch;flex-wrap:wrap}}
 </style>

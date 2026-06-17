@@ -1130,12 +1130,16 @@ pub async fn list_apps(serial: String) -> Result<Vec<AppSummary>, String> {
     if legacy_details.exists() {
         let _ = fs::remove_dir_all(legacy_details);
     }
-    let result =
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-f"]).await?;
-    let system =
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-s"]).await?;
-    let disabled =
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-d"]).await?;
+    let (result, system, disabled) = tokio::join!(
+        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-f"]),
+        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-s"]),
+        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-d"])
+    );
+
+    let result = result?;
+    let system = system?;
+    let disabled = disabled?;
+
     if !result.ok() {
         return Err(result.output);
     }
@@ -1189,6 +1193,8 @@ struct DaemonResponse {
 static DAEMON_BYTES: &[u8] = include_bytes!("../../../tools/java/info_apps.jar");
 static WALLPAPER_DAEMON_BYTES: &[u8] = include_bytes!("../../../tools/java/wallpaper_extractor.jar");
 
+static PUSHED_DAEMONS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> = std::sync::OnceLock::new();
+
 #[tauri::command]
 pub async fn enrich_app_summary(
     serial: String,
@@ -1226,12 +1232,21 @@ pub async fn enrich_app_summary(
         fs::write(&daemon_local_path, DAEMON_BYTES).map_err(|e| e.to_string())?;
     }
 
-    // Solo enviamos el daemon si no existe ya en el dispositivo
-    let check_daemon = adb::run_adb_for_serial(&serial, &["shell", "ls", daemon_device_path]).await?;
-    if !check_daemon.ok() || check_daemon.output.contains("No such file") {
-        adb::run_adb_for_serial(&serial, &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"]).await?;
-        adb::run_adb_for_serial(&serial, &["push", &daemon_local_path.to_string_lossy(), daemon_device_path]).await?;
-        adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path]).await?;
+    let daemons_cache = PUSHED_DAEMONS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()));
+    let needs_push = {
+        let cache = daemons_cache.lock().unwrap();
+        !cache.contains(&serial)
+    };
+
+    if needs_push {
+        let check_daemon = adb::run_adb_for_serial(&serial, &["shell", "ls", daemon_device_path]).await?;
+        if !check_daemon.ok() || check_daemon.output.contains("No such file") {
+            adb::run_adb_for_serial(&serial, &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"]).await?;
+            adb::run_adb_for_serial(&serial, &["push", &daemon_local_path.to_string_lossy(), daemon_device_path]).await?;
+            adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path]).await?;
+        }
+        let mut cache = daemons_cache.lock().unwrap();
+        cache.insert(serial.clone());
     }
 
     let result = adb::run_adb_for_serial(
@@ -1725,8 +1740,58 @@ pub async fn export_apk(serial: String, package_name: String, destination: Strin
             }
         }
 
-        zip.finish().map_err(|e| format!("Failed to finalize zip: {}", e))?;
+        zip.finish().map_err(|e| format!("Failed to finish zip: {}", e))?;
         let _ = fs::remove_dir_all(&temp_dir);
         Ok(())
     }
+}
+
+#[derive(serde::Serialize)]
+pub struct HomeDetails {
+    pub device_name: String,
+    pub airplane_mode: bool,
+    pub carrier: String,
+}
+
+#[tauri::command]
+pub async fn get_home_details(serial: String) -> Result<HomeDetails, String> {
+    let (name_res, airplane_res, carrier_res) = tokio::join!(
+        adb::run_adb_for_serial(&serial, &["shell", "settings", "get", "global", "device_name"]),
+        adb::run_adb_for_serial(&serial, &["shell", "settings", "get", "global", "airplane_mode_on"]),
+        adb::run_adb_for_serial(&serial, &["shell", "getprop", "gsm.operator.alpha"])
+    );
+
+    let mut name = String::new();
+    if let Ok(res) = name_res {
+        if res.ok() && !res.output.trim().is_empty() && res.output.trim() != "null" {
+            name = res.output.trim().to_string();
+        }
+    }
+
+    let mut airplane = false;
+    if let Ok(res) = airplane_res {
+        if res.ok() && res.output.trim() == "1" {
+            airplane = true;
+        }
+    }
+
+    let mut carrier = String::new();
+    if let Ok(res) = carrier_res {
+        if res.ok() && !res.output.trim().is_empty() {
+            let mut parts: Vec<String> = res.output
+                .trim()
+                .split(',')
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty() && p.to_lowercase() != "unknown" && p.to_lowercase() != "null")
+                .collect();
+            parts.dedup();
+            carrier = parts.join(" / ");
+        }
+    }
+
+    Ok(HomeDetails {
+        device_name: name,
+        airplane_mode: airplane,
+        carrier,
+    })
 }

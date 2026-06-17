@@ -22,7 +22,16 @@ class I18nState {
     try {
       this.language = getLocale() as Language;
       
-      const settings = await invoke<{ language: string }>('get_app_settings');
+      const w = window as any;
+      const cached = sessionStorage.getItem('cached_settings');
+      let settings;
+      if (cached) {
+        settings = JSON.parse(cached);
+      } else if (w.__APP_SETTINGS__) {
+        settings = w.__APP_SETTINGS__;
+      } else {
+        settings = await invoke<{ language: string }>('get_app_settings');
+      }
       let targetLang: Language = 'en';
       if (settings.language === 'en' || settings.language === 'es') {
         targetLang = settings.language;
@@ -48,7 +57,7 @@ class I18nState {
   setLanguage(lang: Language) {
     if (this.language !== lang) {
       this.language = lang;
-      setLocale(lang); // By default reloads the page to re-render Paraglide strings
+      setLocale(lang, { reload: false });
     }
   }
 }

@@ -65,7 +65,7 @@ import * as m from '../../paraglide/messages';
 <header class="topbar topbar--{platform}" data-tauri-drag-region ondblclick={() => appWindow.toggleMaximize()}>
   {#if platform !== 'macos'}
     <div class="topbar__identity" data-tauri-drag-region>
-      <img src="/icon.webp" alt="" />
+      <img src="/icon.webp" alt="" data-tauri-drag-region draggable="false" style="user-select: none; -webkit-user-drag: none;" />
       <h1 data-tauri-drag-region>{appName}</h1>
     </div>
   {/if}

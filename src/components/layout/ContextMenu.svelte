@@ -95,7 +95,6 @@
 </div>
 
 <style>
-:global {
 .context-menu {
   position: fixed;
   background: var(--md-sys-color-surface-container);
@@ -136,6 +135,5 @@
 
 .context-menu-item.danger {
   color: var(--md-sys-color-error);
-}
 }
 </style>

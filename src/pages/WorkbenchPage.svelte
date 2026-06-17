@@ -194,6 +194,11 @@ import * as m from '../paraglide/messages';
         await refreshTools();
         await invoke('close_app', { oldDataDir: oldPath });
       }
+      sessionStorage.setItem('cached_settings', JSON.stringify(settings));
+      const w = window as any;
+      if (w.__APP_SETTINGS__) {
+        w.__APP_SETTINGS__ = settings;
+      }
     } catch (error: any) { 
       status = translateError(error); 
     } finally { 
@@ -252,10 +257,10 @@ import * as m from '../paraglide/messages';
 
   $effect(() => {
     if (tab === 'settings') {
-      refreshTools();
+      if (!tools && !busy) refreshTools();
     }
     if (tab === 'mirroring') {
-      refreshTools();
+      if (!tools && !busy) refreshTools();
       refreshMirrorData();
     }
     serial; // Re-run when serial changes
@@ -332,11 +337,11 @@ import * as m from '../paraglide/messages';
   }
 
   async function handleLanguageChange(newLang: string) {
-    i18n.setLanguage(newLang as Language);
     if (appSettings) {
       const updated = { ...appSettings, language: newLang };
       await saveAppSettings(updated);
     }
+    i18n.setLanguage(newLang as Language);
   }
 </script>
 

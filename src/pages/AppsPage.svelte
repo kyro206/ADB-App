@@ -11,6 +11,7 @@ import * as m from '../paraglide/messages';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   
   import type { AppSummary, AppDetailsInfo, AppPermissionInfo } from './workbench/types';
+  import { devicesState } from '../context/devices.svelte';
   import DestructiveActionDialog from '../components/dialogs/DestructiveActionDialog.svelte';
   import InstallationDialog from '../components/dialogs/InstallationDialog.svelte';
   import MaterialIcon from '../components/MaterialIcon.svelte';
@@ -335,8 +336,18 @@ import * as m from '../paraglide/messages';
   async function openAppInScrcpy(pkg: string) {
     status = m.workbench_status_launchingApp({ pkg });
     try {
-      await invoke<string>('run_device_action', { serial, args: ['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'] });
-      if (scrcpy) await scrcpy([]);
+      // Asegurarnos de que la pantalla está encendida; los virtual displays a veces no renderizan si el móvil está en reposo profundo.
+      await invoke<string>('run_device_action', { serial, args: ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP'] });
+      
+      const sdkVersion = parseInt(devicesState.deviceDetails?.sdk_version || '0', 10);
+      
+      // Android 10 (API 29) es la versión mínima segura para el modo flex / virtual displays.
+      if (scrcpy && sdkVersion >= 29) {
+        await scrcpy(['--new-display', '--flex-display', `--start-app=${pkg}`]);
+      } else {
+        await invoke<string>('run_device_action', { serial, args: ['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'] });
+        if (scrcpy) await scrcpy([]);
+      }
     } catch (e) {
       status = String(e);
     }

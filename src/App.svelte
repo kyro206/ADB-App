@@ -73,5 +73,7 @@ import * as m from './paraglide/messages';
 
 {#if i18n.loaded && themeState.loaded}
   <MaterialWebEnhancer />
-  <AppLayout />
+  {#key i18n.language}
+    <AppLayout />
+  {/key}
 {/if}

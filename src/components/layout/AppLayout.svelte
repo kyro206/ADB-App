@@ -12,7 +12,9 @@ import * as m from '../../paraglide/messages';
 
   import HomePage from '../../pages/HomePage.svelte';
   import WorkbenchPage from '../../pages/WorkbenchPage.svelte';
-  let activeTab = $state<TabId>((sessionStorage.getItem('activeTab') as TabId) || 'home');
+  import { layoutState } from '../../context/layout.svelte';
+
+  let activeTab = $derived(layoutState.activeTab);
   let adbAvailable = $state(true);
   let showAdbModal = $state(false);
   let adbWarningShown = false;
@@ -37,12 +39,16 @@ import * as m from '../../paraglide/messages';
 
   function changeTab(tab: TabId) {
     if (tab === activeTab) return;
-    activeTab = tab;
-    sessionStorage.setItem('activeTab', tab);
+    layoutState.activeTab = tab;
   }
 
+  let isFirstTabEffect = true;
   $effect(() => {
     activeTab;
+    if (isFirstTabEffect) {
+      isFirstTabEffect = false;
+      return;
+    }
     if (pageElement && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       pageElement.animate(
         [
@@ -135,7 +141,6 @@ import * as m from '../../paraglide/messages';
 </div>
 
 <style>
-:global {
 .app-layout {
   display: flex;
   flex-direction: column;
@@ -166,6 +171,5 @@ import * as m from '../../paraglide/messages';
 .app-layout__page {
   width: 100%;
   height: 100%;
-}
 }
 </style>

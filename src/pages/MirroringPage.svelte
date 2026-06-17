@@ -270,7 +270,6 @@ import * as m from '../paraglide/messages';
 </div>
 
 <style>
-:global {
 .mirror-material-page{display:flex;flex-direction:column;flex:1;margin:-20px;overflow:hidden}
 .mirror-material-content{display:flex;flex-direction:column;flex:1;gap:20px;padding:20px;overflow-y:auto;overflow-x:hidden}
 .mirror-material-source-tabs{margin-bottom:8px}
@@ -302,5 +301,4 @@ import * as m from '../paraglide/messages';
 .mirror-material-footer md-outlined-button{height:48px}
 @media(max-width:1100px){.mirror-material-layout{grid-template-columns:1fr}.mirror-material-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.mirror-material-side {grid-column:1/-1}}
 @media(max-width:800px){.mirror-material-side{grid-template-columns:1fr}.mirror-material-footer{flex-direction:column;align-items:stretch;padding:16px}.mirror-material-footer__actions{flex-direction:column}.mirror-material-footer__actions>*{width:100%}}
-}
 </style>

@@ -100,7 +100,6 @@ import * as m from '../../paraglide/messages';
 </AppModal>
 
 <style>
-:global {
 .permissions-dialog-content {
   display: flex;
   flex-direction: column;
@@ -148,6 +147,5 @@ import * as m from '../../paraglide/messages';
 
 .permissions-octal md-outlined-text-field {
   width: 100px;
-}
 }
 </style>

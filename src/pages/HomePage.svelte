@@ -13,7 +13,7 @@ import * as m from '../paraglide/messages';
   import PowerDialog from '../components/dialogs/PowerDialog.svelte';
   const formatMemory = (mb: number) => mb <= 0 ? '-' : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
   const formatStorage = (mb: number) => mb <= 0 ? '-' : mb >= 1024 * 1024 ? `${(mb / 1024 / 1024).toFixed(2)} TB` : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
-  const secondaryTitle = (details: DeviceDetails) => [details.manufacturer, details.soc, details.model].filter(value => value && value !== '-').join(' · ');
+  const secondaryTitle = (details: DeviceDetails) => [details.manufacturer, details.soc].filter(value => value && value !== '-').join(' · ');
 
   const normalizeCarrierName = (value: string) => [...new Set(value
     .trim()
@@ -39,65 +39,58 @@ import * as m from '../paraglide/messages';
   let selectedSerial = $derived(selectedDevice?.serial ?? '');
   let selectedState = $derived(selectedDevice?.state ?? '');
 
+  function fetchDeviceNameAndCarrier(serial: string) {
+    if (!serial) return;
+    invoke<{ device_name: string; airplane_mode: boolean; carrier: string }>('get_home_details', { serial })
+      .then(details => {
+        if (serial !== selectedSerial) return;
+        
+        if (details.device_name) {
+          deviceName = details.device_name;
+        } else {
+          deviceName = appName;
+        }
+
+        if (details.carrier) {
+          carrierName = details.carrier;
+        } else if (details.airplane_mode) {
+          carrierName = m.home_airplane_mode ? m.home_airplane_mode() : 'Airplane Mode';
+        } else if (selectedState === 'device') {
+          carrierName = '';
+        }
+      })
+      .catch(() => {
+        if (serial === selectedSerial && selectedState === 'device') {
+          deviceName = appName;
+          carrierName = '';
+        }
+      });
+  }
+
   onMount(() => {
     getName().then(name => {
       appName = name;
-      deviceName = name;
+      if (deviceName === 'ADB App') deviceName = name;
     }).catch(() => { });
+
+    if (selectedSerial && selectedState === 'device') {
+      devicesState.refreshDeviceDetailsSilent();
+      fetchDeviceNameAndCarrier(selectedSerial);
+    }
+
+    const interval = window.setInterval(() => {
+      if (selectedSerial && selectedState === 'device') {
+        devicesState.refreshDeviceDetailsSilent();
+        fetchDeviceNameAndCarrier(selectedSerial);
+      }
+    }, 30000);
+
+    return () => window.clearInterval(interval);
   });
 
   $effect(() => {
     if (selectedSerial && selectedState === 'device') {
-      const serial = selectedSerial;
-      invoke<string>('run_device_action', {
-        serial,
-        args: ['shell', 'settings', 'get', 'global', 'device_name']
-      }).then(name => {
-        if (name && name.trim() !== 'null') {
-          deviceName = name.trim();
-        } else {
-          deviceName = appName;
-        }
-      }).catch(() => deviceName = appName);
-
-      const checkAirplaneMode = (serialNum: string) => {
-        invoke<string>('run_device_action', {
-          serial: serialNum,
-          args: ['shell', 'settings', 'get', 'global', 'airplane_mode_on']
-        }).then(res => {
-          if (serialNum === selectedSerial) {
-            if (res && res.trim() === '1') {
-              carrierName = m.home_airplane_mode ? m.home_airplane_mode() : 'Airplane Mode';
-            } else {
-              carrierName = '';
-            }
-          }
-        }).catch(() => {
-          if (serialNum === selectedSerial) carrierName = '';
-        });
-      };
-
-      invoke<string>('run_device_action', {
-        serial,
-        args: ['shell', 'getprop', 'gsm.operator.alpha']
-      }).then(name => {
-        if (serial === selectedSerial) {
-          const normalized = normalizeCarrierName(name);
-          if (normalized) {
-            carrierName = normalized;
-          } else {
-            checkAirplaneMode(serial);
-          }
-        }
-      }).catch(() => {
-        if (serial === selectedSerial) checkAirplaneMode(serial);
-      });
-
-    } else if (!selectedDevice) {
-      deviceName = appName;
-      carrierName = '';
-    } else {
-      carrierName = '';
+      fetchDeviceNameAndCarrier(selectedSerial);
     }
   });
 

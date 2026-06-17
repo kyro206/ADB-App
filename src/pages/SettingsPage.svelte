@@ -342,7 +342,7 @@ import * as m from '../paraglide/messages';
       
       <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px">
         <div style="display: flex; align-items: center; gap: 16px">
-          <img src="/icon.webp" style="width: 64px; height: 64px; pointer-events: none" alt="ADB App" />
+          <img src="/icon.webp" style="width: 64px; height: 64px; pointer-events: none; user-select: none; -webkit-user-drag: none;" draggable="false" alt="ADB App" />
           <div style="display: flex; flex-direction: column; justify-content: center">
             <h2 style="margin: 0 0 2px 0; font-size: 24px; line-height: 1.2">{appName}</h2>
             <span style="color: var(--md-sys-color-on-surface-variant); font-size: 14px">{appVersion}</span>
@@ -371,7 +371,8 @@ import * as m from '../paraglide/messages';
           <img 
             src="https://github.com/kyro206.png?size=200" 
             alt="Kyro206" 
-            style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--md-sys-color-surface-variant)"
+            draggable="false"
+            style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--md-sys-color-surface-variant); user-select: none; -webkit-user-drag: none;"
             onerror={(e) => {
               (e.currentTarget as HTMLElement).style.display = 'none';
               if (e.currentTarget.nextElementSibling) {

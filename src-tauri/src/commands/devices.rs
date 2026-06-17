@@ -14,16 +14,8 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
 
 /// Get detailed information about a specific device.
 #[tauri::command]
-pub async fn get_device_details(serial: String) -> Result<DeviceDetails, String> {
-    // First get the device from the list to have basic info
-    let devices_result = adb::run_adb(&["devices", "-l"]).await?;
-    let devices = device_parser::parse_devices(&devices_result.output);
-
-    let device = devices
-        .iter()
-        .find(|d| d.serial == serial)
-        .cloned()
-        .ok_or_else(|| format!("Device not found: {}", serial))?;
+pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String> {
+    let serial = device.serial.clone();
 
     if device.state != "device" {
         // Device not fully connected, return minimal details
