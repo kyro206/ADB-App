@@ -761,6 +761,107 @@ pub async fn run_device_action(serial: String, args: Vec<String>) -> Result<Stri
 }
 
 #[tauri::command]
+pub async fn sideload_device(app: tauri::AppHandle, serial: String, file_path: String) -> Result<String, String> {
+    use tauri::Emitter;
+    use tauri::Listener;
+    use tokio::io::AsyncReadExt;
+
+    let adb_path = crate::tools::resolve_tool_path("adb")
+        .ok_or_else(|| "ADB is not installed. Configure or install it in Settings.".to_string())?;
+
+    let mut cmd = crate::process::tokio_command(adb_path.to_string_lossy().as_ref());
+    cmd.arg("-s").arg(&serial).arg("sideload").arg(&file_path)
+       .stdout(std::process::Stdio::piped())
+       .stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to start adb sideload: {}", e))?;
+
+    let mut stdout = child.stdout.take().unwrap();
+    let mut stderr = child.stderr.take().unwrap();
+
+    let app_clone = app.clone();
+    
+    // Task to read stdout
+    let stdout_handle = tokio::spawn(async move {
+        let mut buf = [0u8; 1024];
+        let mut full_log = String::new();
+        let mut current_line = String::new();
+
+        loop {
+            match stdout.read(&mut buf).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    let text = String::from_utf8_lossy(&buf[0..n]);
+                    full_log.push_str(&text);
+                    
+                    for c in text.chars() {
+                        if c == '\r' || c == '\n' {
+                            if current_line.contains("serving:") {
+                                if let Some(start) = current_line.find("serving: ") {
+                                    let rest = &current_line[start + 9..];
+                                    if let Some(end) = rest.find('%') {
+                                        let pct_str = &rest[..end];
+                                        if let Ok(pct) = pct_str.parse::<u32>() {
+                                            let _ = app_clone.emit("sideload-progress", pct);
+                                        }
+                                    }
+                                }
+                            }
+                            current_line.clear();
+                        } else {
+                            current_line.push(c);
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        full_log
+    });
+
+    let stderr_handle = tokio::spawn(async move {
+        let mut buf = [0u8; 1024];
+        let mut full_log = String::new();
+        while let Ok(n) = stderr.read(&mut buf).await {
+            if n == 0 { break; }
+            full_log.push_str(&String::from_utf8_lossy(&buf[0..n]));
+        }
+        full_log
+    });
+
+    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    let cancel_tx = std::sync::Mutex::new(Some(cancel_tx));
+    let cancel_id = app.listen("cancel-sideload", move |_| {
+        if let Some(tx) = cancel_tx.lock().unwrap().take() {
+            let _ = tx.send(());
+        }
+    });
+
+    let status_result = tokio::select! {
+        res = child.wait() => res,
+        _ = &mut cancel_rx => {
+            let _ = child.kill().await;
+            app.unlisten(cancel_id);
+            return Err("Cancelled by user".to_string());
+        }
+    };
+
+    app.unlisten(cancel_id);
+
+    let status = status_result.map_err(|e| format!("Failed to wait for adb sideload: {}", e))?;
+    
+    let out = stdout_handle.await.unwrap_or_default();
+    let err = stderr_handle.await.unwrap_or_default();
+    let combined = format!("{}\n{}", out, err).trim().to_string();
+
+    if status.success() {
+        Ok("Success".to_string())
+    } else {
+        Err(combined)
+    }
+}
+
+#[tauri::command]
 pub async fn connect_wireless_device(endpoint: String) -> Result<String, String> {
     let endpoint = endpoint.trim();
     if endpoint.is_empty() || !endpoint.contains(':') {

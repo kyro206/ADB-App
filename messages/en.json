@@ -337,6 +337,7 @@
   "power_hint_fastbootd": "Run fastboot reboot.",
   "power_btn_download": "Download mode",
   "power_hint_download": "Press the volume down button and the power button.",
+  "power_btn_sideload": "ADB Sideload OTA (.zip)",
   "app_action_uninstallApp": "Uninstall application",
   "app_action_clearData": "Clear application data",
   "app_desc_uninstall": "The application and all its data will be removed from the device.",

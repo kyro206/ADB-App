@@ -201,7 +201,7 @@ html.platform-macos .app-layout__content {
   transition: background-color 0.4s ease, background 0.4s ease;
 }
 
-html.platform-macos .sidebar__tab:hover .sidebar__tab-icon {
+html.platform-macos .sidebar__tab:not(.sidebar__tab--active):hover .sidebar__tab-icon {
   background: color-mix(in srgb, var(--on-surface) 10%, transparent);
 }
 
@@ -213,7 +213,7 @@ html.platform-macos .topbar__action-btn {
   border-color: color-mix(in srgb, var(--outline-variant) 45%, transparent);
 }
 
-html.platform-windows .sidebar__tab:hover .sidebar__tab-icon {
+html.platform-windows .sidebar__tab:not(.sidebar__tab--active):hover .sidebar__tab-icon {
   background: color-mix(in srgb, var(--on-surface) 10%, transparent);
 }
 

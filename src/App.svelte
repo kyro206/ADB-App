@@ -2,9 +2,6 @@
 import * as m from './paraglide/messages';
 
   import { onMount } from 'svelte';
-  import { check } from '@tauri-apps/plugin-updater';
-  import { ask } from '@tauri-apps/plugin-dialog';
-  import { relaunch } from '@tauri-apps/plugin-process';
   
   import MaterialWebEnhancer from './components/MaterialWebEnhancer.svelte';
   import AppLayout from './components/layout/AppLayout.svelte';

@@ -3,7 +3,7 @@ import * as m from '../../paraglide/messages';
 
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import type { TabId } from './Sidebar.svelte';
+  import type { TabId } from '../../context/layout.svelte';
   import Sidebar from './Sidebar.svelte';
   import TopBar from './TopBar.svelte';
   import AppModal from '../dialogs/AppModal.svelte';
