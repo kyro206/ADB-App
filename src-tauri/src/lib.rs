@@ -37,33 +37,43 @@ pub fn run() {
                 .title("ADB App")
                 .inner_size(1180.0, 760.0)
                 .min_inner_size(920.0, 620.0)
-                .transparent(true)
                 .data_directory(crate::app_paths::data_dir())
                 .initialization_script(&init_script);
 
             #[cfg(target_os = "macos")]
             {
                 builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay)
-                                 .hidden_title(true);
+                                 .hidden_title(true)
+                                 .transparent(true);
             }
 
             #[cfg(not(target_os = "macos"))]
             {
-                builder = builder.decorations(false);
+                builder = builder.transparent(true)
+                                 .decorations(false);
             }
 
             let window = builder.build().map_err(|e| e.to_string())?;
 
             #[cfg(target_os = "windows")]
             {
-                let _ = window_vibrancy::apply_mica(&window, None);
+                let effects = tauri::utils::config::WindowEffectsConfig {
+                    effects: vec![tauri::window::Effect::Mica],
+                    state: Some(tauri::window::EffectState::Active),
+                    ..Default::default()
+                };
+                let _ = window.set_effects(Some(effects));
             }
 
             #[cfg(target_os = "macos")]
             {
-                let _ = window_vibrancy::apply_vibrancy(&window, window_vibrancy::NSVisualEffectMaterial::Sidebar, None, None);
+                let effects = tauri::utils::config::WindowEffectsConfig {
+                    effects: vec![tauri::window::Effect::Sidebar],
+                    state: Some(tauri::window::EffectState::Active),
+                    ..Default::default()
+                };
+                let _ = window.set_effects(Some(effects));
             }
-
             Ok(())
         })
         .plugin(tauri_plugin_updater::Builder::new().build())

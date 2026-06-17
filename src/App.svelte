@@ -11,33 +11,15 @@ import * as m from './paraglide/messages';
   import { i18n } from './context/i18n.svelte';
   import { themeState, initThemeEffects } from './context/theme.svelte';
   import { devicesState } from './context/devices.svelte';
+  import AppModal from './components/dialogs/AppModal.svelte';
+  import { updateState } from './context/update.svelte';
+  import { openUrl } from '@tauri-apps/plugin-opener';
 
   onMount(() => {
     // Initialize global singletons
     const cleanupTheme = initThemeEffects();
     devicesState.init();
-
-    const checkForUpdates = async () => {
-      try {
-        const update = await check();
-        if (update) {
-          const yes = await ask(
-            m.updater_availableMessage({ version: update.version }),
-            { 
-              title: m.updater_availableTitle(),
-              kind: 'info',
-              okLabel: m.updater_updateNow(),
-              cancelLabel: m.updater_later()
-            }
-          );
-          if (yes) {
-            await update.downloadAndInstall();
-            await relaunch();
-          }
-        }
-      } catch (error) {}
-    };
-    checkForUpdates();
+    updateState.init();
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -76,4 +58,30 @@ import * as m from './paraglide/messages';
   {#key i18n.language}
     <AppLayout />
   {/key}
+  
+  {#if updateState.hasUpdate}
+    <AppModal
+      open={updateState.showUpdateDialog}
+      title={m.updater_availableTitle()}
+      onClose={() => updateState.showUpdateDialog = false}
+      width="compact"
+    >
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <p style="margin: 0; color: var(--on-surface-variant); line-height: 1.5; white-space: pre-wrap;">
+          {m.updater_availableMessage({ 
+            newVersion: updateState.updateInfo!.version,
+            currentVersion: updateState.currentVersion 
+          })}
+        </p>
+      </div>
+      {#snippet actions()}
+        <md-text-button onclick={() => openUrl('https://github.com/kyro206/ADB-App/blob/main/CHANGELOG.md')}>
+          {m.updater_changelog()}
+        </md-text-button>
+        <md-filled-button onclick={async () => await updateState.install()}>
+          {m.updater_updateNow()}
+        </md-filled-button>
+      {/snippet}
+    </AppModal>
+  {/if}
 {/if}

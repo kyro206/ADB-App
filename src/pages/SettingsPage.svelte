@@ -11,6 +11,7 @@ import * as m from '../paraglide/messages';
   import { open } from '@tauri-apps/plugin-dialog';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import type { ToolStatus, ToolsStatus } from './workbench/types';
+  import { updateState } from '../context/update.svelte';
   
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import AppModal from '../components/dialogs/AppModal.svelte';
@@ -103,6 +104,27 @@ import * as m from '../paraglide/messages';
 </script>
 
 <div class="settings-grid">
+  
+  {#if updateState.hasUpdate}
+    <section class="settings-card" style="grid-column: 1 / -1; border-color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 5%, var(--surface-container-low));">
+      <h3 class="settings-title" style="color: var(--md-sys-color-primary); display: flex; align-items: center; gap: 8px;">
+        <MaterialIcon name="system_update" />
+        {m.updater_newUpdateAvailable()}
+      </h3>
+      <div style="display: flex; gap: 8px; flex-direction: column; margin-bottom: 16px;">
+        <span style="font-size: 14px; color: var(--md-sys-color-on-surface-variant)">{m.updater_currentVersion()}: {updateState.currentVersion}</span>
+        <span style="font-size: 14px; color: var(--md-sys-color-on-surface-variant)">{m.updater_newVersion()}: <strong style="color: var(--md-sys-color-primary)">{updateState.updateInfo!.version}</strong></span>
+      </div>
+      <div class="button-row" style="justify-content: flex-end;">
+        <md-outlined-button onclick={() => openUrl('https://github.com/kyro206/ADB-App/blob/main/CHANGELOG.md')}>
+          {m.updater_changelog()}
+        </md-outlined-button>
+        <md-filled-button onclick={async () => await updateState.install()}>
+          {m.updater_updateNow()}
+        </md-filled-button>
+      </div>
+    </section>
+  {/if}
   
   <section class="settings-card">
     <h3 class="settings-title">{m.settings_generalTitle()}</h3>

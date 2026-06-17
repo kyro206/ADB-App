@@ -281,15 +281,12 @@ pub async fn get_device_wallpaper(serial: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn set_window_theme(window: tauri::Window, theme: String) {
-    #[cfg(target_os = "windows")]
-    {
-        let is_dark = match theme.as_str() {
-            "dark" => Some(true),
-            "light" => Some(false),
-            _ => None,
-        };
-        let _ = window_vibrancy::apply_mica(&window, is_dark);
-    }
+    let tauri_theme = match theme.as_str() {
+        "dark" => Some(tauri::Theme::Dark),
+        "light" => Some(tauri::Theme::Light),
+        _ => None,
+    };
+    let _ = window.set_theme(tauri_theme);
 }
 
 #[tauri::command]

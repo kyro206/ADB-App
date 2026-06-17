@@ -13,7 +13,7 @@
     "@fontsource-variable/google-sans-flex": "^5.2.3",
     "@fontsource/material-symbols-rounded": "^5.2.45",
     "@material/web": "^2.4.1",
-    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-opener": "^2.5.4",

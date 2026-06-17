@@ -5,6 +5,7 @@ import * as m from '../../paraglide/messages';
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { TabId } from '../../context/layout.svelte';
+  import { updateState } from '../../context/update.svelte';
   
   import MaterialIcon from '../MaterialIcon.svelte';
   let {
@@ -71,6 +72,8 @@ import * as m from '../../paraglide/messages';
         <MaterialIcon name={TAB_ICONS['settings']} filled={activeTab === 'settings'} />
         {#if !adbAvailable}
           <div class="sidebar__badge error"></div>
+        {:else if updateState.hasUpdate}
+          <div class="sidebar__badge blue"></div>
         {/if}
       </span>
       <span class="sidebar__tab-label">{labels['settings']}</span>

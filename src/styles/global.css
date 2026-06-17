@@ -156,7 +156,7 @@ input:focus, select:focus, textarea:focus {
   white-space: nowrap;
 }
 
-/* Mica/Vibrancy Effect (Windows & macOS) */
+/* Mica/Vibrancy Effect (Windows) and native Vibrancy composition (macOS) */
 html.platform-windows,
 html.platform-windows body,
 html.platform-windows #root,
@@ -177,10 +177,57 @@ html.platform-macos .sidebar {
   background: transparent !important;
 }
 
-html.platform-windows .app-layout__content,
-html.platform-macos .app-layout__content {
-  background: var(--bg) !important;
+html.platform-macos .topbar,
+html.platform-macos .sidebar {
+  border-color: color-mix(in srgb, var(--outline-variant) 65%, transparent);
+}
+
+html.platform-windows .topbar,
+html.platform-windows .sidebar {
+  border-color: color-mix(in srgb, var(--outline-variant) 65%, transparent);
+}
+
+html.platform-windows .app-layout__content {
+  background: color-mix(in srgb, var(--bg) 96%, transparent) !important;
+  border-color: color-mix(in srgb, var(--outline-variant) 78%, transparent) !important;
+  border-radius: 12px 0 0;
   transition: background-color 0.4s ease, background 0.4s ease;
+}
+
+html.platform-macos .app-layout__content {
+  background: color-mix(in srgb, var(--bg) 94%, transparent) !important;
+  border-color: color-mix(in srgb, var(--outline-variant) 75%, transparent) !important;
+  border-radius: 12px 0 0;
+  transition: background-color 0.4s ease, background 0.4s ease;
+}
+
+html.platform-macos .sidebar__tab:hover .sidebar__tab-icon {
+  background: color-mix(in srgb, var(--on-surface) 10%, transparent);
+}
+
+html.platform-macos .topbar-device-picker__field,
+html.platform-macos .topbar__tcpip,
+html.platform-macos .topbar__wireless,
+html.platform-macos .topbar__action-btn {
+  background: color-mix(in srgb, var(--surface-container-high) 72%, transparent);
+  border-color: color-mix(in srgb, var(--outline-variant) 45%, transparent);
+}
+
+html.platform-windows .sidebar__tab:hover .sidebar__tab-icon {
+  background: color-mix(in srgb, var(--on-surface) 10%, transparent);
+}
+
+html.platform-windows .topbar-device-picker__field,
+html.platform-windows .topbar__tcpip,
+html.platform-windows .topbar__wireless,
+html.platform-windows .topbar__action-btn {
+  background: color-mix(in srgb, var(--surface-container-high) 74%, transparent);
+  border-color: color-mix(in srgb, var(--outline-variant) 48%, transparent);
+}
+
+html.platform-macos .topbar__device-section,
+html.platform-macos .topbar__window-controls {
+  margin-top: env(titlebar-area-y, 0);
 }
 
 .md-btn-danger {

@@ -49,6 +49,14 @@ class ThemeState {
   async applyTheme(currentTheme: Theme) {
     if (!this.loaded) return;
     
+    try {
+      await invoke('set_window_theme', { theme: currentTheme });
+      // If we switched to auto, give the webview a moment to adopt the OS theme
+      if (currentTheme === 'auto') {
+        await new Promise(r => setTimeout(r, 50));
+      }
+    } catch (e) {}
+
     let resolvedTheme: ResolvedTheme = currentTheme === 'light' || currentTheme === 'dark' ? currentTheme : 'dark';
     if (currentTheme === 'auto') {
       const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -56,14 +64,6 @@ class ThemeState {
     }
     this.resolvedTheme = resolvedTheme;
     document.documentElement.setAttribute('data-theme', resolvedTheme);
-    
-    try {
-      await invoke('set_window_theme', { theme: resolvedTheme });
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      await getCurrentWindow().setTheme(resolvedTheme === 'dark' ? 'dark' : 'light');
-    } catch (e) {
-      // ignore
-    }
   }
 
   setTheme(newTheme: Theme) {

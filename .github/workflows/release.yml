@@ -8,55 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout del repositorio
-        uses: actions/checkout@v6
-
-      - name: Configurar Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Sincronizar versiones
-        shell: bash
-        run: |
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION="${VERSION#v}"
-          
-          # Actualizar package.json
-          bun pm version $VERSION --no-git-tag-version
-          
-          # Actualizar Cargo.toml y tauri.conf.json rápidamente
-          node -e '
-            const fs = require("fs");
-            const version = "'"$VERSION"'";
-            
-            // tauri.conf.json
-            let tauriConf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
-            tauriConf.version = version;
-            fs.writeFileSync("src-tauri/tauri.conf.json", JSON.stringify(tauriConf, null, 2));
-            
-            // Cargo.toml
-            let cargo = fs.readFileSync("src-tauri/Cargo.toml", "utf8");
-            cargo = cargo.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
-            fs.writeFileSync("src-tauri/Cargo.toml", cargo);
-          '
-
-      - name: Subir código modificado
-        uses: actions/upload-artifact@v4
-        with:
-          name: source-code
-          path: |
-            .
-            !.git
-            !node_modules
-            !src-tauri/target
-          include-hidden-files: true
-
   build:
-    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -88,10 +40,35 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Descargar código fuente modificado
-        uses: actions/download-artifact@v4
-        with:
-          name: source-code
+      - name: Checkout del repositorio
+        uses: actions/checkout@v6
+
+      - name: Sincronizar versiones
+        shell: bash
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          
+          # Actualizar archivos de versión rápidamente
+          node -e '
+            const fs = require("fs");
+            const version = "'"$VERSION"'";
+            
+            // package.json
+            let pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            pkg.version = version;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+            
+            // tauri.conf.json
+            let tauriConf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
+            tauriConf.version = version;
+            fs.writeFileSync("src-tauri/tauri.conf.json", JSON.stringify(tauriConf, null, 2) + "\n");
+            
+            // Cargo.toml
+            let cargo = fs.readFileSync("src-tauri/Cargo.toml", "utf8");
+            cargo = cargo.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
+            fs.writeFileSync("src-tauri/Cargo.toml", cargo);
+          '
 
       - name: Configurar Rust y el Target de compilación
         uses: dtolnay/rust-toolchain@stable
@@ -127,7 +104,36 @@ jobs:
           releaseId: ${{ github.event.release.id }}
           args: --target ${{ matrix.target }} ${{ matrix.args }}
           updaterJsonPreferNsis: true
-          updaterJsonKeepUniversalMacos: true
+
+      - name: Preparar configuración para Microsoft Store (Solo Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            let tauriConf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
+            tauriConf.bundle.windows = tauriConf.bundle.windows || {};
+            tauriConf.bundle.windows.webviewInstallMode = { type: "offlineInstaller" };
+            fs.writeFileSync("src-tauri/tauri.conf.json", JSON.stringify(tauriConf, null, 2) + "\n");
+          '
+
+      - name: Compilar versión Microsoft Store (Solo Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: bun run tauri build --bundles nsis --target ${{ matrix.target }}
+
+      - name: Renombrar y Subir versión Store
+        if: startsWith(matrix.os, 'windows')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          $exe = Get-ChildItem -Path "src-tauri\target\${{ matrix.target }}\release\bundle\nsis\*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          
+          # matrix.name here is like "windows-x64", so we extract the arch:
+          $arch = if ("${{ matrix.name }}" -like "*arm64*") { "arm64" } else { "x64" }
+          
+          Rename-Item -Path $exe.FullName -NewName "ADB-App-MicrosoftStore-Version-$arch.exe"
+          gh release upload $env:TAG "src-tauri\target\${{ matrix.target }}\release\bundle\nsis\ADB-App-MicrosoftStore-Version-$arch.exe" --clobber
 
   publish-updater:
     needs: build
@@ -137,87 +143,127 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v6
 
+      - name: Mover archivos del actualizador a un Release paralelo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          UPDATER_TAG="${TAG}-updater"
+          
+          echo "Creando release $UPDATER_TAG..."
+          gh release create "$UPDATER_TAG" --prerelease --title "Updater files for $TAG" --notes "Archivos internos del actualizador. Descarga la aplicación principal desde el release $TAG." || true
+          
+          mkdir -p updater-assets
+          echo "Descargando archivos de actualización del release principal..."
+          gh release download "$TAG" --pattern "*.zip" --pattern "*.sig" --pattern "*.tar.gz" --dir updater-assets || true
+          
+          if [ "$(ls -A updater-assets)" ]; then
+            echo "Subiendo archivos al release del actualizador..."
+            gh release upload "$UPDATER_TAG" updater-assets/* --clobber
+            
+            echo "Eliminando archivos del release principal..."
+            for file in updater-assets/*; do
+              filename=$(basename "$file")
+              gh release delete-asset "$TAG" "$filename" -y || true
+            done
+          else
+            echo "No se encontraron archivos para mover."
+          fi
+
       - name: Generar latest.json y actualizar Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { repo, owner } = context.repo;
-            const release = await github.rest.repos.getReleaseByTag({
-              owner,
-              repo,
-              tag: context.payload.release.tag_name
-            });
-
-            const version = release.data.tag_name.replace(/^v/, '');
-            const assets = release.data.assets;
+            const mainTag = context.payload.release.tag_name;
+            const updaterTag = `${mainTag}-updater`;
             
-            // 1. Pre-fetch de las firmas (.sig)
+            // 1. Obtener Release Principal
+            const mainRelease = await github.rest.repos.getReleaseByTag({
+              owner, repo, tag: mainTag
+            });
+            
+            // 2. Obtener Release del Actualizador
+            let updaterRelease;
+            try {
+              updaterRelease = await github.rest.repos.getReleaseByTag({
+                owner, repo, tag: updaterTag
+              });
+            } catch (e) {
+              console.warn("No se encontró el release de updaters, se usará el principal");
+              updaterRelease = mainRelease;
+            }
+
+            const version = mainRelease.data.tag_name.replace(/^v/, '');
+            
+            // 3. Pre-fetch de las firmas desde el updaterRelease
             const signatureCache = new Map();
-            for (const asset of assets) {
+            for (const asset of updaterRelease.data.assets) {
               if (asset.name.endsWith('.sig')) {
                 const sigResponse = await fetch(asset.browser_download_url);
                 if (sigResponse.ok) {
                   signatureCache.set(asset.name, (await sigResponse.text()).trim());
                 } else {
-                  console.warn(`Error al descargar firma original: ${asset.name}`);
+                  console.warn(`Error al descargar firma: ${asset.name}`);
                 }
               }
             }
 
             const platforms = {};
-            const downloads = {
-              Windows: [],
-              macOS: [],
-              Linux: []
-            };
+            const downloads = { Windows: [], macOS: [], Linux: [] };
 
-            for (const asset of assets) {
-              if (asset.name.endsWith('.sig') || asset.name === 'latest.json') continue;
-              
+            // 4. Analizar descargas principales (Main Release)
+            for (const asset of mainRelease.data.assets) {
               const lowerName = asset.name.toLowerCase();
-              let platformKey = null;
-
               if (lowerName.endsWith('.exe')) {
-                if (lowerName.includes('arm64') || lowerName.includes('aarch64')) {
-                  platformKey = 'windows-aarch64';
-                  downloads.Windows.push(`[ARM64 (.exe)](${asset.browser_download_url})`);
-                } else {
-                  platformKey = 'windows-x86_64';
-                  downloads.Windows.push(`[x64 (.exe)](${asset.browser_download_url})`);
-                }
+                const isArm = lowerName.includes('arm64') || lowerName.includes('aarch64');
+                const isStore = lowerName.includes('microsoftstore-version');
+                const label = isStore ? `Store Version (Offline)` : (isArm ? `ARM64` : `x64`);
+                downloads.Windows.push(`[${label} (.exe)](${asset.browser_download_url})`);
               } else if (lowerName.endsWith('.dmg')) {
-                if (lowerName.includes('arm64') || lowerName.includes('aarch64')) {
-                  platformKey = 'darwin-aarch64';
-                  downloads.macOS.push(`[Apple Silicon (.dmg)](${asset.browser_download_url})`);
-                } else {
-                  platformKey = 'darwin-x86_64';
-                  downloads.macOS.push(`[Intel (.dmg)](${asset.browser_download_url})`);
-                }
+                const isArm = lowerName.includes('arm64') || lowerName.includes('aarch64');
+                downloads.macOS.push(`[${isArm ? 'Apple Silicon' : 'Intel'} (.dmg)](${asset.browser_download_url})`);
               } else if (lowerName.endsWith('.appimage')) {
-                platformKey = 'linux-x86_64';
                 downloads.Linux.push(`[x64 (.AppImage)](${asset.browser_download_url})`);
               } else if (lowerName.endsWith('.deb')) {
                 downloads.Linux.push(`[x64 (.deb)](${asset.browser_download_url})`);
               }
+            }
+
+            // 5. Analizar updaters (Updater Release)
+            for (const asset of updaterRelease.data.assets) {
+              if (asset.name.endsWith('.sig')) continue;
+              const lowerName = asset.name.toLowerCase();
               
-              if (!platformKey) continue;
-              
-              const sigName = asset.name + '.sig';
-              let signature = signatureCache.get(sigName) || "";
-              
-              if (!signature) {
-                core.warning(`No se encontró o no se pudo leer la firma (.sig) para: ${asset.name}`);
+              let platformKey = null;
+              if (lowerName.endsWith('.zip')) { 
+                platformKey = (lowerName.includes('arm64') || lowerName.includes('aarch64')) ? 'windows-aarch64' : 'windows-x86_64';
+              } else if (lowerName.endsWith('.tar.gz')) {
+                if (lowerName.includes('.app.tar.gz')) {
+                  platformKey = (lowerName.includes('arm64') || lowerName.includes('aarch64')) ? 'darwin-aarch64' : 'darwin-x86_64';
+                } else if (lowerName.includes('.appimage.tar.gz')) {
+                  platformKey = 'linux-x86_64';
+                }
               }
 
-              platforms[platformKey] = {
-                signature,
-                url: asset.browser_download_url
-              };
+              if (platformKey) {
+                const sigName = asset.name + '.sig';
+                let signature = signatureCache.get(sigName) || "";
+                
+                if (!signature) {
+                  core.warning(`No se encontró la firma (.sig) para el updater: ${asset.name}`);
+                }
+
+                platforms[platformKey] = {
+                  signature,
+                  url: asset.browser_download_url
+                };
+              }
             }
 
             const latestJson = {
               version,
-              notes: release.data.body || "Nueva actualización disponible.",
+              notes: mainRelease.data.body || "Nueva actualización disponible.",
               pub_date: new Date().toISOString(),
               platforms
             };
@@ -226,26 +272,31 @@ jobs:
             fs.writeFileSync('latest.json', JSON.stringify(latestJson, null, 2));
 
             // 4. Generar lista de descargas y actualizar el Release
-            let tableMarkdown = "| Sistema Operativo | Descargas |\n|---|---|\n";
+            let tableMarkdown = "| OS | Downloads |\n|---|---|\n";
             for (const os of ['Windows', 'macOS', 'Linux']) {
               if (downloads[os].length > 0) {
                 tableMarkdown += `| **${os}** | ${downloads[os].join('<br>')} |\n`;
               }
             }
-            tableMarkdown += '\n---\n\n';
-            
-            const originalBody = release.data.body || '';
-            const newBody = originalBody.includes('| Sistema Operativo | Descargas |') 
+
+            tableMarkdown += '\n> [!WARNING]\n';
+            tableMarkdown += '> **⚠️ macOS Apple Silicon (M1+ or A18+) Users:**\n';
+            tableMarkdown += '> If macOS says the app is "damaged" and cannot be opened, it is because macOS Gatekeeper blocks unsigned internet downloads. To fix this, move the app to your Applications folder, open **Terminal**, and run:\n';
+            tableMarkdown += '> `xattr -cr "/Applications/ADB App.app"`\n\n';
+            tableMarkdown += '---\n\n';
+
+            const originalBody = mainRelease.data.body || '';
+            const newBody = originalBody.includes('| OS | Downloads |') 
               ? originalBody 
               : tableMarkdown + originalBody;
-            
+
             await github.rest.repos.updateRelease({
               owner,
               repo,
-              release_id: release.data.id,
+              release_id: mainRelease.data.id,
               body: newBody
             });
-
+            
       - name: Desplegar latest.json en la rama gh-pages
         run: |
           git clone --branch gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-repo
