@@ -10,6 +10,7 @@ import * as m from '../../paraglide/messages';
   import WirelessDialog from '../dialogs/WirelessDialog.svelte';
   import MaterialIcon from '../MaterialIcon.svelte';
   import DeviceSelector from './DeviceSelector.svelte';
+  import Logo from '../Logo.svelte';
   let { adbAvailable = true } = $props<{ adbAvailable?: boolean }>();
 
   type DesktopPlatform = 'windows' | 'macos' | 'linux';
@@ -65,7 +66,7 @@ import * as m from '../../paraglide/messages';
 <header class="topbar topbar--{platform}" data-tauri-drag-region ondblclick={() => appWindow.toggleMaximize()}>
   {#if platform !== 'macos'}
     <div class="topbar__identity" data-tauri-drag-region>
-      <img src="/icon.webp" alt="" data-tauri-drag-region draggable="false" style="user-select: none; -webkit-user-drag: none;" />
+      <Logo size={28} />
       <h1 data-tauri-drag-region>{appName}</h1>
     </div>
   {/if}

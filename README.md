@@ -1,4 +1,4 @@
-# <img src="public/icon.webp" alt="ADB App Logo" width="32" height="32" style="vertical-align: bottom;"> ADB App
+# <img src="icon.webp" alt="ADB App Logo" height="27"> ADB App
 
 **A modern, fast, and cross-platform desktop application to manage Android devices over ADB.**
 
@@ -74,6 +74,7 @@ If you'd like to build the app yourself or contribute to the codebase:
 - [**Material Design**](https://github.com/material-components/material-web) - For their beautiful UI components.
 - [**AYA**](https://github.com/liriliri/aya) - A great source of inspiration and technical reference; our metadata loading system (apps and icons) is heavily based on their source code.
 - [**ADB Manager**](https://github.com/agcarbajo/AdbManager) - The main inspiration for this project. This application was born as its spiritual successor.
+- **Android Logo** - The icon of this application includes a modification based on a work created and shared by Google and used according to terms described in the Creative Commons 3.0 Attribution License.
 
 ## License
 

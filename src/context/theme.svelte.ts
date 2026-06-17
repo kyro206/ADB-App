@@ -11,6 +11,7 @@ class ThemeState {
   resolvedTheme = $state<ResolvedTheme>('dark');
   materialYouEnabled = $state(true);
   materialYouBackgroundTint = $state(true);
+  hasActiveDynamicPalette = $state(false);
   loaded = $state(false);
   dynamicPaletteError = $state<string | null>(null);
   wallpaperClockColor = $state('');
@@ -337,6 +338,7 @@ export function initThemeEffects() {
       lastPaletteSeed = null;
       themeState.wallpaperClockColor = '';
       themeState.dynamicPaletteError = null;
+      themeState.hasActiveDynamicPalette = false;
       resetDynamicPalette();
       return;
     }
@@ -345,8 +347,10 @@ export function initThemeEffects() {
       themeState.wallpaperClockColor = createWallpaperClockColor(lastPaletteSeed);
       if (materialYouEnabled) {
         applyDynamicPalette(lastPaletteSeed, theme, backgroundTint);
+        themeState.hasActiveDynamicPalette = true;
       } else {
         resetDynamicPalette();
+        themeState.hasActiveDynamicPalette = false;
       }
       return;
     }
@@ -360,8 +364,10 @@ export function initThemeEffects() {
         themeState.dynamicPaletteError = null;
         if (materialYouEnabled) {
           applyDynamicPalette(seed, theme, backgroundTint);
+          themeState.hasActiveDynamicPalette = true;
         } else {
           resetDynamicPalette();
+          themeState.hasActiveDynamicPalette = false;
         }
       })
       .catch(error => {
@@ -370,6 +376,7 @@ export function initThemeEffects() {
         lastPaletteSource = null;
         lastPaletteSeed = null;
         themeState.wallpaperClockColor = '';
+        themeState.hasActiveDynamicPalette = false;
         resetDynamicPalette();
       });
   });

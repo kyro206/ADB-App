@@ -9,12 +9,14 @@ import * as m from '../paraglide/messages';
   import { onMount } from 'svelte';
   import { getVersion, getName } from '@tauri-apps/api/app';
   import { open } from '@tauri-apps/plugin-dialog';
+  import { openUrl } from '@tauri-apps/plugin-opener';
   import type { ToolStatus, ToolsStatus } from './workbench/types';
   
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import AppModal from '../components/dialogs/AppModal.svelte';
+  import Logo from '../components/Logo.svelte';
   import { languages, getLanguageName } from '../context/i18n.svelte';
-  import { APACHE_LICENSE_2_0, MIT_LICENSE } from '../utils/licenseTexts';
+  import { APACHE_LICENSE_2_0, MIT_LICENSE, ANDROID_LOGO_LICENSE } from '../utils/licenseTexts';
   let {
     theme,
     language,
@@ -61,7 +63,8 @@ import * as m from '../paraglide/messages';
     { name: 'Bundletool', url: 'https://github.com/google/bundletool', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
     { name: 'Material Web', url: 'https://github.com/material-components/material-web', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
     { name: 'Tauri', url: 'https://github.com/tauri-apps/tauri', licenseType: 'MIT / Apache 2.0', licenseText: MIT_LICENSE + '\n\n---\n\n' + APACHE_LICENSE_2_0 },
-    { name: 'Svelte', url: 'https://github.com/sveltejs/svelte', licenseType: 'MIT License', licenseText: MIT_LICENSE }
+    { name: 'Svelte', url: 'https://github.com/sveltejs/svelte', licenseType: 'MIT License', licenseText: MIT_LICENSE },
+    { name: 'Android Logo', url: 'https://creativecommons.org/licenses/by/3.0/', licenseType: 'CC BY 3.0', licenseText: ANDROID_LOGO_LICENSE }
   ];
 
   onMount(() => {
@@ -342,7 +345,7 @@ import * as m from '../paraglide/messages';
       
       <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px">
         <div style="display: flex; align-items: center; gap: 16px">
-          <img src="/icon.webp" style="width: 64px; height: 64px; pointer-events: none; user-select: none; -webkit-user-drag: none;" draggable="false" alt="ADB App" />
+          <Logo size={64} />
           <div style="display: flex; flex-direction: column; justify-content: center">
             <h2 style="margin: 0 0 2px 0; font-size: 24px; line-height: 1.2">{appName}</h2>
             <span style="color: var(--md-sys-color-on-surface-variant); font-size: 14px">{appVersion}</span>
@@ -390,8 +393,7 @@ import * as m from '../paraglide/messages';
           </span>
           <div style="display: flex; align-items: center; gap: 6px">
             <strong style="font-size: 15px; color: var(--md-sys-color-on-surface)">Kyro206</strong>
-            <!-- svelte-ignore a11y_missing_attribute -->
-            <md-icon-button href="https://github.com/kyro206" target="_blank" rel="noopener noreferrer" title="GitHub Profile">
+            <md-icon-button onclick={() => openUrl('https://github.com/kyro206')} title="GitHub Profile" style="--md-icon-button-icon-size: 16px;">
               <MaterialIcon name="open_in_new" size={16} />
             </md-icon-button>
           </div>
@@ -408,8 +410,7 @@ import * as m from '../paraglide/messages';
             <div style="border-bottom: 1px dashed var(--md-sys-color-outline-variant); padding-bottom: 8px; margin-bottom: 12px">
               <h4 style="margin: 0 0 4px 0; font-size: 16px; color: var(--md-sys-color-on-surface); display: flex; align-items: center; justify-content: space-between">
                 {lic.name}
-                <!-- svelte-ignore a11y_missing_attribute -->
-                <md-icon-button href={lic.url} target="_blank" rel="noopener noreferrer" title="Código original">
+                <md-icon-button onclick={() => openUrl(lic.url)} title="Código original" style="--md-icon-button-icon-size: 18px;">
                   <MaterialIcon name="open_in_new" size={18} />
                 </md-icon-button>
               </h4>
@@ -492,12 +493,13 @@ import * as m from '../paraglide/messages';
 
 .settings-appearance-row .md3-segmented-button button {
   display: flex;
+  flex-direction: column;
   min-width: 0;
-  min-height: 56px;
+  min-height: 80px;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 0 18px;
+  gap: 8px;
+  padding: 16px 8px;
   color: var(--on-surface-variant, var(--md-sys-color-on-surface-variant));
   background: transparent;
   border: 0;

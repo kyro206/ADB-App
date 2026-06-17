@@ -1,11 +1,10 @@
 <script lang="ts" module>
 import * as m from '../../paraglide/messages';
-
-  export type TabId = 'home' | 'display' | 'mirroring' | 'control' | 'apps' | 'files' | 'system' | 'settings';
 </script>
 
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { TabId } from '../../context/layout.svelte';
   
   import MaterialIcon from '../MaterialIcon.svelte';
   let {

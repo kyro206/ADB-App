@@ -196,3 +196,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 `;
+
+export const ANDROID_LOGO_LICENSE = `The icon of this application includes a modification based on a work created and shared by Google and used according to terms described in the Creative Commons 3.0 Attribution License.`;
+

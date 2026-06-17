@@ -1,5 +1,4 @@
-import type { TabId } from '../components/layout/Sidebar.svelte';
-
+export type TabId = 'home' | 'display' | 'mirroring' | 'control' | 'apps' | 'files' | 'system' | 'settings';
 class LayoutState {
   activeTab = $state<TabId>('home');
 }
