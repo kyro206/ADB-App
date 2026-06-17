@@ -7,8 +7,6 @@ import * as m from '../paraglide/messages';
   
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import ConfirmDialog from '../components/dialogs/ConfirmDialog.svelte';
-  import './SystemPage.css';
-
   let {
     serial,
     status = $bindable()
@@ -262,3 +260,253 @@ import * as m from '../paraglide/messages';
   onConfirm={removeSystemUser}
   onCancel={() => userToDelete = null}
 />
+
+<style>
+:global {
+.md-system-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(350px, 1fr);
+    gap: 16px;
+    width: 100%;
+    color: var(--on-surface, #1d1b20);
+    transition: opacity 0.2s ease;
+}
+
+/* Tarjetas Material 3 */
+.md-system-card {
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    background: var(--surface-container-low, #f7f2fa);
+    border: 1px solid var(--outline-variant, #cac4d0);
+    border-radius: 24px;
+}
+
+.md-full-width {
+    grid-column: 1 / -1;
+}
+
+/* Cabeceras de tarjetas */
+.md-system-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.md-system-header :global(.material-symbols-rounded) {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    color: var(--on-primary-container, #21005d);
+    background: var(--primary-container, #eaddff);
+    border-radius: 16px;
+}
+
+.md-system-header h3 {
+    margin: 0 0 4px 0;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* Grids compartidos */
+.md-system-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+    max-height: 350px;
+    overflow-y: auto;
+    padding-right: 8px; /* Espacio para scrollbar */
+}
+
+/* Items de listas (Usuarios) */
+.md-system-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--surface-container, #f3edf7);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    transition: all 0.2s ease;
+}
+
+.md-system-list-item:hover {
+    background: var(--surface-container-high, #ece6f0);
+}
+
+.md-system-list-item.selected {
+    background: var(--primary-container, #eaddff);
+    border-color: var(--primary, #6750a4);
+}
+
+/* Tarjetas de Teclados (Contenido arriba, acciones abajo) */
+.md-system-keyboard-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-container, #f3edf7);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.md-system-keyboard-card.default {
+    background: color-mix(in srgb, var(--primary-container, #eaddff) 40%, var(--surface-container));
+    border: 1px solid var(--primary, #6750a4);
+}
+
+.md-system-keyboard-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 16px 8px 16px;
+}
+
+.md-keyboard-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px 16px 16px;
+}
+
+.md-avatar {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    color: var(--on-surface-variant, #49454f);
+    background: var(--surface-container-highest, #e6e0e9);
+    border-radius: 50%;
+}
+
+.selected .md-avatar, .default .md-avatar {
+    color: var(--on-primary-container, #21005d);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.md-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.md-item-content strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.md-item-content small {
+    display: block;
+    margin-top: 2px;
+    color: var(--on-surface-variant, #49454f);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.md-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px; /* Altura estándar M3 para mini-chips */
+    padding: 0 8px;
+    border-radius: 8px; /* Radio estándar para etiquetas de estado */
+    font-size: 12px; /* label-medium */
+    font-weight: 500;
+    letter-spacing: 0.1px;
+}
+
+.md-badge-primary {
+    color: var(--on-secondary-container, #1d192b);
+    background: var(--secondary-container, #e8def8);
+}
+
+.md-badge-neutral {
+    color: var(--on-surface-variant, #49454f);
+    background: var(--surface-container-highest, #e6e0e9);
+}
+
+.selected .md-badge-primary, 
+.default .md-badge-primary {
+    color: var(--on-primary, #ffffff);
+    background: var(--primary, #6750a4);
+}
+
+/* Fila de creación de usuario */
+.md-system-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--outline-variant, #cac4d0);
+}
+
+.md-system-actions-row md-outlined-text-field {
+    flex: 1;
+    --md-outlined-field-container-shape: 16px;
+}
+
+
+md-icon-button {
+    --md-icon-button-icon-color: var(--on-surface-variant);
+}
+
+md-icon-button:hover {
+    --md-icon-button-icon-color: var(--error, #b3261e);
+}
+
+/* Lista de Ajustes (Switches) */
+.md-system-settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.md-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    background: var(--surface-container, #f3edf7);
+    border-radius: 16px;
+}
+
+.md-setting-row strong {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .md-system-page {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .md-system-grid {
+        grid-template-columns: 1fr;
+    }
+    .md-system-actions-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .md-keyboard-actions {
+        justify-content: stretch;
+        flex-direction: column;
+    }
+    .md-keyboard-actions > * {
+        width: 100%;
+    }
+}
+}
+</style>

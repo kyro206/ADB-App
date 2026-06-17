@@ -3,8 +3,6 @@ import * as m from '../../paraglide/messages';
 
   
   import AppModal from './AppModal.svelte';
-  import './PermissionsDialog.css';
-
   let {
     open = false,
     title,
@@ -100,3 +98,56 @@ import * as m from '../../paraglide/messages';
     <md-filled-button onclick={handleConfirm}>{m.common_confirm()}</md-filled-button>
   {/snippet}
 </AppModal>
+
+<style>
+:global {
+.permissions-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.permissions-grid {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.permissions-grid .header {
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+  text-align: center;
+}
+
+.permissions-grid .row-label {
+  font-weight: 600;
+  color: var(--on-surface);
+  font-size: 14px;
+}
+
+.permissions-grid md-checkbox {
+  margin: 0 auto;
+}
+
+.permissions-octal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.permissions-octal span {
+  font-weight: 600;
+  color: var(--on-surface);
+  font-size: 14px;
+}
+
+.permissions-octal md-outlined-text-field {
+  width: 100px;
+}
+}
+</style>

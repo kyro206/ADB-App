@@ -8,8 +8,6 @@ import * as m from '../../paraglide/messages';
   import { onMount } from 'svelte';
   
   import MaterialIcon from '../MaterialIcon.svelte';
-  import './Sidebar.css';
-
   let {
     activeTab,
     onTabChange,
@@ -80,3 +78,12 @@ import * as m from '../../paraglide/messages';
     </button>
   </footer>
 </aside>
+
+<style>
+:global {
+.sidebar{display:flex;flex-direction:column;flex:0 0 112px;width:112px;height:100%;padding:14px 8px 12px;background:var(--surface-container-low);overflow:hidden}.sidebar__nav{display:flex;min-height:0;flex:1;flex-direction:column;align-items:center;gap:4px;overflow:hidden;padding:3px 0;scrollbar-width:none}.sidebar__nav::-webkit-scrollbar{display:none}.sidebar__footer{display:flex;flex-direction:column;align-items:center;padding-top:12px;overflow:hidden}.sidebar__tab{position:relative;display:flex;width:96px;min-height:74px;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:7px 3px;color:var(--on-surface-variant);border-radius:18px;overflow:hidden}.sidebar__tab-icon{position:relative;z-index:1;display:grid;place-items:center;width:56px;height:32px;border-radius:var(--radius-full);transition:background-color var(--transition-fast),color var(--transition-fast)}.sidebar__tab-icon :global(.material-symbols-rounded){font-size:26px}.sidebar__tab-label{position:relative;z-index:1;max-width:92px;overflow:hidden;text-overflow:ellipsis;color:inherit;font-size:12px;font-weight:600;line-height:1.15;text-align:center;white-space:nowrap}.sidebar__tab:hover .sidebar__tab-icon{color:var(--on-surface);background:color-mix(in srgb,var(--on-surface) 8%,transparent)}.sidebar__tab--active{color:var(--on-surface)}.sidebar__tab--active .sidebar__tab-icon,.sidebar__tab--active:hover .sidebar__tab-icon{color:var(--on-primary-container);background:var(--primary-container)}.sidebar__tab--active .sidebar__tab-label{font-weight:700}@media(max-height:720px){.sidebar__tab{min-height:62px}.sidebar__tab-icon{height:28px}.sidebar__tab-icon :global(.material-symbols-rounded){font-size:23px}.sidebar__tab-label{font-size:11px}.sidebar__footer{padding-top:6px}}
+.sidebar__badge { position: absolute; top: 4px; right: 14px; width: 10px; height: 10px; background-color: var(--md-sys-color-error); border-radius: 50%; border: 2px solid var(--surface-container-low); }
+.sidebar__badge.blue { background-color: var(--md-sys-color-primary); }
+.sidebar__badge.error { background-color: var(--md-sys-color-error); }
+}
+</style>

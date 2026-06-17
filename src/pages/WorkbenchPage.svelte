@@ -18,8 +18,6 @@ import * as m from '../paraglide/messages';
   import DeviceStateScreen from '../components/layout/DeviceStateScreen.svelte';
   import { words, translateError } from './workbench/utils';
   import type { AppSummary, MirrorMode, ToolsStatus, WorkTab } from './workbench/types';
-  import './WorkbenchPage.css';
-
   let { tab } = $props<{ tab: WorkTab }>();
 
 

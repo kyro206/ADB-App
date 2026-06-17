@@ -8,8 +8,6 @@ import * as m from '../../paraglide/messages';
   
   import MaterialIcon from '../MaterialIcon.svelte';
   import AppModal from './AppModal.svelte';
-  import './DestructiveActionDialog.css';
-
   let {
     action,
     appName,
@@ -68,3 +66,9 @@ import * as m from '../../paraglide/messages';
     </md-filled-button>
   {/snippet}
 </AppModal>
+
+<style>
+:global {
+.destructive-dialog{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:16px;padding:12px 0}.destructive-dialog__package{margin:0!important}.destructive-dialog__icon{display:grid;width:56px;height:56px;overflow:hidden;place-items:center;color:var(--error);background:color-mix(in srgb,var(--error) 14%,transparent);border-radius:16px}.destructive-dialog__icon img{display:block;width:100%;height:100%;object-fit:cover}.destructive-dialog__icon :global(.material-symbols-rounded){font-size:28px}.destructive-dialog strong,.destructive-dialog code{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.destructive-dialog strong{font-size:16px}.destructive-dialog code{margin-top:3px;color:var(--on-surface-variant);font-size:11px}.destructive-dialog p{margin-top:14px;color:var(--on-surface-variant);font-size:12px;line-height:1.5}.destructive-dialog__confirm{--md-filled-button-container-color:var(--error);--md-filled-button-label-text-color:var(--surface);--md-filled-button-hover-label-text-color:var(--surface);--md-filled-button-pressed-label-text-color:var(--surface)}
+}
+</style>

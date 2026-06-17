@@ -15,8 +15,6 @@ import * as m from '../paraglide/messages';
   import AppModal from '../components/dialogs/AppModal.svelte';
   import { languages, getLanguageName } from '../context/i18n.svelte';
   import { APACHE_LICENSE_2_0, MIT_LICENSE } from '../utils/licenseTexts';
-  import './SettingsPage.css';
-
   let {
     theme,
     language,
@@ -425,3 +423,173 @@ import * as m from '../paraglide/messages';
     </div>
   </AppModal>
 </div>
+
+<style>
+:global {
+/* --- GRID Y LAYOUT --- */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0;
+  color: var(--md-sys-color-on-surface);
+}
+
+/* --- TARJETAS MD3 (CARDS) --- */
+.settings-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  background-color: var(--surface-container-low, var(--md-sys-color-surface-container));
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid var(--outline-variant, transparent);
+  border-radius: 24px;
+  padding: 20px;
+  transition: background-color 0.3s ease;
+}
+
+.settings-title {
+  margin: 0 0 16px 0;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0px;
+  color: var(--md-sys-color-on-surface);
+}
+
+/* --- ALINEACIÓN DE FORMULARIOS --- */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- FILA DE APARIENCIA --- */
+.settings-appearance-row {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.settings-appearance-row .md3-segmented-button {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-self: stretch;
+  width: 100%;
+  overflow: hidden;
+  background: var(--surface-container, var(--md-sys-color-surface-container));
+  border: 1px solid var(--outline-variant, var(--md-sys-color-outline));
+  border-radius: 999px;
+}
+
+.settings-appearance-row .md3-segmented-button button {
+  display: flex;
+  min-width: 0;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  color: var(--on-surface-variant, var(--md-sys-color-on-surface-variant));
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--outline-variant, var(--md-sys-color-outline));
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-appearance-row .md3-segmented-button :global(.material-symbols-rounded) {
+  font-size: 22px;
+}
+
+.settings-appearance-row .md3-segmented-button button:last-child {
+  border-right: 0;
+}
+
+.settings-appearance-row .md3-segmented-button button:hover {
+  background: var(--surface-container-high, var(--md-sys-color-surface-container-high));
+}
+
+.settings-appearance-row .md3-segmented-button button.active {
+  color: var(--on-primary-container, var(--md-sys-color-on-primary-container));
+  background: var(--primary-container, var(--md-sys-color-primary-container));
+}
+
+.settings-appearance-row .md3-segmented-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+md-outlined-select {
+  min-width: 200px;
+}
+
+/* --- ESTADO DE LAS HERRAMIENTAS --- */
+.tool-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background-color: var(--surface-container, var(--md-sys-color-surface-container-highest));
+  border-radius: 18px;
+}
+
+.tool-status-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--md-sys-color-primary);
+}
+
+.tool-status-header md-icon {
+  font-size: 20px;
+}
+
+.tool-status-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 13px;
+}
+
+/* --- AJUSTES ESPECÍFICOS --- */
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background-color: var(--surface-container, var(--md-sys-color-surface-container-highest));
+  border-radius: 18px;
+  cursor: pointer;
+}
+
+.settings-switch-row span {
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface);
+}
+
+@media (max-width: 1000px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+}
+</style>

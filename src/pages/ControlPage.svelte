@@ -6,8 +6,6 @@ import * as m from '../paraglide/messages';
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import { words, translateError } from './workbench/utils';
   import type { MediaVolumeState, SoundMode } from './workbench/types';
-  import './ControlPage.css';
-
   let {
     serial,
     run,
@@ -356,3 +354,370 @@ import * as m from '../paraglide/messages';
     </div>
   </aside>
 </div>
+
+<style>
+:global {
+.control-page {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(350px, 380px);
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.control-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* MD3 Cards */
+.md3-card {
+  background: var(--surface-container-low);
+  border-radius: var(--radius-xl, 24px);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 1px solid var(--outline-variant);
+}
+
+.md3-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.md3-card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--on-surface);
+  letter-spacing: 0.1px;
+}
+
+.md3-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* Espacio entre el grupo de brillo y el de volumen */
+}
+
+/* El contenedor principal ahora apila la info arriba y el slider abajo */
+.md3-slider-container {
+  display: flex;
+  flex-direction: column; 
+  gap: 8px;               /* Espacio entre la fila de texto y el medidor */
+  width: 100%;
+}
+
+/* Fila de información (Icono + Texto a la izquierda, Valor a la derecha) */
+.md3-slider-info {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Separación pequeña entre el icono y la palabra (Brillo/Volumen) */
+.md3-slider-info span {
+  margin-left: 12px;
+}
+
+/* El truco: 'margin-left: auto' empuja el valor numérico al extremo derecho */
+.md3-slider-info strong {
+  color: var(--primary);
+  font-weight: 600;
+  margin-left: auto; 
+}
+
+/* El componente Slider abajo, ocupando el 100% del ancho */
+.md3-slider-container md-slider {
+  width: 100%;
+  margin: 0; /* Resetea márgenes por si el componente trae alguno por defecto */
+  --md-slider-active-track-color: var(--primary);
+  --md-slider-inactive-track-color: var(--surface-container-highest);
+  --md-slider-handle-color: var(--primary);
+}
+
+/* Contenedor del Switch con @material/web */
+.md3-switch-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  font-weight: 500;
+}
+
+/* Botones Segmentados (Segmented Buttons) */
+.md3-segmented-button {
+  display: flex;
+  border-radius: var(--radius-full, 20px);
+  border: 1px solid var(--outline-variant);
+  overflow: hidden;
+}
+
+.md3-segmented-button button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 4px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--outline-variant);
+  color: var(--on-surface);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.md3-segmented-button button:last-child {
+  border-right: none;
+}
+
+.md3-segmented-button button:hover {
+  background: var(--surface-container-highest);
+}
+
+.md3-segmented-button button.active {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.rotation-2 { transform: rotate(180deg); }
+.rotation-3 { transform: rotate(180deg); }
+
+/* Campos de Texto e Inputs */
+.md3-text-form {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.md3-text-field {
+  position: relative;
+  flex: 1;
+  background: var(--surface-container-highest);
+  border-radius: 4px 4px 0 0;
+  border-bottom: 1px solid var(--on-surface-variant);
+}
+
+.md3-text-field input {
+  width: 100%;
+  padding: 24px 16px 8px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--on-surface);
+  font-size: 16px;
+}
+
+.md3-text-field label {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  font-size: 16px;
+  color: var(--on-surface-variant);
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.md3-text-field input:focus ~ label,
+.md3-text-field input:not(:placeholder-shown) ~ label {
+  top: 6px;
+  font-size: 12px;
+  color: var(--primary);
+}
+
+.md3-text-field input:focus {
+  border-bottom: 2px solid var(--primary);
+  margin-bottom: -1px;
+}
+
+/* Botones MD3 Estándar */
+.md3-btn-filled {
+  padding: 0 24px;
+  border-radius: var(--radius-full, 20px);
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.md3-btn-filled {
+  background: var(--primary);
+  color: var(--surface-container-lowest, #fff);
+}
+
+.md3-btn-filled:hover {
+  opacity: 0.85;
+  opacity: 0.9;
+}
+
+.md3-details {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--outline-variant);
+}
+
+.md3-details summary {
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+/* =========================================
+   MANDO ANDROID TV
+   ========================================= */
+
+.md3-remote-container {
+  position: sticky;
+}
+
+.md3-remote {
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: 32px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.md3-remote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.md3-remote-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--on-surface);
+}
+
+.md3-remote-power {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: color-mix(in srgb, var(--error) 20%, transparent);
+  color: var(--error);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 24px;
+  transition: opacity 0.2s;
+}
+
+.md3-remote-power:hover {
+  opacity: 0.85;
+}
+
+/* =========================================
+   D-PAD CON APARIENCIA ORIGINAL + HOVER SECTORIAL
+   ========================================= */
+
+.md3-remote-dpad {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--surface-container-highest);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--outline-variant);
+}
+
+/* Los botones ahora cubren el 100% pero se recortan en forma de triángulo */
+.dpad-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: var(--on-surface);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+
+
+/* Clip-paths para dar el área de clic en forma de sector circular exacto */
+.dpad-up    { clip-path: polygon(50% 50%, 0 0, 100% 0); }
+.dpad-right { clip-path: polygon(50% 50%, 100% 0, 100% 100%); }
+.dpad-down  { clip-path: polygon(50% 50%, 100% 100%, 0 100%); }
+.dpad-left  { clip-path: polygon(50% 50%, 0 100%, 0 0); }
+
+/* Reposicionamiento del icono para mantener su tamaño y lugar original (a 1/4 del borde) */
+.dpad-btn > span {
+  position: absolute;
+  font-size: 32px;
+}
+.dpad-up > span    { top: 12.5%; left: 50%; transform: translateX(-50%); }
+.dpad-down > span  { bottom: 12.5%; left: 50%; transform: translateX(-50%); }
+.dpad-left > span  { left: 12.5%; top: 50%; transform: translateY(-50%); }
+.dpad-right > span { right: 12.5%; top: 50%; transform: translateY(-50%); }
+
+/* Botón OK restaurado completamente a su estética y tamaño original */
+.dpad-ok {
+  position: absolute;
+  inset: 25%;
+  background: var(--primary-container) !important;
+  color: var(--on-primary-container) !important;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 10;
+  width: 50%;
+  height: 50%;
+}
+
+/* =========================================
+   OTRAS ACCIONES
+   ========================================= */
+
+.md3-remote-main-actions {
+  display: flex;
+  justify-content: space-evenly;
+  padding: 0 16px;
+}
+
+.md3-icon-btn-tonal {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  cursor: pointer;
+  transition: background 0.2s;
+}.md3-icon-btn-tonal:hover {background: var(--surface-container-highest);}.assistant-btn {background: var(--primary-container);color: var(--on-primary-container);border: none;transform: scale(1.1);}.assistant-btn:hover {opacity: 0.9;}.md3-remote-volume-row {display: flex;gap: 16px;padding: 0 16px;}
+.mute-btn {flex: 0 0 56px;}.md3-volume-pill {flex: 1;background: var(--surface-container-high);border: 1px solid var(--outline-variant);border-radius: 28px;display: flex;align-items: center;justify-content: space-between;padding: 4px;overflow: hidden;}.md3-volume-pill button {width: 48px;height: 48px;border-radius: 50%;background: transparent;border: none;color: var(--on-surface);font-size: 24px;cursor: pointer;}.md3-volume-pill button:hover {background: var(--surface-container-highest);}
+.volume-label {display: flex;flex-direction: column;align-items: center;color: var(--on-surface);}.volume-label span { font-weight: 700; font-size: 16px; }.volume-label small { font-size: 10px; opacity: 0.7; font-weight: 600; letter-spacing: 0.5px; }
+.md3-remote-media-grid {display: grid;grid-template-columns: repeat(3, 1fr);gap: 8px;padding: 16px 8px 0;border-top: 1px solid var(--outline-variant);}.md3-remote-media-grid button {display: flex;flex-direction: column;align-items: center;justify-content: center;gap: 8px;padding: 16px 8px;max-height: 60px;border-radius: var(--radius-lg, 16px);background: var(--surface-container);border: 1px solid var(--outline-variant);color: var(--on-surface);cursor: pointer;transition: background 0.2s;}.md3-remote-media-grid button:hover {background: var(--surface-container-highest);}.md3-remote-media-grid span {font-size: 12px;font-weight: 500;color: var(--on-surface-variant);}
+
+@media (max-width: 1000px) {.control-page { grid-template-columns: 1fr; }.md3-remote-container { position: static; }.md3-remote { max-width: 400px; margin: 0 auto; }}
+@media (max-width: 600px) {.md3-text-form { flex-direction: column; }.md3-btn-filled { padding: 12px 24px; }}
+}
+</style>

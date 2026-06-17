@@ -12,8 +12,6 @@ import * as m from '../../paraglide/messages';
 
   import HomePage from '../../pages/HomePage.svelte';
   import WorkbenchPage from '../../pages/WorkbenchPage.svelte';
-  import './AppLayout.css';
-
   let activeTab = $state<TabId>((sessionStorage.getItem('activeTab') as TabId) || 'home');
   let adbAvailable = $state(true);
   let showAdbModal = $state(false);
@@ -135,3 +133,39 @@ import * as m from '../../paraglide/messages';
     {/snippet}
   </AppModal>
 </div>
+
+<style>
+:global {
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.app-layout__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-container-low);
+}
+
+.app-layout__content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+  border-top: 1px solid var(--outline-variant);
+  border-left: 1px solid var(--outline-variant);
+  border-radius: 8px 0 0;
+}
+
+.app-layout__page {
+  width: 100%;
+  height: 100%;
+}
+}
+</style>

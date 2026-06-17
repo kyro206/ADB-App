@@ -3,7 +3,6 @@ import App from './App.svelte';
 import '@fontsource-variable/google-sans-flex';
 import '@fontsource/material-symbols-rounded';
 import './styles/global.css';
-
 // Import Material Web Components
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
@@ -41,3 +40,4 @@ const app = mount(App, {
 });
 
 export default app;
+

@@ -3,8 +3,6 @@ import * as m from '../../paraglide/messages';
 
   
   import MaterialIcon from '../MaterialIcon.svelte';
-  import './DeviceStateScreen.css';
-
   let {
     serial,
     loading = false,
@@ -32,3 +30,43 @@ import * as m from '../../paraglide/messages';
     {@render children?.()}
   </div>
 {/if}
+
+<style>
+:global {
+.device-state-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  flex: 1;
+  color: var(--on-surface-variant);
+  text-align: center;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.device-state-icon {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.device-state-screen h2 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 8px;
+  color: var(--on-surface);
+}
+
+.device-state-screen p {
+  font-size: 14px;
+  margin: 0;
+  max-width: 400px;
+}
+
+.device-state-screen.loading {
+  opacity: 0.8;
+}
+}
+</style>
