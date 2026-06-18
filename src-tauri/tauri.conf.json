@@ -20,10 +20,11 @@
       "endpoints": [
         "https://kyro206.github.io/ADB-App/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4RDkxQUNFQTVCRkJBNEQKUldSTnVyK2x6aHJaNkVOZFFNQ29pcTduSTdDTlV6MHZteHNrbGpmMzBJdHlBRVhNd25EMDdtQXoK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQxRTlDRDQ5REQ1NTNBQjIKUldTeU9sWGRTYzNwMFIyUURjdFcxbVVpT1FGajl2Y3FmSTRCdmsxN0hqVzhtQXMwNTZpSWZjVW0K"
     }
   },
   "bundle": {
+    "createUpdaterArtifacts": true,
     "active": true,
     "targets": ["msi", "nsis", "dmg", "app", "deb", "rpm", "appimage"],
     "category": "DeveloperTool",

@@ -1,309 +1,812 @@
-name: "Compilar y publicar releases de ADB App"
+name: Release ADB App
 
-on:
-  release:
-    types: [published]
+'on':
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión a publicar. Ejemplo: 1.2.3 o v1.2.3"
+        required: true
+        type: string
+      release_name:
+        description: "Nombre del release. Si se deja vacío usa ADB App vX.Y.Z"
+        required: false
+        type: string
+      release_notes:
+        description: "Notas del release. Si se deja vacío GitHub genera las notas automáticamente"
+        required: false
+        type: string
+      prerelease:
+        description: "Crear como pre-release. No crea Microsoft Store ni latest.json"
+        required: true
+        default: false
+        type: boolean
+      build_linux_x64:
+        description: "Compilar Linux x64"
+        required: true
+        default: true
+        type: boolean
+      build_macos_x64:
+        description: "Compilar macOS Intel x64"
+        required: true
+        default: true
+        type: boolean
+      build_macos_arm64:
+        description: "Compilar macOS Apple Silicon ARM64"
+        required: true
+        default: true
+        type: boolean
+      build_windows_x64:
+        description: "Compilar Windows x64"
+        required: true
+        default: true
+        type: boolean
+      build_windows_arm64:
+        description: "Compilar Windows ARM64"
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
+  prepare-release:
+    name: Preparar etiqueta, release y matriz
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      tag_name: ${{ steps.prepare.outputs.tag_name }}
+      release_id: ${{ steps.prepare.outputs.release_id }}
+      matrix: ${{ steps.prepare.outputs.matrix }}
+      selected_platforms: ${{ steps.prepare.outputs.selected_platforms }}
+      pages_base_url: ${{ steps.prepare.outputs.pages_base_url }}
+      prerelease: ${{ steps.prepare.outputs.prerelease }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Crear o actualizar etiqueta y release
+        id: prepare
+        uses: actions/github-script@v9
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_RELEASE_NAME: ${{ inputs.release_name }}
+          INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+          BUILD_LINUX_X64: ${{ inputs.build_linux_x64 }}
+          BUILD_MACOS_X64: ${{ inputs.build_macos_x64 }}
+          BUILD_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
+          BUILD_WINDOWS_X64: ${{ inputs.build_windows_x64 }}
+          BUILD_WINDOWS_ARM64: ${{ inputs.build_windows_arm64 }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const rawVersion = (process.env.INPUT_VERSION || '').trim();
+            const version = rawVersion.replace(/^v/i, '');
+            const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
+            if (!semver.test(version)) {
+              throw new Error(`La versión "${rawVersion}" no es SemVer válida. Usa algo como 1.2.3, v1.2.3 o 1.2.3-beta.1.`);
+            }
+
+            const tagName = `v${version}`;
+            const prerelease = process.env.INPUT_PRERELEASE === 'true';
+            const releaseName = (process.env.INPUT_RELEASE_NAME || '').trim() || `ADB App ${tagName}`;
+            const releaseNotes = (process.env.INPUT_RELEASE_NOTES || '').trim();
+
+            const selected = [];
+            function add(enabled, entry) {
+              if (enabled === 'true') selected.push(entry);
+            }
+
+            add(process.env.BUILD_LINUX_X64, {
+              os: 'ubuntu-latest',
+              target: 'x86_64-unknown-linux-gnu',
+              bundles: 'deb,appimage',
+              name: 'linux-x64',
+              platform: 'linux-x86_64',
+              kind: 'linux',
+              store: false,
+            });
+
+            add(process.env.BUILD_MACOS_X64, {
+              os: 'macos-26-intel',
+              target: 'x86_64-apple-darwin',
+              bundles: 'app,dmg',
+              name: 'macos-x64',
+              platform: 'darwin-x86_64',
+              kind: 'macos',
+              store: false,
+            });
+
+            add(process.env.BUILD_MACOS_ARM64, {
+              os: 'macos-latest',
+              target: 'aarch64-apple-darwin',
+              bundles: 'app,dmg',
+              name: 'macos-arm64',
+              platform: 'darwin-aarch64',
+              kind: 'macos',
+              store: false,
+            });
+
+            add(process.env.BUILD_WINDOWS_X64, {
+              os: 'windows-latest',
+              target: 'x86_64-pc-windows-msvc',
+              bundles: 'nsis',
+              name: 'windows-x64',
+              platform: 'windows-x86_64',
+              kind: 'windows',
+              store: true,
+            });
+
+            add(process.env.BUILD_WINDOWS_ARM64, {
+              os: 'windows-latest',
+              target: 'aarch64-pc-windows-msvc',
+              bundles: 'nsis',
+              name: 'windows-arm64',
+              platform: 'windows-aarch64',
+              kind: 'windows',
+              store: true,
+            });
+
+            if (selected.length === 0) {
+              throw new Error('Selecciona al menos una plataforma para compilar.');
+            }
+
+            const pagesBaseUrl = repo.toLowerCase() === `${owner.toLowerCase()}.github.io`
+              ? `https://${owner}.github.io`
+              : `https://${owner}.github.io/${repo}`;
+
+            let tagExists = false;
+            try {
+              const ref = await github.rest.git.getRef({ owner, repo, ref: `tags/${tagName}` });
+              tagExists = true;
+              if (ref.data.object.sha !== context.sha) {
+                throw new Error(
+                  `La etiqueta ${tagName} ya existe y apunta a ${ref.data.object.sha}, pero este workflow corre sobre ${context.sha}. ` +
+                  'Borra la etiqueta o ejecuta el workflow desde el commit correcto.'
+                );
+              }
+            } catch (error) {
+              if (error.status === 404) {
+                await github.rest.git.createRef({
+                  owner,
+                  repo,
+                  ref: `refs/tags/${tagName}`,
+                  sha: context.sha,
+                });
+              } else {
+                throw error;
+              }
+            }
+
+            let release;
+            try {
+              release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag: tagName })).data;
+              const updatePayload = {
+                owner,
+                repo,
+                release_id: release.id,
+                tag_name: tagName,
+                target_commitish: context.sha,
+                name: releaseName,
+                prerelease,
+                draft: false,
+              };
+              if (releaseNotes) updatePayload.body = releaseNotes;
+              release = (await github.rest.repos.updateRelease(updatePayload)).data;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              const createPayload = {
+                owner,
+                repo,
+                tag_name: tagName,
+                target_commitish: context.sha,
+                name: releaseName,
+                prerelease,
+                draft: false,
+              };
+              if (releaseNotes) {
+                createPayload.body = releaseNotes;
+              } else {
+                createPayload.generate_release_notes = true;
+              }
+              release = (await github.rest.repos.createRelease(createPayload)).data;
+            }
+
+            // Evita mezclar assets antiguos si repites el workflow para la misma versión.
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner,
+              repo,
+              release_id: release.id,
+              per_page: 100,
+            });
+
+            for (const asset of assets) {
+              const n = asset.name.toLowerCase();
+              if (
+                n === 'latest.json' ||
+                n === 'latest.yml' ||
+                n.startsWith(`adb-app-${version.toLowerCase()}-`) ||
+                n.startsWith('adb-app-microsoftstore-version-')
+              ) {
+                core.info(`Eliminando asset antiguo: ${asset.name}`);
+                await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
+              }
+            }
+
+            core.info(`${tagExists ? 'Etiqueta existente reutilizada' : 'Etiqueta creada'}: ${tagName}`);
+            core.info(`Release listo: ${release.html_url}`);
+            core.info(`Endpoint updater en GitHub Pages: ${pagesBaseUrl}/latest.json`);
+            core.info(`Matriz seleccionada:\n${JSON.stringify(selected, null, 2)}`);
+
+            core.setOutput('version', version);
+            core.setOutput('tag_name', tagName);
+            core.setOutput('release_id', String(release.id));
+            core.setOutput('matrix', JSON.stringify({ include: selected }));
+            core.setOutput('selected_platforms', JSON.stringify(selected.map((item) => item.platform)));
+            core.setOutput('pages_base_url', pagesBaseUrl);
+            core.setOutput('prerelease', prerelease ? 'true' : 'false');
+
   build:
+    name: Compilar ${{ matrix.name }}
+    needs: prepare-release
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            args: "--bundles deb,appimage,updater"
-            name: "linux-x64"
+      matrix: ${{ fromJson(needs.prepare-release.outputs.matrix) }}
 
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            args: "--bundles dmg,updater"
-            name: "macos-x64"
-
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            args: "--bundles dmg,updater"
-            name: "macos-arm64"
-
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            args: "--bundles nsis,updater"
-            name: "windows-x64"
-
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            args: "--bundles nsis,updater"
-            name: "windows-arm64"
-
-    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout del repositorio
-        uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
 
-      - name: Sincronizar versiones
+      - name: Sincronizar versión y configurar updater
         shell: bash
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          IS_PRERELEASE: ${{ needs.prepare-release.outputs.prerelease }}
+          PAGES_BASE_URL: ${{ needs.prepare-release.outputs.pages_base_url }}
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION="${VERSION#v}"
-          
-          # Actualizar archivos de versión rápidamente
-          node -e '
-            const fs = require("fs");
-            const version = "'"$VERSION"'";
-            
-            // package.json
-            let pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-            pkg.version = version;
-            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
-            
-            // tauri.conf.json
-            let tauriConf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
-            tauriConf.version = version;
-            fs.writeFileSync("src-tauri/tauri.conf.json", JSON.stringify(tauriConf, null, 2) + "\n");
-            
-            // Cargo.toml
-            let cargo = fs.readFileSync("src-tauri/Cargo.toml", "utf8");
-            cargo = cargo.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
-            fs.writeFileSync("src-tauri/Cargo.toml", cargo);
-          '
+          set -euo pipefail
 
-      - name: Configurar Rust y el Target de compilación
+          node <<'NODE'
+          const fs = require('fs');
+          const version = process.env.VERSION;
+          const isPrerelease = process.env.IS_PRERELEASE === 'true';
+          const pagesBaseUrl = process.env.PAGES_BASE_URL;
+
+          function readJson(path) {
+            return JSON.parse(fs.readFileSync(path, 'utf8'));
+          }
+
+          function writeJson(path, value) {
+            fs.writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
+          }
+
+          const pkgPath = 'package.json';
+          if (fs.existsSync(pkgPath)) {
+            const pkg = readJson(pkgPath);
+            pkg.version = version;
+            writeJson(pkgPath, pkg);
+          }
+
+          const tauriPath = 'src-tauri/tauri.conf.json';
+          const tauriConf = readJson(tauriPath);
+          tauriConf.version = version;
+          tauriConf.bundle = tauriConf.bundle || {};
+          tauriConf.bundle.createUpdaterArtifacts = !isPrerelease;
+
+          tauriConf.plugins = tauriConf.plugins || {};
+          tauriConf.plugins.updater = tauriConf.plugins.updater || {};
+          tauriConf.plugins.updater.endpoints = [`${pagesBaseUrl}/latest.json`];
+
+          writeJson(tauriPath, tauriConf);
+
+          const cargoPath = 'src-tauri/Cargo.toml';
+          if (fs.existsSync(cargoPath)) {
+            let cargo = fs.readFileSync(cargoPath, 'utf8');
+            cargo = cargo.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
+            fs.writeFileSync(cargoPath, cargo);
+          }
+          NODE
+
+      - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      - name: Cachear dependencias de Rust
+      - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "src-tauri"
+          workspaces: src-tauri
 
-      - name: Instalar dependencias de Linux (Gtk / WebKit)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Instalar dependencias Linux
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - name: Configurar Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Instalar dependencias del Frontend
+      - name: Instalar dependencias frontend
         run: bun install
 
-      - name: Compilar y Subir aplicación con Tauri Action
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        with:
-          tagName: ${{ github.event.release.tag_name }}
-          releaseId: ${{ github.event.release.id }}
-          args: --target ${{ matrix.target }} ${{ matrix.args }}
-          updaterJsonPreferNsis: true
-
-      - name: Preparar configuración para Microsoft Store (Solo Windows)
-        if: startsWith(matrix.os, 'windows')
+      - name: Comprobar clave privada de updater
+        if: needs.prepare-release.outputs.prerelease == 'false'
         shell: bash
-        run: |
-          node -e '
-            const fs = require("fs");
-            let tauriConf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
-            tauriConf.bundle.windows = tauriConf.bundle.windows || {};
-            tauriConf.bundle.windows.webviewInstallMode = { type: "offlineInstaller" };
-            fs.writeFileSync("src-tauri/tauri.conf.json", JSON.stringify(tauriConf, null, 2) + "\n");
-          '
-
-      - name: Compilar versión Microsoft Store (Solo Windows)
-        if: startsWith(matrix.os, 'windows')
-        run: bun run tauri build --bundles nsis --target ${{ matrix.target }}
-
-      - name: Renombrar y Subir versión Store
-        if: startsWith(matrix.os, 'windows')
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          $exe = Get-ChildItem -Path "src-tauri\target\${{ matrix.target }}\release\bundle\nsis\*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          
-          # matrix.name here is like "windows-x64", so we extract the arch:
-          $arch = if ("${{ matrix.name }}" -like "*arm64*") { "arm64" } else { "x64" }
-          
-          Rename-Item -Path $exe.FullName -NewName "ADB-App-MicrosoftStore-Version-$arch.exe"
-          gh release upload $env:TAG "src-tauri\target\${{ matrix.target }}\release\bundle\nsis\ADB-App-MicrosoftStore-Version-$arch.exe" --clobber
-
-  publish-updater:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event.release.prerelease == false
-    steps:
-      - name: Checkout del repositorio
-        uses: actions/checkout@v6
-
-      - name: Mover archivos del actualizador a un Release paralelo
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.event.release.tag_name }}"
-          UPDATER_TAG="${TAG}-updater"
-          
-          echo "Creando release $UPDATER_TAG..."
-          gh release create "$UPDATER_TAG" --prerelease --title "Updater files for $TAG" --notes "Archivos internos del actualizador. Descarga la aplicación principal desde el release $TAG." || true
-          
-          mkdir -p updater-assets
-          echo "Descargando archivos de actualización del release principal..."
-          gh release download "$TAG" --pattern "*.zip" --pattern "*.sig" --pattern "*.tar.gz" --dir updater-assets || true
-          
-          if [ "$(ls -A updater-assets)" ]; then
-            echo "Subiendo archivos al release del actualizador..."
-            gh release upload "$UPDATER_TAG" updater-assets/* --clobber
-            
-            echo "Eliminando archivos del release principal..."
-            for file in updater-assets/*; do
-              filename=$(basename "$file")
-              gh release delete-asset "$TAG" "$filename" -y || true
-            done
-          else
-            echo "No se encontraron archivos para mover."
+          set -euo pipefail
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "::error::Falta el repository secret TAURI_SIGNING_PRIVATE_KEY o está vacío. Tauri necesita esta variable para firmar los updater artifacts."
+            exit 1
           fi
 
-      - name: Generar latest.json y actualizar Release
+      - name: Compilar aplicación
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          bun run tauri build --target "${{ matrix.target }}" --bundles "${{ matrix.bundles }}"
+
+      - name: Preparar assets del release
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          PLATFORM_NAME: ${{ matrix.name }}
+          PLATFORM_KIND: ${{ matrix.kind }}
+          TARGET: ${{ matrix.target }}
+          IS_PRERELEASE: ${{ needs.prepare-release.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          OUT="release-assets"
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
+          mkdir -p "$OUT"
+
+          copy_with_sig() {
+            local src="$1"
+            local dest="$2"
+            if [ -z "$src" ] || [ ! -f "$src" ]; then
+              echo "No existe el asset esperado: $src" >&2
+              exit 1
+            fi
+            cp "$src" "$OUT/$dest"
+            if [ -f "$src.sig" ]; then
+              cp "$src.sig" "$OUT/$dest.sig"
+            fi
+          }
+
+          first_match() {
+            local dir="$1"
+            local pattern="$2"
+            if [ -d "$dir" ]; then
+              find "$dir" -type f -name "$pattern" | sort | head -n 1
+            fi
+          }
+
+          first_updater_tarball() {
+            local dir="$1"
+            if [ -d "$dir" ]; then
+              # Tauri v2 documenta el updater bundle de macOS como *.app.tar.gz en bundle/macos.
+              # Buscamos en todo bundle/ porque algunas versiones/configuraciones pueden dejarlo
+              # en una subcarpeta distinta al combinar --bundles app,dmg.
+              find "$dir" -type f \( -name "*.app.tar.gz" -o -name "*.tar.gz" \) | sort | head -n 1
+            fi
+          }
+
+          dump_bundle_tree() {
+            local dir="$1"
+            echo "::group::Contenido de $dir"
+            if [ -d "$dir" ]; then
+              find "$dir" -maxdepth 5 -print | sort
+            else
+              echo "No existe $dir"
+            fi
+            echo "::endgroup::"
+          }
+
+          case "$PLATFORM_KIND" in
+            linux)
+              appimage="$(first_match "$BUNDLE_DIR/appimage" "*.AppImage")"
+              deb="$(first_match "$BUNDLE_DIR/deb" "*.deb")"
+              copy_with_sig "$appimage" "ADB-App-${VERSION}-${PLATFORM_NAME}.AppImage"
+              if [ -n "${deb:-}" ]; then
+                copy_with_sig "$deb" "ADB-App-${VERSION}-${PLATFORM_NAME}.deb"
+              fi
+              ;;
+            macos)
+              dmg="$(first_match "$BUNDLE_DIR/dmg" "*.dmg")"
+              tarball="$(first_updater_tarball "$BUNDLE_DIR")"
+              copy_with_sig "$dmg" "ADB-App-${VERSION}-${PLATFORM_NAME}.dmg"
+              if [ -n "${tarball:-}" ]; then
+                copy_with_sig "$tarball" "ADB-App-${VERSION}-${PLATFORM_NAME}.app.tar.gz"
+              elif [ "$IS_PRERELEASE" = "false" ]; then
+                dump_bundle_tree "$BUNDLE_DIR"
+                echo "No se encontró el updater bundle .app.tar.gz de macOS." >&2
+                echo "La build de macOS debe generar el bundle 'app' además del DMG para que Tauri cree el updater .app.tar.gz." >&2
+                exit 1
+              fi
+              ;;
+            windows)
+              # Tauri v2 reutiliza el instalador NSIS .exe como updater artifact.
+              # No se busca ni se publica ningún .zip.
+              exe="$(first_match "$BUNDLE_DIR/nsis" "*.exe")"
+              copy_with_sig "$exe" "ADB-App-${VERSION}-${PLATFORM_NAME}-setup.exe"
+              ;;
+            *)
+              echo "Tipo de plataforma no soportado: $PLATFORM_KIND" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "Assets preparados:"
+          ls -1 "$OUT"
+
+      - name: Subir assets al GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare-release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" release-assets/* --clobber
+
+      - name: Preparar configuración Microsoft Store con updater activo
+        if: needs.prepare-release.outputs.prerelease == 'false' && matrix.store == true
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'src-tauri/tauri.conf.json';
+          const tauriConf = JSON.parse(fs.readFileSync(path, 'utf8'));
+
+          tauriConf.bundle = tauriConf.bundle || {};
+
+          // Se mantiene en true: esta build conserva la configuración de updater y se firma.
+          // El latest.json seguirá apuntando al instalador Windows normal, no al asset Microsoft Store.
+          tauriConf.bundle.createUpdaterArtifacts = true;
+
+          tauriConf.bundle.windows = tauriConf.bundle.windows || {};
+          tauriConf.bundle.windows.webviewInstallMode = { type: 'offlineInstaller' };
+
+          fs.writeFileSync(path, JSON.stringify(tauriConf, null, 2) + '\n');
+          NODE
+
+      - name: Compilar versión Microsoft Store con auto-actualizaciones
+        if: needs.prepare-release.outputs.prerelease == 'false' && matrix.store == true
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          bun run tauri build --target "${{ matrix.target }}" --bundles nsis
+
+      - name: Subir versión Microsoft Store
+        if: needs.prepare-release.outputs.prerelease == 'false' && matrix.store == true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          PLATFORM_NAME: ${{ matrix.name }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle/nsis"
+          OUT="store-assets"
+          mkdir -p "$OUT"
+
+          exe="$(find "$BUNDLE_DIR" -type f -name "*.exe" | sort | head -n 1)"
+          if [ -z "${exe:-}" ] || [ ! -f "$exe" ]; then
+            echo "No se encontró el instalador NSIS de Microsoft Store." >&2
+            exit 1
+          fi
+
+          case "$PLATFORM_NAME" in
+            windows-arm64) STORE_ARCH="arm64" ;;
+            windows-x64) STORE_ARCH="x64" ;;
+            *)
+              echo "Plataforma Microsoft Store no soportada: $PLATFORM_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          dest="ADB-App-MicrosoftStore-Version-${STORE_ARCH}.exe"
+          cp "$exe" "$OUT/$dest"
+          if [ -f "$exe.sig" ]; then
+            cp "$exe.sig" "$OUT/$dest.sig"
+          fi
+
+          gh release upload "$TAG" "$OUT"/* --clobber
+
+  publish-latest:
+    name: Publicar latest.json en GitHub Pages
+    needs:
+      - prepare-release
+      - build
+    runs-on: ubuntu-latest
+    if: needs.prepare-release.outputs.prerelease == 'false'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
+
+      - name: Generar latest.json y actualizar descripción del release
         uses: actions/github-script@v9
+        env:
+          TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          SELECTED_PLATFORMS: ${{ needs.prepare-release.outputs.selected_platforms }}
+          PAGES_BASE_URL: ${{ needs.prepare-release.outputs.pages_base_url }}
         with:
           script: |
-            const { repo, owner } = context.repo;
-            const mainTag = context.payload.release.tag_name;
-            const updaterTag = `${mainTag}-updater`;
-            
-            // 1. Obtener Release Principal
-            const mainRelease = await github.rest.repos.getReleaseByTag({
-              owner, repo, tag: mainTag
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const tag = process.env.TAG;
+            const selectedPlatforms = JSON.parse(process.env.SELECTED_PLATFORMS);
+            const pagesBaseUrl = process.env.PAGES_BASE_URL;
+
+            const release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag })).data;
+            let assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner,
+              repo,
+              release_id: release.id,
+              per_page: 100,
             });
-            
-            // 2. Obtener Release del Actualizador
-            let updaterRelease;
-            try {
-              updaterRelease = await github.rest.repos.getReleaseByTag({
-                owner, repo, tag: updaterTag
+
+            core.info(`Assets encontrados:\n${assets.map((asset) => `- ${asset.name}`).join('\n')}`);
+
+            // latest.json/latest.yml no deben vivir en el GitHub Release.
+            for (const asset of assets) {
+              const n = asset.name.toLowerCase();
+              if (n === 'latest.json' || n === 'latest.yml') {
+                await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
+              }
+            }
+            assets = assets.filter((asset) => !['latest.json', 'latest.yml'].includes(asset.name.toLowerCase()));
+
+            async function readAssetText(asset) {
+              const response = await github.request('GET /repos/{owner}/{repo}/releases/assets/{asset_id}', {
+                owner,
+                repo,
+                asset_id: asset.id,
+                headers: { accept: 'application/octet-stream' },
               });
-            } catch (e) {
-              console.warn("No se encontró el release de updaters, se usará el principal");
-              updaterRelease = mainRelease;
+
+              if (typeof response.data === 'string') return response.data.trim();
+              if (Buffer.isBuffer(response.data)) return response.data.toString('utf8').trim();
+              if (response.data instanceof ArrayBuffer) return Buffer.from(response.data).toString('utf8').trim();
+              return Buffer.from(response.data).toString('utf8').trim();
             }
 
-            const version = mainRelease.data.tag_name.replace(/^v/, '');
-            
-            // 3. Pre-fetch de las firmas desde el updaterRelease
-            const signatureCache = new Map();
-            for (const asset of updaterRelease.data.assets) {
-              if (asset.name.endsWith('.sig')) {
-                const sigResponse = await fetch(asset.browser_download_url);
-                if (sigResponse.ok) {
-                  signatureCache.set(asset.name, (await sigResponse.text()).trim());
-                } else {
-                  console.warn(`Error al descargar firma: ${asset.name}`);
-                }
+            function lower(name) {
+              return name.toLowerCase();
+            }
+
+            function isStoreAsset(name) {
+              const n = lower(name);
+              return n.includes('microsoftstore') || n.includes('microsoft-store') || n.includes('store-version');
+            }
+
+            function detectArch(name) {
+              const n = lower(name);
+              if (n.includes('aarch64') || n.includes('arm64')) return 'aarch64';
+              return 'x86_64';
+            }
+
+            function detectPlatform(name) {
+              const n = lower(name);
+              const arch = detectArch(name);
+
+              if (n.includes('macos') || n.includes('darwin') || n.endsWith('.app.tar.gz')) {
+                return `darwin-${arch}`;
+              }
+              if (n.includes('linux') || n.endsWith('.appimage')) {
+                return `linux-${arch}`;
+              }
+              if (n.includes('windows') || n.endsWith('.exe') || n.endsWith('.msi')) {
+                return `windows-${arch}`;
+              }
+              return null;
+            }
+
+            function updaterPriority(name) {
+              const n = lower(name);
+              if (isStoreAsset(name)) return 0;
+
+              // Tauri v2: Linux reutiliza AppImage, Windows reutiliza el instalador .exe y macOS usa .app.tar.gz.
+              if (n.endsWith('.app.tar.gz')) return 100;
+              if (n.endsWith('.appimage')) return 100;
+              if (n.endsWith('.exe')) return 100;
+              if (n.endsWith('.msi')) return 80;
+
+              return 0;
+            }
+
+            const signatures = new Map();
+            for (const asset of assets) {
+              if (asset.name.toLowerCase().endsWith('.sig')) {
+                signatures.set(asset.name, await readAssetText(asset));
+              }
+            }
+
+            function signatureFor(asset) {
+              return signatures.get(`${asset.name}.sig`) || '';
+            }
+
+            const updaterCandidates = new Map();
+            for (const asset of assets) {
+              const name = asset.name;
+              const n = lower(name);
+              if (n.endsWith('.sig') || isStoreAsset(name)) continue;
+
+              const platform = detectPlatform(name);
+              const priority = updaterPriority(name);
+              const signature = signatureFor(asset);
+
+              if (!platform || priority === 0 || !signature) continue;
+              if (!selectedPlatforms.includes(platform)) continue;
+
+              const previous = updaterCandidates.get(platform);
+              if (!previous || priority > previous.priority) {
+                updaterCandidates.set(platform, { priority, asset, signature });
               }
             }
 
             const platforms = {};
-            const downloads = { Windows: [], macOS: [], Linux: [] };
-
-            // 4. Analizar descargas principales (Main Release)
-            for (const asset of mainRelease.data.assets) {
-              const lowerName = asset.name.toLowerCase();
-              if (lowerName.endsWith('.exe')) {
-                const isArm = lowerName.includes('arm64') || lowerName.includes('aarch64');
-                const isStore = lowerName.includes('microsoftstore-version');
-                const label = isStore ? `Store Version (Offline)` : (isArm ? `ARM64` : `x64`);
-                downloads.Windows.push(`[${label} (.exe)](${asset.browser_download_url})`);
-              } else if (lowerName.endsWith('.dmg')) {
-                const isArm = lowerName.includes('arm64') || lowerName.includes('aarch64');
-                downloads.macOS.push(`[${isArm ? 'Apple Silicon' : 'Intel'} (.dmg)](${asset.browser_download_url})`);
-              } else if (lowerName.endsWith('.appimage')) {
-                downloads.Linux.push(`[x64 (.AppImage)](${asset.browser_download_url})`);
-              } else if (lowerName.endsWith('.deb')) {
-                downloads.Linux.push(`[x64 (.deb)](${asset.browser_download_url})`);
-              }
-            }
-
-            // 5. Analizar updaters (Updater Release)
-            for (const asset of updaterRelease.data.assets) {
-              if (asset.name.endsWith('.sig')) continue;
-              const lowerName = asset.name.toLowerCase();
-              
-              let platformKey = null;
-              if (lowerName.endsWith('.zip')) { 
-                platformKey = (lowerName.includes('arm64') || lowerName.includes('aarch64')) ? 'windows-aarch64' : 'windows-x86_64';
-              } else if (lowerName.endsWith('.tar.gz')) {
-                if (lowerName.includes('.app.tar.gz')) {
-                  platformKey = (lowerName.includes('arm64') || lowerName.includes('aarch64')) ? 'darwin-aarch64' : 'darwin-x86_64';
-                } else if (lowerName.includes('.appimage.tar.gz')) {
-                  platformKey = 'linux-x86_64';
-                }
-              }
-
-              if (platformKey) {
-                const sigName = asset.name + '.sig';
-                let signature = signatureCache.get(sigName) || "";
-                
-                if (!signature) {
-                  core.warning(`No se encontró la firma (.sig) para el updater: ${asset.name}`);
-                }
-
-                platforms[platformKey] = {
-                  signature,
-                  url: asset.browser_download_url
+            for (const platform of selectedPlatforms) {
+              const candidate = updaterCandidates.get(platform);
+              if (candidate) {
+                platforms[platform] = {
+                  signature: candidate.signature,
+                  url: candidate.asset.browser_download_url,
                 };
               }
             }
 
+            const missingPlatforms = selectedPlatforms.filter((platform) => !platforms[platform]);
+            if (missingPlatforms.length > 0) {
+              const sigNames = [...signatures.keys()].sort().map((name) => `- ${name}`).join('\n');
+              const assetNames = assets.map((asset) => `- ${asset.name}`).join('\n');
+              throw new Error(
+                `No se pudo generar latest.json completo. Plataformas seleccionadas sin updater/signature: ${missingPlatforms.join(', ')}\n\n` +
+                `Assets encontrados:\n${assetNames || '(ninguno)'}\n\n` +
+                `Firmas encontradas:\n${sigNames || '(ninguna)'}\n\n` +
+                'Revisa que TAURI_SIGNING_PRIVATE_KEY llegue al paso de build y que createUpdaterArtifacts esté activado.'
+              );
+            }
+
+            const downloadsMarkerRegex = /<!-- downloads:start -->[\s\S]*?<!-- downloads:end -->/;
+            const macosWarningMarkerRegex = /<!-- macos-warning:start -->[\s\S]*?<!-- macos-warning:end -->/;
+
+            function cleanReleaseNotes(body) {
+              return (body || '')
+                .replace(downloadsMarkerRegex, '')
+                .replace(macosWarningMarkerRegex, '')
+                .replace(/^\s*(?:[-*]\s*)?(?:\*\*)?Full Changelog(?:\*\*)?:\s*(?:\[[^\]]+\]\([^\)]+\)|https?:\/\/\S+|.+)\s*$/gim, '')
+                .replace(/^\s*Updater JSON:\s*https?:\/\/\S+\s*$/gim, '')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+            }
+
+            const releaseNotes = cleanReleaseNotes(release.body) || 'New update available.';
+
             const latestJson = {
-              version,
-              notes: mainRelease.data.body || "Nueva actualización disponible.",
-              pub_date: new Date().toISOString(),
-              platforms
+              version: release.tag_name.replace(/^v/, ''),
+              notes: releaseNotes,
+              pub_date: new Date(release.published_at || release.created_at).toISOString(),
+              platforms,
             };
 
-            const fs = require('fs');
-            fs.writeFileSync('latest.json', JSON.stringify(latestJson, null, 2));
+            fs.writeFileSync('latest.json', JSON.stringify(latestJson, null, 2) + '\n');
+            core.info(`latest.json generado para GitHub Pages:\n${JSON.stringify(latestJson, null, 2)}`);
 
-            // 4. Generar lista de descargas y actualizar el Release
-            let tableMarkdown = "| OS | Downloads |\n|---|---|\n";
-            for (const os of ['Windows', 'macOS', 'Linux']) {
-              if (downloads[os].length > 0) {
-                tableMarkdown += `| **${os}** | ${downloads[os].join('<br>')} |\n`;
+            const downloads = { Windows: [], macOS: [], Linux: [] };
+            function addUnique(group, value) {
+              if (!downloads[group].includes(value)) downloads[group].push(value);
+            }
+
+            for (const asset of assets) {
+              const name = asset.name;
+              const n = lower(name);
+              if (n.endsWith('.sig') || n.endsWith('.app.tar.gz') || isStoreAsset(name)) continue;
+
+              const arch = detectArch(name) === 'aarch64' ? 'ARM64' : 'x64';
+
+              if (n.endsWith('.exe')) {
+                addUnique('Windows', `[${arch} (.exe)](${asset.browser_download_url})`);
+              } else if (n.endsWith('.msi')) {
+                addUnique('Windows', `[${arch} (.msi)](${asset.browser_download_url})`);
+              } else if (n.endsWith('.dmg')) {
+                addUnique('macOS', `[${arch === 'ARM64' ? 'Apple Silicon' : 'Intel'} (.dmg)](${asset.browser_download_url})`);
+              } else if (n.endsWith('.appimage')) {
+                addUnique('Linux', `[${arch} (.AppImage)](${asset.browser_download_url})`);
+              } else if (n.endsWith('.deb')) {
+                addUnique('Linux', `[${arch} (.deb)](${asset.browser_download_url})`);
               }
             }
 
-            tableMarkdown += '\n> [!WARNING]\n';
-            tableMarkdown += '> **⚠️ macOS Apple Silicon (M1+ or A18+) Users:**\n';
-            tableMarkdown += '> If macOS says the app is "damaged" and cannot be opened, it is because macOS Gatekeeper blocks unsigned internet downloads. To fix this, move the app to your Applications folder, open **Terminal**, and run:\n';
-            tableMarkdown += '> `xattr -cr "/Applications/ADB App.app"`\n\n';
-            tableMarkdown += '---\n\n';
+            let table = '<!-- downloads:start -->\n';
+            table += '## Downloads\n\n';
+            table += '| OS | Downloads |\n|---|---|\n';
+            for (const os of ['Windows', 'macOS', 'Linux']) {
+              table += `| **${os}** | ${downloads[os].length ? downloads[os].join('<br>') : '—'} |\n`;
+            }
+            table += '<!-- downloads:end -->';
 
-            const originalBody = mainRelease.data.body || '';
-            const newBody = originalBody.includes('| OS | Downloads |') 
-              ? originalBody 
-              : tableMarkdown + originalBody;
+            const macosWarning = [
+              '<!-- macos-warning:start -->',
+              '> [!WARNING]',
+              '>',
+              '> ⚠️ macOS Apple Silicon (M1+ or A18+) Users:',
+              '> If macOS says the app is "damaged" and cannot be opened, it is because macOS Gatekeeper blocks unsigned internet downloads. To fix this, move the app to your Applications folder, open Terminal, and run:',
+              '> `xattr -cr "/Applications/ADB App.app"`',
+              '<!-- macos-warning:end -->',
+            ].join('\n');
+
+            const oldBody = cleanReleaseNotes(release.body);
+            const newBody = `${table}\n\n${oldBody ? `${oldBody}\n\n` : ''}${macosWarning}`;
 
             await github.rest.repos.updateRelease({
               owner,
               repo,
-              release_id: mainRelease.data.id,
-              body: newBody
+              release_id: release.id,
+              body: newBody,
             });
-            
-      - name: Desplegar latest.json en la rama gh-pages
+
+      - name: Publicar solo latest.json en rama gh-pages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare-release.outputs.tag_name }}
         run: |
-          git clone --branch gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-repo
-          cp latest.json gh-pages-repo/latest.json
-          cd gh-pages-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add latest.json
-          git commit -m "Actualizar updater endpoint para la versión ${{ github.event.release.tag_name }}"
-          git push origin gh-pages
+          set -euo pipefail
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          rm -rf pages
+
+          if git ls-remote --exit-code --heads "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages >/dev/null 2>&1; then
+            git clone --depth 1 --branch gh-pages "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" pages
+          else
+            mkdir pages
+            cd pages
+            git init
+            git checkout -b gh-pages
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            cd ..
+          fi
+
+          find pages -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp latest.json pages/latest.json
+
+          cd pages
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "latest.json no ha cambiado."
+            exit 0
+          fi
+
+          git commit -m "Actualizar latest.json para ${TAG}"
+          git push --set-upstream origin gh-pages
