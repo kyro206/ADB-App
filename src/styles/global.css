@@ -4,20 +4,21 @@
 @import './variables.css';
 
 /* Keep Material Web hosts untouched; their spacing is part of the component. */
-*, *::before, *::after {
+*,
+*::before,*::after {
   box-sizing: border-box;
+  transition: background-color 150ms ease, background 150ms ease, border-color 150ms ease, color 150ms ease, fill 150ms ease;
 }
 
-h1, h2, h3, h4, p, ul, ol, dl, dd, figure {
+h1,h2,h3,h4,p,ul,ol,dl,dd,figure {
   margin: 0;
 }
 
-html, body, #root {
+html,body,#root {
   height: 100%;
   width: 100%;
   overflow: hidden;
   background: var(--bg);
-  transition: background-color 0.4s ease, background 0.4s ease, color 0.4s ease;
 }
 
 body {
@@ -55,6 +56,7 @@ body {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-corner {
   background: var(--scrollbar-track);
 }
@@ -93,7 +95,7 @@ button {
   transition: all var(--transition-fast);
 }
 
-button > md-ripple {
+button>md-ripple {
   --md-ripple-hover-color: var(--on-surface);
   --md-ripple-pressed-color: var(--primary);
   --md-ripple-hover-opacity: 0.08;
@@ -105,8 +107,7 @@ button[data-material-web="true"]:hover:not(:disabled) {
   box-shadow: none;
 }
 
-button.primary > md-ripple,
-.mirror-launch > md-ripple {
+button.primary>md-ripple,.mirror-launch>md-ripple {
   --md-ripple-hover-color: var(--on-primary);
   --md-ripple-pressed-color: var(--on-primary);
 }
@@ -118,7 +119,7 @@ button:disabled {
 
 
 /* Input base */
-input, select, textarea {
+input,select,textarea {
   font-family: inherit;
   font-size: inherit;
   color: var(--text-primary);
@@ -129,7 +130,7 @@ input, select, textarea {
   transition: border-color var(--transition-fast);
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,select:focus,textarea:focus {
   border-color: var(--action-bg);
   outline: none;
   box-shadow: inset 0 -2px var(--primary);
@@ -157,12 +158,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* Mica/Vibrancy Effect (Windows) and native Vibrancy composition (macOS) */
-html.platform-windows,
-html.platform-windows body,
-html.platform-windows #root,
-html.platform-macos,
-html.platform-macos body,
-html.platform-macos #root {
+html.platform-windows,html.platform-windows body,html.platform-windows #root,html.platform-macos,html.platform-macos body,html.platform-macos #root {
   background: transparent !important;
 }
 
@@ -171,9 +167,7 @@ html.platform-windows .app-layout__body,
 html.platform-windows .topbar,
 html.platform-windows .sidebar,
 html.platform-macos .app-layout,
-html.platform-macos .app-layout__body,
-html.platform-macos .topbar,
-html.platform-macos .sidebar {
+html.platform-macos .app-layout__body,html.platform-macos .topbar,html.platform-macos .sidebar {
   background: transparent !important;
 }
 
@@ -191,14 +185,12 @@ html.platform-windows .app-layout__content {
   background: color-mix(in srgb, var(--bg) 96%, transparent) !important;
   border-color: color-mix(in srgb, var(--outline-variant) 78%, transparent) !important;
   border-radius: 12px 0 0;
-  transition: background-color 0.4s ease, background 0.4s ease;
 }
 
 html.platform-macos .app-layout__content {
   background: color-mix(in srgb, var(--bg) 94%, transparent) !important;
   border-color: color-mix(in srgb, var(--outline-variant) 75%, transparent) !important;
   border-radius: 12px 0 0;
-  transition: background-color 0.4s ease, background 0.4s ease;
 }
 
 html.platform-macos .sidebar__tab:not(.sidebar__tab--active):hover .sidebar__tab-icon {
@@ -251,12 +243,15 @@ html.platform-macos .sidebar__tab-label {
   -webkit-font-smoothing: auto;
   font-weight: calc(inherit + 100);
 }
+
 html.platform-macos .sidebar__tab-label {
   font-weight: 700;
 }
+
 html.platform-macos .topbar-device-picker__label {
   font-weight: 700;
 }
+
 html.platform-macos .home-hero h2 {
   font-weight: 600;
 }

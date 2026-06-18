@@ -551,7 +551,14 @@ import * as m from '../paraglide/messages';
             </span>
           </header>
           <div class="apps-material-actions">
-            <md-filled-button onclick={() => run(['shell', 'monkey', '-p', selectedPackage, '1'])}>
+            <md-filled-button onclick={async () => {
+              try {
+                await invoke('run_device_action', { serial, args: ['shell', 'monkey', '-p', selectedPackage, '-c', 'android.intent.category.LAUNCHER', '1'] });
+                status = '';
+              } catch (e) {
+                status = String(e);
+              }
+            }}>
               <MaterialIcon slot="icon" name="open_in_new" />
               {m.apps_action_open()}
             </md-filled-button>

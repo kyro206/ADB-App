@@ -1305,6 +1305,7 @@
       border-radius: 28px;
       border: 6px solid var(--surface-container-low);
       container-type: inline-size;
+      transition: border-color 150ms ease !important;
     }
     .home-preview__body img {
       display: block;

@@ -157,7 +157,7 @@ import * as m from '../../paraglide/messages';
 }
 
 .topbar-device-picker{position:relative;width:clamp(250px,28vw,340px)}
-.topbar-device-picker__field{position:relative;display:grid;width:100%;height:30px;grid-template-columns:18px minmax(0,1fr) 6px 18px;align-items:center;gap:8px;padding:0 10px;overflow:hidden;color:var(--on-surface);background:var(--surface-container-high);border:1px solid transparent;border-radius:var(--radius-full);text-align:left;transition:background-color var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast)}
+.topbar-device-picker__field{position:relative;display:grid;width:100%;height:30px;grid-template-columns:18px minmax(0,1fr) 6px 18px;align-items:center;gap:8px;padding:0 10px;overflow:hidden;color:var(--on-surface);background:var(--surface-container-high);border:1px solid transparent;border-radius:var(--radius-full);text-align:left;transition:background-color var(--transition-fast),border-color var(--transition-fast)}
 .topbar-device-picker__field:hover:not(:disabled),.topbar-device-picker__field.open{background:var(--surface-container-highest)}
 .topbar-device-picker__field.open{border-color:var(--primary)}
 .topbar-device-picker__field:focus-visible{outline:2px solid var(--primary);outline-offset:1px}

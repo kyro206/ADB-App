@@ -5,7 +5,7 @@
   let useDynamicColors = $derived(themeState.materialYouEnabled && themeState.hasActiveDynamicPalette);
   
   let headColor = $derived(useDynamicColors ? 'var(--md-sys-color-primary)' : '#34a853');
-  let wrenchColor = $derived(useDynamicColors ? 'var(--md-sys-color-primary-container)' : '#5f6368');
+  let wrenchColor = $derived(useDynamicColors ? 'var(--md-sys-color-on-surface-variant)' : '#5f6368');
 
   // Generate a random ID for the mask so multiple logos don't conflict
   const maskId = "logo-mask-" + Math.random().toString(36).substr(2, 9);
@@ -74,8 +74,9 @@
     user-select: none;
     -webkit-user-drag: none;
     flex-shrink: 0;
+    pointer-events: none;
   }
   .transition-fill {
-    transition: fill 0.3s ease;
+    transition: fill var(--transition-fast);
   }
 </style>
