@@ -58,6 +58,20 @@ import * as m from '../paraglide/messages';
   let destructiveBusy = $state(false);
   let osDragHover = $state(false);
 
+  let scrcpyAnchorElement: HTMLElement | undefined = $state();
+  let scrcpyMenuElement: any | undefined = $state();
+  let supportsFlex = $derived(!!scrcpy && parseInt(devicesState.deviceDetails?.api_level || '0', 10) >= 29);
+
+  function toggleScrcpyMenu() {
+    if (!scrcpyMenuElement || !scrcpyAnchorElement) return;
+    scrcpyMenuElement.anchorElement = scrcpyAnchorElement;
+    if (scrcpyMenuElement.open) {
+      scrcpyMenuElement.close();
+    } else {
+      scrcpyMenuElement.show();
+    }
+  }
+
   let filteredApps = $derived.by(() => {
     let result = apps;
     if (filter === 'user') result = result.filter(app => !app.system_app);
@@ -333,16 +347,14 @@ import * as m from '../paraglide/messages';
     }
   }
 
-  async function openAppInScrcpy(pkg: string) {
+  async function openAppInScrcpy(pkg: string, mode: 'flex' | 'normal' = 'flex') {
     status = m.workbench_status_launchingApp({ pkg });
     try {
       // Asegurarnos de que la pantalla está encendida; los virtual displays a veces no renderizan si el móvil está en reposo profundo.
       await invoke<string>('run_device_action', { serial, args: ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP'] });
       
-      const sdkVersion = parseInt(devicesState.deviceDetails?.sdk_version || '0', 10);
-      
       // Android 10 (API 29) es la versión mínima segura para el modo flex / virtual displays.
-      if (scrcpy && sdkVersion >= 29) {
+      if (supportsFlex && mode === 'flex' && scrcpy) {
         await scrcpy(['--new-display', '--flex-display', `--start-app=${pkg}`]);
       } else {
         await invoke<string>('run_device_action', { serial, args: ['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'] });
@@ -501,10 +513,34 @@ import * as m from '../paraglide/messages';
               <MaterialIcon name={appDetails.disabled ? 'block' : appDetails.system_app ? 'settings' : 'person'} />
             </div>
           </div>
-          <md-text-button onclick={() => openAppInScrcpy(appDetails!.package_name)} style="position: absolute; top: 0; right: 0">
-            <MaterialIcon slot="icon" name="desktop_windows" />
-            {m.apps_action_openScrcpy()}
-          </md-text-button>
+          <div style="position: absolute; top: 0; right: 0">
+            <md-text-button 
+              bind:this={scrcpyAnchorElement}
+              onclick={() => {
+                if (supportsFlex) {
+                  toggleScrcpyMenu();
+                } else {
+                  openAppInScrcpy(appDetails!.package_name, 'normal');
+                }
+              }}
+            >
+              <MaterialIcon slot="icon" name="desktop_windows" />
+              {m.apps_action_openScrcpy()}
+              {#if supportsFlex}
+                <MaterialIcon name="arrow_drop_down" style="margin-left: 4px; font-size: 18px;" />
+              {/if}
+            </md-text-button>
+            {#if supportsFlex}
+              <md-menu bind:this={scrcpyMenuElement} positioning="popover" anchorCorner="end-end" menuCorner="start-end">
+                <md-menu-item onclick={() => { openAppInScrcpy(appDetails!.package_name, 'flex'); scrcpyMenuElement?.close(); }}>
+                  <div slot="headline">{m.apps_action_openScrcpy_flex()}</div>
+                </md-menu-item>
+                <md-menu-item onclick={() => { openAppInScrcpy(appDetails!.package_name, 'normal'); scrcpyMenuElement?.close(); }}>
+                  <div slot="headline">{m.apps_action_openScrcpy_normal()}</div>
+                </md-menu-item>
+              </md-menu>
+            {/if}
+          </div>
         </header>
         
         <section class="apps-material-section">

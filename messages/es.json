@@ -401,6 +401,8 @@
   "apps_detail_actions": "Acciones",
   "apps_action_open": "Abrir",
   "apps_action_openScrcpy": "Ver en PC",
+  "apps_action_openScrcpy_flex": "Responsivo",
+  "apps_action_openScrcpy_normal": "Normal",
   "apps_action_stop": "Detener",
   "apps_action_enable": "Habilitar",
   "apps_action_disable": "Deshabilitar",
