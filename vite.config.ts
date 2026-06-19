@@ -1,21 +1,8 @@
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
-import { rmSync } from "node:fs";
-import { resolve } from "node:path";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
-
-function removeMockWallpaperFromBuild(mode: string) {
-  return {
-    name: "remove-mock-wallpaper-from-build",
-    apply: "build" as const,
-    closeBundle() {
-      if (mode === "mock") return;
-      rmSync(resolve("dist", "mock.jpg"), { force: true });
-    },
-  };
-}
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => ({
@@ -28,7 +15,7 @@ export default defineConfig(async ({ mode }) => ({
       
       handler(warning);
     }
-  }), removeMockWallpaperFromBuild(mode)],
+  })],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
