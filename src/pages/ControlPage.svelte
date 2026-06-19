@@ -6,6 +6,7 @@ import * as m from '../paraglide/messages';
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import { words, translateError } from './workbench/utils';
   import type { MediaVolumeState, SoundMode } from './workbench/types';
+  import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   let {
     serial,
     run,
@@ -250,7 +251,7 @@ import * as m from '../paraglide/messages';
       <form class="md3-text-form" onsubmit={event => { event.preventDefault(); if (inputText) run(['shell', 'input', 'text', inputText.replace(/ /g, '%s')]); }}>
         <md-outlined-text-field
           label={m.control_input_text()}
-          value={inputText}
+          use:materialTextFieldValue={inputText}
           oninput={(e: any) => inputText = e.target.value}
           style="flex: 1"
         >
@@ -278,7 +279,7 @@ import * as m from '../paraglide/messages';
               type="textarea"
               rows="5"
               label={m.control_input_advancedDesc()}
-              value={inputArgs}
+              use:materialTextFieldValue={inputArgs}
               oninput={(e: any) => inputArgs = e.target.value}
               style="flex: 1; resize: vertical;"
             ></md-outlined-text-field>

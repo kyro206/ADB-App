@@ -50,8 +50,8 @@ import * as m from '../../paraglide/messages';
   {open} 
   onClose={handleClose} 
   width="compact" 
-  title={confirmStep ? m.home_power_confirm_title() : m.power_title()} 
-  subtitle={confirmStep ? '' : m.power_subtitle()}
+  title={confirmStep ? (confirmStep.danger ? m.home_power_confirm_title({ mode: confirmStep.label.toLowerCase() }) : confirmStep.label) : m.power_title()} 
+  showFooterCancel={!confirmStep}
 >
   {#if confirmStep}
     <div class="power-dialog__confirm">

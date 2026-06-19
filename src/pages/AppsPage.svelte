@@ -15,6 +15,7 @@ import * as m from '../paraglide/messages';
   import DestructiveActionDialog from '../components/dialogs/DestructiveActionDialog.svelte';
   import InstallationDialog from '../components/dialogs/InstallationDialog.svelte';
   import MaterialIcon from '../components/MaterialIcon.svelte';
+  import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   import { appTone, formatBytes } from './workbench/utils';
   let {
     serial,
@@ -57,6 +58,7 @@ import * as m from '../paraglide/messages';
   let destructiveAction = $state<'uninstall' | 'clear-data' | null>(null);
   let destructiveBusy = $state(false);
   let osDragHover = $state(false);
+  let permissionUpdating = $state<Record<string, boolean>>({});
 
   let scrcpyAnchorElement: HTMLElement | undefined = $state();
   let scrcpyMenuElement: any | undefined = $state();
@@ -300,9 +302,37 @@ import * as m from '../paraglide/messages';
   }
 
   async function togglePermission(permission: AppPermissionInfo) {
-    if (!selectedPackage) return;
-    await run(['shell', 'pm', permission.granted ? 'revoke' : 'grant', selectedPackage, permission.name]);
-    await refreshAppDetails();
+    if (!selectedPackage || permissionUpdating[permission.name]) return;
+    const previousGranted = permission.granted;
+    const nextGranted = !permission.granted;
+    permissionUpdating = { ...permissionUpdating, [permission.name]: true };
+    if (appDetails) {
+      appDetails = {
+        ...appDetails,
+        permissions: appDetails.permissions.map(item => item.name === permission.name ? { ...item, granted: nextGranted } : item),
+      };
+    }
+    try {
+      await invoke<string>('set_app_permission', {
+        serial,
+        packageName: selectedPackage,
+        permissionName: permission.name,
+        grant: nextGranted,
+      });
+      await refreshAppDetails();
+    } catch (error) {
+      status = String(error);
+      if (appDetails) {
+        appDetails = {
+          ...appDetails,
+          permissions: appDetails.permissions.map(item => item.name === permission.name ? { ...item, granted: previousGranted } : item),
+        };
+      }
+    } finally {
+      const next = { ...permissionUpdating };
+      delete next[permission.name];
+      permissionUpdating = next;
+    }
   }
 
   async function exportApk() {
@@ -421,7 +451,7 @@ import * as m from '../paraglide/messages';
   <div class="apps-material-page {selectedPackage ? 'detail-open' : ''}">
     <section class="apps-material-catalog">
       <header class="apps-material-toolbar">
-        <md-outlined-text-field class="apps-material-search" label={m.apps_search_placeholder()} value={appFilter} oninput={(event: Event) => appFilter = (event.target as HTMLInputElement).value}>
+        <md-outlined-text-field class="apps-material-search" label={m.apps_search_placeholder()} use:materialTextFieldValue={appFilter} oninput={(event: Event) => appFilter = (event.target as HTMLInputElement).value}>
           <MaterialIcon slot="leading-icon" name="search" />
           {#if appFilter}
             <md-icon-button slot="trailing-icon" onclick={() => appFilter = ''}>
@@ -664,8 +694,8 @@ import * as m from '../paraglide/messages';
                   </span>
                   <md-switch 
                     selected={permission.granted ? true : undefined} 
-                    disabled={!permission.runtime ? true : undefined} 
-                    onchange={() => togglePermission(permission)}
+                    disabled={permissionUpdating[permission.name] ? true : undefined} 
+                    onclick={() => togglePermission(permission)}
                   ></md-switch>
                 </div>
               {/each}

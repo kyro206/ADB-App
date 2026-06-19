@@ -7,10 +7,10 @@
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { stat } from '@tauri-apps/plugin-fs';
   import MaterialIcon from '../components/MaterialIcon.svelte';
-  import PromptDialog from '../components/dialogs/PromptDialog.svelte';
-  import PermissionsDialog from '../components/dialogs/PermissionsDialog.svelte';
-  import ConfirmDialog from '../components/dialogs/ConfirmDialog.svelte';
+  import FileActionDialogs from '../components/dialogs/FileActionDialogs.svelte';
+  import type { FileConfirmConfig, FilePermissionsConfig, FilePromptConfig } from '../components/dialogs/FileActionDialogs.svelte';
   import ContextMenu from '../components/layout/ContextMenu.svelte';
+  import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   
   import { formatBytes, translateError } from './workbench/utils';
   import type { FileEntry, FileSortKey, FileView } from './workbench/types';
@@ -45,9 +45,9 @@
   let fileHistoryIndex = $state(0);
   let fileThumbnails = $state<Record<string, string>>({});
   
-  let promptConfig = $state<{ open: boolean; title: string; initialValue: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
-  let permissionsConfig = $state<{ open: boolean; title: string; initialMode: string; onConfirm: (val: string) => void; onCancel: () => void } | null>(null);
-  let confirmConfig = $state<{ open: boolean; title: string; message: string; isDanger: boolean; confirmText: string; onConfirm: () => void; onCancel: () => void } | null>(null);
+  let promptConfig = $state<FilePromptConfig | null>(null);
+  let permissionsConfig = $state<FilePermissionsConfig | null>(null);
+  let confirmConfig = $state<FileConfirmConfig | null>(null);
   let contextMenu = $state<{ x: number; y: number; file: FileEntry } | null>(null);
   
   let osDragHover = $state(false);
@@ -625,7 +625,7 @@
         <!-- svelte-ignore a11y_autofocus -->
         <md-outlined-text-field 
           autofocus 
-          value={path} 
+          use:materialTextFieldValue={path}
           aria-label={m.files_nav_path()} 
           onfocus={(event: any) => event.currentTarget.select()} 
           onblur={() => filePathEditing = false} 
@@ -652,7 +652,7 @@
     
     <md-outlined-text-field 
       class="file-search" 
-      value={fileFilter} 
+      use:materialTextFieldValue={fileFilter}
       placeholder={m.files_search_placeholder({ folder: currentFolderName || '' })}
       type="search" 
       oninput={(event: any) => fileFilter = event.currentTarget.value}
@@ -766,37 +766,7 @@
     <span><MaterialIcon name="check_circle" />{selectedFileEntries.length ? m.files_status_selected({ count: selectedFileEntries.length }) : m.files_status_noSelection()}</span>
   </footer>
   
-  {#if promptConfig}
-    <PromptDialog
-      open={promptConfig.open}
-      title={promptConfig.title}
-      initialValue={promptConfig.initialValue}
-      onConfirm={promptConfig.onConfirm}
-      onCancel={promptConfig.onCancel}
-    />
-  {/if}
-  
-  {#if permissionsConfig}
-    <PermissionsDialog
-      open={permissionsConfig.open}
-      title={permissionsConfig.title}
-      initialMode={permissionsConfig.initialMode}
-      onConfirm={permissionsConfig.onConfirm}
-      onCancel={permissionsConfig.onCancel}
-    />
-  {/if}
-  
-  {#if confirmConfig}
-    <ConfirmDialog
-      open={confirmConfig.open}
-      title={confirmConfig.title}
-      message={confirmConfig.message}
-      confirmText={confirmConfig.confirmText}
-      isDanger={confirmConfig.isDanger}
-      onConfirm={confirmConfig.onConfirm}
-      onCancel={confirmConfig.onCancel}
-    />
-  {/if}
+  <FileActionDialogs {promptConfig} {permissionsConfig} {confirmConfig} />
 
   {#if contextMenu}
     <ContextMenu

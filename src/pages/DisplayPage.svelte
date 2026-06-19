@@ -7,6 +7,7 @@ import * as m from '../paraglide/messages';
 <script lang="ts">
   import type { DeviceDetails } from '../context/devices.svelte';
   import MaterialIcon from '../components/MaterialIcon.svelte';
+  import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   
   import { formatRate } from './workbench/utils';
   let {
@@ -65,7 +66,7 @@ import * as m from '../paraglide/messages';
     type="number" 
     min={String(min)} 
     suffix-text={suffix} 
-    value={value || ''} 
+    use:materialTextFieldValue={value || ''} 
     oninput={(event: any) => onValue(Number(event.currentTarget.value))} 
   ></md-outlined-text-field>
 {/snippet}

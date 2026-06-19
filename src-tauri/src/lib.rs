@@ -97,6 +97,7 @@ pub fn run() {
             operations::enrich_app_summary,
             operations::install_application_packages,
             operations::get_app_details,
+            operations::set_app_permission,
             operations::export_apk,
             operations::get_home_details,
             operations::clear_application_cache,
@@ -118,7 +119,6 @@ pub fn run() {
             operations::get_window_effect_info,
             operations::get_device_wallpaper,
             operations::sideload_device,
-            operations::open_devtools,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

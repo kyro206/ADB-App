@@ -43,7 +43,7 @@ import * as m from '../../paraglide/messages';
   });
 </script>
 
-<AppModal {open} {title} onClose={onCancel} width="compact">
+<AppModal {open} {title} onClose={onCancel} width="compact" cancelText={finalCancelText}>
   <p style="margin: 0; color: var(--on-surface-variant); line-height: 1.5;">
     {#if messageSnippet}
       {@render messageSnippet()}
@@ -53,7 +53,6 @@ import * as m from '../../paraglide/messages';
   </p>
   
   {#snippet actions()}
-    <md-text-button onclick={onCancel}>{finalCancelText}</md-text-button>
     <md-filled-button 
       onclick={onConfirm} 
       class={isDanger ? 'md-btn-danger' : ''}

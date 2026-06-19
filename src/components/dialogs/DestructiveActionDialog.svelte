@@ -37,6 +37,7 @@ import * as m from '../../paraglide/messages';
   width="compact"
   {title}
   subtitle={m.common_cannotUndo()}
+  cancelDisabled={busy}
 >
   <div class="destructive-dialog">
     <span class="destructive-dialog__icon">
@@ -54,9 +55,6 @@ import * as m from '../../paraglide/messages';
   </div>
 
   {#snippet actions()}
-    <md-text-button disabled={busy ? true : undefined} onclick={onClose}>
-      {m.common_cancel()}
-    </md-text-button>
     <md-filled-button 
       class="destructive-dialog__confirm" 
       disabled={busy ? true : undefined} 

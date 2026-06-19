@@ -4,7 +4,7 @@ const mockDevice: Device = {
   serial: 'MOCK-PIXEL10-FRANKEL',
   state: 'device',
   product: 'frankel',
-  model: "Kyro's Pixel",
+  model: "Pixel 10",
   device: 'frankel',
   transport_id: 'mock',
 };

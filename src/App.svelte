@@ -32,21 +32,23 @@ import * as m from './paraglide/messages';
     };
     
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Si no es producción, salir de la función y permitir todo
+      if (!import.meta.env.PROD) return;
+      
+      const key = e.key.toLowerCase();
+      const ctrlOrMeta = e.ctrlKey || e.metaKey;
+
       if (
-        e.key === 'F12' ||
-        e.key === 'F5' || 
-        e.key === 'F3' ||
-        e.key === 'F7' ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'r') ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'R') ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'f') ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'F') ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'p') ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'P')
+        key === 'f5' ||
+        key === 'f3' ||
+        key === 'f7' ||
+        (ctrlOrMeta && key === 'r') ||
+        (ctrlOrMeta && key === 'f') ||
+        (ctrlOrMeta && key === 'p') ||
+        (ctrlOrMeta && e.shiftKey && (key === 'j' || key === 'c')) ||
+        (ctrlOrMeta && e.altKey && (key === 'j' || key === 'c'))
       ) {
-        if (import.meta.env.PROD) {
-          e.preventDefault();
-        }
+        e.preventDefault();
       }
     };
 

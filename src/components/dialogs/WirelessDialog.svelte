@@ -6,6 +6,7 @@ import * as m from '../../paraglide/messages';
   
   import MaterialIcon from '../MaterialIcon.svelte';
   import AppModal from './AppModal.svelte';
+  import { materialTextFieldValue } from '../../actions/materialTextFieldValue';
   let { open = false, onClose } = $props<{ open: boolean; onClose: () => void }>();
 
   type WirelessMode = 'connect' | 'pair' | 'qr';
@@ -88,6 +89,23 @@ import * as m from '../../paraglide/messages';
 </script>
 
 <AppModal {open} {onClose} title={m.wireless_title()}>
+  {#snippet actions()}
+    {#if mode === 'connect'}
+      <md-filled-button 
+        disabled={!connectEndpoint.trim() || busy ? true : undefined} 
+        onclick={() => run('connect_wireless_device', { endpoint: connectEndpoint }, m.wireless_connect_pending(), m.wireless_connect_success())}
+      >
+        {m.wireless_tab_connect()}
+      </md-filled-button>
+    {:else if mode === 'pair'}
+      <md-filled-button 
+        disabled={!pairEndpoint.trim() || !pairCode.trim() || busy ? true : undefined} 
+        onclick={() => run('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, m.wireless_pair_pending(), m.wireless_pair_success())}
+      >
+        {m.wireless_action_pair()}
+      </md-filled-button>
+    {/if}
+  {/snippet}
   <md-tabs class="wireless-tabs">
     <md-primary-tab active={mode === 'connect' ? true : undefined} onclick={() => mode = 'connect'}>
       {m.wireless_tab_connect()}
@@ -108,15 +126,9 @@ import * as m from '../../paraglide/messages';
       <p>{m.wireless_connect_desc()}</p>
       <md-outlined-text-field 
         label={m.wireless_connect_endpoint()} 
-        value={connectEndpoint} 
+        use:materialTextFieldValue={connectEndpoint}
         oninput={(e: any) => connectEndpoint = e.target.value} 
       ></md-outlined-text-field>
-      <md-filled-button 
-        disabled={!connectEndpoint.trim() || busy ? true : undefined} 
-        onclick={() => run('connect_wireless_device', { endpoint: connectEndpoint }, m.wireless_connect_pending(), m.wireless_connect_success())}
-      >
-        {m.wireless_tab_connect()}
-      </md-filled-button>
     </section>
   {/if}
   
@@ -125,20 +137,14 @@ import * as m from '../../paraglide/messages';
       <p>{m.wireless_pair_desc()}</p>
       <md-outlined-text-field 
         label={m.wireless_pair_endpoint()} 
-        value={pairEndpoint} 
+        use:materialTextFieldValue={pairEndpoint}
         oninput={(e: any) => pairEndpoint = e.target.value} 
       ></md-outlined-text-field>
       <md-outlined-text-field 
         label={m.wireless_pair_code()} 
-        value={pairCode} 
+        use:materialTextFieldValue={pairCode}
         oninput={(e: any) => pairCode = e.target.value} 
       ></md-outlined-text-field>
-      <md-filled-button 
-        disabled={!pairEndpoint.trim() || !pairCode.trim() || busy ? true : undefined} 
-        onclick={() => run('pair_wireless_device', { endpoint: pairEndpoint, code: pairCode }, m.wireless_pair_pending(), m.wireless_pair_success())}
-      >
-        {m.wireless_action_pair()}
-      </md-filled-button>
     </section>
   {/if}
   

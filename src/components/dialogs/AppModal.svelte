@@ -9,6 +9,10 @@ import * as m from '../../paraglide/messages';
     title,
     subtitle = '',
     width = 'medium',
+    showHeaderClose = false,
+    showFooterCancel = true,
+    cancelText = m.common_cancel(),
+    cancelDisabled = false,
     onClose,
     children,
     actions
@@ -17,6 +21,10 @@ import * as m from '../../paraglide/messages';
     title: string;
     subtitle?: string;
     width?: 'compact' | 'medium' | 'large';
+    showHeaderClose?: boolean;
+    showFooterCancel?: boolean;
+    cancelText?: string;
+    cancelDisabled?: boolean;
     onClose: () => void;
     children?: Snippet;
     actions?: Snippet;
@@ -54,18 +62,25 @@ import * as m from '../../paraglide/messages';
             <p>{subtitle}</p>
           {/if}
         </div>
-        <md-icon-button aria-label={m.common_close()} onclick={onClose}>
-          <MaterialIcon name="close" />
-        </md-icon-button>
+        {#if showHeaderClose}
+          <md-icon-button aria-label={m.common_close()} onclick={onClose}>
+            <MaterialIcon name="close" />
+          </md-icon-button>
+        {/if}
       </header>
       
       <div class="app-modal__content">
         {@render children?.()}
       </div>
       
-      {#if actions}
+      {#if showFooterCancel || actions}
         <footer class="app-modal__actions">
-          {@render actions()}
+          {#if showFooterCancel}
+            <md-text-button disabled={cancelDisabled ? true : undefined} onclick={onClose}>
+              {cancelText}
+            </md-text-button>
+          {/if}
+          {@render actions?.()}
         </footer>
       {/if}
     </section>

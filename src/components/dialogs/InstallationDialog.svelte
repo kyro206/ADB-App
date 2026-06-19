@@ -73,7 +73,7 @@ import * as m from '../../paraglide/messages';
   }
 </script>
 
-<AppModal {open} {onClose} width="large" title={m.install_title()} subtitle={m.install_subtitle()}>
+<AppModal {open} {onClose} width="large" title={m.install_title()} subtitle={m.install_subtitle()} cancelDisabled={installing}>
   <section class="install-dialog-section">
     <header>
       <h3>{m.install_files_title()}</h3>

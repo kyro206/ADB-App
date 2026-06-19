@@ -3,6 +3,7 @@ import * as m from '../../paraglide/messages';
 
   
   import AppModal from './AppModal.svelte';
+  import { materialTextFieldValue } from '../../actions/materialTextFieldValue';
 
   let {
     open = false,
@@ -49,19 +50,19 @@ import * as m from '../../paraglide/messages';
   {title}
   onClose={onCancel}
   width="compact"
+  cancelText={finalCancelText}
 >
   <div style="margin-top: 8px;">
     <md-outlined-text-field
       style="width: 100%;"
       label={m.common_name()}
-      {value}
+      use:materialTextFieldValue={value}
       oninput={(e: any) => value = e.target.value}
       onkeydown={handleKeyDown}
     ></md-outlined-text-field>
   </div>
 
   {#snippet actions()}
-    <md-text-button onclick={onCancel}>{finalCancelText}</md-text-button>
     <md-filled-button onclick={handleConfirm}>
       {finalConfirmText}
     </md-filled-button>

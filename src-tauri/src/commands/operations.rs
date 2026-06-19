@@ -37,6 +37,7 @@ pub struct AppPermissionInfo {
     pub name: String,
     pub granted: bool,
     pub runtime: bool,
+    pub changeable: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -865,7 +866,26 @@ fn display_name_from_dump(output: &str, fallback: &str) -> String {
     fallback.to_string()
 }
 
-fn parse_permissions(output: &str) -> Vec<AppPermissionInfo> {
+fn parse_changeable_permissions(output: &str) -> HashSet<String> {
+    output
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("permission:"))
+        .map(str::trim)
+        .filter(|permission| permission.contains(".permission."))
+        .map(str::to_string)
+        .collect()
+}
+
+fn permission_is_device_fixed(line: &str) -> bool {
+    line.contains("SYSTEM_FIXED")
+        || line.contains("POLICY_FIXED")
+        || line.contains("HARD_RESTRICTED")
+}
+
+fn parse_permissions(
+    output: &str,
+    changeable_permissions: &HashSet<String>,
+) -> Vec<AppPermissionInfo> {
     let mut permissions: Vec<AppPermissionInfo> = Vec::new();
     let mut section = "";
     for line in output.lines() {
@@ -896,19 +916,24 @@ fn parse_permissions(output: &str) -> Vec<AppPermissionInfo> {
         if name.is_empty() {
             continue;
         }
+        let runtime = section == "runtime" || changeable_permissions.contains(name);
+        let changeable = runtime && !permission_is_device_fixed(trimmed);
         if let Some(permission) = permissions
             .iter_mut()
             .find(|permission| permission.name == name)
         {
             permission.granted =
                 permission.granted || trimmed.contains("granted=true") || section == "install";
-            permission.runtime = permission.runtime || section == "runtime";
+            permission.runtime = permission.runtime || runtime;
+            permission.changeable =
+                (permission.changeable || changeable) && !permission_is_device_fixed(trimmed);
             continue;
         }
         permissions.push(AppPermissionInfo {
             name: name.to_string(),
             granted: trimmed.contains("granted=true") || section == "install",
-            runtime: section == "runtime",
+            runtime,
+            changeable,
         });
     }
     permissions
@@ -1754,6 +1779,13 @@ pub async fn get_app_details(
     .await?;
     let appops =
         adb::run_adb_for_serial(&serial, &["shell", "cmd", "appops", "get", &package_name]).await?;
+    let changeable_permissions =
+        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "permissions", "-g", "-d"])
+            .await
+            .ok()
+            .filter(|result| result.ok())
+            .map(|result| parse_changeable_permissions(&result.output))
+            .unwrap_or_default();
     let apk_paths: Vec<String> = paths
         .output
         .lines()
@@ -1801,11 +1833,60 @@ pub async fn get_app_details(
         data_size_bytes,
         cache_size_bytes,
         background_mode: background_mode.to_string(),
-        permissions: parse_permissions(&dump.output),
+        permissions: parse_permissions(&dump.output, &changeable_permissions),
         icon_data_url: String::new(),
         install_date: dump_date_value(&dump.output, "firstInstallTime"),
         update_date: dump_date_value(&dump.output, "lastUpdateTime"),
     })
+}
+
+#[tauri::command]
+pub async fn set_app_permission(
+    serial: String,
+    package_name: String,
+    permission_name: String,
+    grant: bool,
+) -> Result<String, String> {
+    let action = if grant { "grant" } else { "revoke" };
+    let with_user_args = [
+        "shell",
+        "pm",
+        action,
+        "--user",
+        "current",
+        &package_name,
+        &permission_name,
+    ];
+    let result = adb::run_adb_for_serial(&serial, &with_user_args).await?;
+    if result.ok() {
+        return Ok(result.output);
+    }
+
+    let clear_flags_args = [
+        "shell",
+        "pm",
+        "clear-permission-flags",
+        "--user",
+        "current",
+        &package_name,
+        &permission_name,
+        "user-set",
+        "user-fixed",
+    ];
+    let _ = adb::run_adb_for_serial(&serial, &clear_flags_args).await;
+
+    let retry = adb::run_adb_for_serial(&serial, &with_user_args).await?;
+    if retry.ok() {
+        return Ok(retry.output);
+    }
+
+    let fallback_args = ["shell", "pm", action, &package_name, &permission_name];
+    let fallback = adb::run_adb_for_serial(&serial, &fallback_args).await?;
+    if fallback.ok() {
+        Ok(fallback.output)
+    } else {
+        Err(fallback.output)
+    }
 }
 
 #[tauri::command]
@@ -1927,7 +2008,8 @@ pub async fn get_file_thumbnail(serial: String, path: String) -> Result<String, 
 
 #[cfg(test)]
 mod wireless_tests {
-    use super::generate_wireless_qr;
+    use super::{generate_wireless_qr, parse_changeable_permissions, parse_permissions};
+    use std::collections::HashSet;
 
     #[test]
     fn generates_hidden_credentials_and_scannable_qr() {
@@ -1935,6 +2017,63 @@ mod wireless_tests {
         assert!(qr.service_name.starts_with("adb-"));
         assert_eq!(qr.password.len(), 12);
         assert!(qr.qr_data_url.starts_with("data:image/svg+xml;base64,"));
+    }
+
+    #[test]
+    fn marks_dumpsys_runtime_permissions_as_toggleable() {
+        let output = r#"
+          requested permissions:
+            android.permission.CAMERA
+          runtime permissions:
+            android.permission.CAMERA: granted=false, flags=[ USER_SET]
+        "#;
+
+        let permissions = parse_permissions(output, &HashSet::new());
+        let camera = permissions
+            .iter()
+            .find(|permission| permission.name == "android.permission.CAMERA")
+            .expect("camera permission should be parsed");
+
+        assert!(camera.runtime);
+        assert!(camera.changeable);
+        assert!(!camera.granted);
+    }
+
+    #[test]
+    fn marks_dangerous_requested_permissions_as_runtime_when_dumpsys_omits_runtime_section() {
+        let dangerous = parse_changeable_permissions(
+            "group:android.permission-group.CAMERA\n  permission:android.permission.CAMERA\n",
+        );
+        let output = r#"
+          requested permissions:
+            android.permission.CAMERA
+        "#;
+
+        let permissions = parse_permissions(output, &dangerous);
+        let camera = permissions
+            .iter()
+            .find(|permission| permission.name == "android.permission.CAMERA")
+            .expect("camera permission should be parsed");
+
+        assert!(camera.runtime);
+        assert!(camera.changeable);
+    }
+
+    #[test]
+    fn marks_fixed_runtime_permissions_as_not_changeable() {
+        let output = r#"
+          runtime permissions:
+            android.permission.CAMERA: granted=true, flags=[ SYSTEM_FIXED]
+        "#;
+
+        let permissions = parse_permissions(output, &HashSet::new());
+        let camera = permissions
+            .iter()
+            .find(|permission| permission.name == "android.permission.CAMERA")
+            .expect("camera permission should be parsed");
+
+        assert!(camera.runtime);
+        assert!(!camera.changeable);
     }
 }
 
@@ -2158,10 +2297,4 @@ pub async fn get_home_details(serial: String) -> Result<HomeDetails, String> {
         airplane_mode: airplane,
         carrier,
     })
-}
-
-#[tauri::command]
-pub fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
-    window.open_devtools();
-    Ok(())
 }

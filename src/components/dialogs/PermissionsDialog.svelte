@@ -3,6 +3,7 @@ import * as m from '../../paraglide/messages';
 
   
   import AppModal from './AppModal.svelte';
+  import { materialTextFieldValue } from '../../actions/materialTextFieldValue';
   let {
     open = false,
     title,
@@ -87,14 +88,13 @@ import * as m from '../../paraglide/messages';
     <div class="permissions-octal">
       <span>{m.files_permissions_octal()}</span>
       <md-outlined-text-field 
-        value={octal} 
+        use:materialTextFieldValue={octal}
         oninput={handleOctalInput} 
       ></md-outlined-text-field>
     </div>
   </div>
 
   {#snippet actions()}
-    <md-text-button onclick={onCancel}>{m.common_cancel()}</md-text-button>
     <md-filled-button onclick={handleConfirm}>{m.common_confirm()}</md-filled-button>
   {/snippet}
 </AppModal>

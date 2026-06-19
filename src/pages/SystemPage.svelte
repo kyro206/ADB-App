@@ -7,6 +7,7 @@ import * as m from '../paraglide/messages';
   
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import ConfirmDialog from '../components/dialogs/ConfirmDialog.svelte';
+  import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   let {
     serial,
     status = $bindable()
@@ -125,7 +126,7 @@ import * as m from '../paraglide/messages';
     <div class="md-system-actions-row">
       <md-outlined-text-field
         label={m.system_users_new()}
-        value={newSystemUser}
+        use:materialTextFieldValue={newSystemUser}
         oninput={(e: any) => newSystemUser = e.target.value}
         onkeydown={(e: KeyboardEvent) => e.key === 'Enter' && createSystemUser()}
       >

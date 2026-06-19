@@ -36,6 +36,7 @@ import * as m from '../paraglide/messages';
   import AppModal from '../components/dialogs/AppModal.svelte';
   import { save } from '@tauri-apps/plugin-dialog';
   import type { AppSummary, MirrorMode, ToolsStatus } from './workbench/types';
+  import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   let {
     serial,
     tools,
@@ -97,7 +98,7 @@ import * as m from '../paraglide/messages';
   <md-outlined-text-field 
     {label} 
     {type} 
-    {value} 
+    use:materialTextFieldValue={value}
     {placeholder} 
     {...(disabled ? { disabled: true } : {})}
     oninput={(event: any) => onValue(event.currentTarget.value)}

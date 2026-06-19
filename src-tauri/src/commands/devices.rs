@@ -89,7 +89,10 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         run_or_empty(&serial, &["shell", "wm", "density"]),
         run_or_empty(&serial, &["shell", "dumpsys", "display"]),
         run_or_empty(&serial, &["shell", "cmd", "uimode", "night"]),
-        run_or_empty(&serial, &["shell", "settings", "get", "system", "screen_off_timeout"]),
+        run_or_empty(
+            &serial,
+            &["shell", "settings", "get", "system", "screen_off_timeout"]
+        ),
         run_or_empty(&serial, &["shell", "cat", "/proc/uptime"])
     );
 
