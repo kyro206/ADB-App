@@ -436,6 +436,8 @@
   "apps_detail_permissions": "Permisos",
   "apps_permissions_count": "{granted} de {total}",
   "apps_permissions_empty": "Esta aplicación no declara permisos.",
+  "apps_permission_changeable": "Permiso modificable por ADB",
+  "apps_permission_readonly": "Android no permite cambiar este permiso por ADB",
   "error_device_not_found": "Dispositivo no encontrado.",
   "error_unauthorized": "El dispositivo no está autorizado. Acepta el aviso en la pantalla.",
   "error_timeout": "Se ha agotado el tiempo de espera.",

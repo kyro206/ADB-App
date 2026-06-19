@@ -69,6 +69,7 @@ class DeviceState {
   #detailsRequestId = 0;
   #wallpaperRequestId = 0;
   #wallpaperSerial: string | null = null;
+  #detailsCache = new Map<string, DeviceDetails>();
 
   async init() {
     if (this.#unlisten) return;
@@ -128,6 +129,10 @@ class DeviceState {
           this.#wallpaperSerial = null;
           this.wallpaperImage = null;
           this.screenshot = null;
+          this.deviceDetails = this.#detailsCache.get(targetDevice.serial) ?? null;
+          if (targetDevice.state === 'device') {
+            void this.loadWallpaper(targetDevice.serial);
+          }
           
           try {
             const requestId = ++this.#detailsRequestId;
@@ -136,10 +141,11 @@ class DeviceState {
             });
             if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === targetDevice.serial) {
               this.deviceDetails = details;
+              this.#detailsCache.set(targetDevice.serial, details);
             }
           } catch (detailsError) {
             this.error = detailsError instanceof Error ? detailsError.message : String(detailsError);
-            this.deviceDetails = null;
+            this.deviceDetails = this.#detailsCache.get(targetDevice.serial) ?? null;
           }
         }
 
@@ -177,6 +183,7 @@ class DeviceState {
       const details: DeviceDetails = await invoke('get_device_details', { device: this.selectedDevice });
       if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
         this.deviceDetails = details;
+        this.#detailsCache.set(serial, details);
       }
     } catch {
       // Fallo silencioso, mantenemos los datos antiguos
@@ -189,7 +196,7 @@ class DeviceState {
     if (!device) return;
 
     this.selectedDevice = device;
-    this.deviceDetails = null;
+    this.deviceDetails = this.#detailsCache.get(serial) ?? null;
     this.#wallpaperRequestId++;
     this.#wallpaperSerial = null;
     this.wallpaperImage = null;
@@ -199,11 +206,12 @@ class DeviceState {
     const requestId = ++this.#detailsRequestId;
 
     try {
+      void this.loadWallpaper(serial);
       const details: DeviceDetails = await invoke('get_device_details', { device: this.selectedDevice });
       if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
         this.deviceDetails = details;
+        this.#detailsCache.set(serial, details);
       }
-      void this.loadWallpaper(serial);
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
     } finally {

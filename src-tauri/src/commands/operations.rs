@@ -916,7 +916,8 @@ fn parse_permissions(
         if name.is_empty() {
             continue;
         }
-        let runtime = section == "runtime" || changeable_permissions.contains(name);
+        let runtime = section == "runtime"
+            || (section == "requested" && changeable_permissions.contains(name));
         let changeable = runtime && !permission_is_device_fixed(trimmed);
         if let Some(permission) = permissions
             .iter_mut()
@@ -2057,6 +2058,27 @@ mod wireless_tests {
 
         assert!(camera.runtime);
         assert!(camera.changeable);
+    }
+
+    #[test]
+    fn does_not_mark_install_permissions_as_changeable() {
+        let dangerous = parse_changeable_permissions(
+            "group:android.permission-group.CAMERA\n  permission:android.permission.CAMERA\n",
+        );
+        let output = r#"
+          install permissions:
+            android.permission.CAMERA: granted=true
+        "#;
+
+        let permissions = parse_permissions(output, &dangerous);
+        let camera = permissions
+            .iter()
+            .find(|permission| permission.name == "android.permission.CAMERA")
+            .expect("camera permission should be parsed");
+
+        assert!(!camera.runtime);
+        assert!(!camera.changeable);
+        assert!(camera.granted);
     }
 
     #[test]

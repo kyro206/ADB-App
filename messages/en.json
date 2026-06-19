@@ -436,6 +436,8 @@
   "apps_detail_permissions": "Permissions",
   "apps_permissions_count": "{granted} of {total}",
   "apps_permissions_empty": "This app declares no permissions.",
+  "apps_permission_changeable": "Permission can be changed with ADB",
+  "apps_permission_readonly": "Android does not allow changing this permission with ADB",
   "error_device_not_found": "Device not found.",
   "error_unauthorized": "The device is unauthorized. Accept the prompt on the screen.",
   "error_timeout": "Connection timed out.",

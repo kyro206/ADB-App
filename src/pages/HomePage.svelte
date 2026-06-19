@@ -510,7 +510,7 @@
         <md-filled-tonal-icon-button
           aria-label={m.home_power_options()}
           title={m.home_power_options()}
-          disabled={!devicesState.selectedDevice || powerBusy
+          disabled={!devicesState.selectedDevice || powerBusy || devicesState.selectedDevice.state === "unauthorized"
             ? true
             : undefined}
           onclick={() => (powerOpen = true)}
@@ -927,12 +927,14 @@
             {/if}
           </div>
 
-          <md-filled-tonal-button onclick={rebootFromPreview}>
-            <span slot="icon"
-              ><MaterialIcon name="restart_alt" size={18} /></span
-            >
-            {m.power_btn_reboot ? m.power_btn_reboot() : "Reboot"}
-          </md-filled-tonal-button>
+          {#if devicesState.selectedDevice.state !== "unauthorized"}
+            <md-filled-tonal-button onclick={rebootFromPreview}>
+              <span slot="icon"
+                ><MaterialIcon name="restart_alt" size={18} /></span
+              >
+              {m.power_btn_reboot ? m.power_btn_reboot() : "Reboot"}
+            </md-filled-tonal-button>
+          {/if}
         </div>
       {/if}
     </div>
@@ -1451,7 +1453,6 @@
       box-sizing: border-box;
       color: #fff;
       text-align: center;
-      text-shadow: 0 3px 16px rgba(0, 0, 0, 0.55);
     }
     .home-lockscreen__scrim {
       position: absolute;
@@ -1506,7 +1507,6 @@
       color: var(--home-clock-color, #eef3ff);
       font-family: var(--font-family);
       font-weight: 450;
-      filter: drop-shadow(0 5px 18px rgba(0, 0, 0, 0.38));
       font-variant-numeric: tabular-nums;
     }
     .home-lockscreen__clock span {

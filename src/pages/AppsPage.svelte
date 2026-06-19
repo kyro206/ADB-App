@@ -88,6 +88,11 @@ import * as m from '../paraglide/messages';
 
   let appsNeedingMetadata = $derived(filteredApps.filter(app => !app.icon_data_url));
   let grantedPermissionCount = $derived(appDetails?.permissions.filter(permission => permission.granted).length ?? 0);
+  let sortedPermissions = $derived.by(() => [...(appDetails?.permissions ?? [])].sort((a, b) => {
+    if (a.changeable !== b.changeable) return a.changeable ? -1 : 1;
+    if (a.runtime !== b.runtime) return a.runtime ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  }));
 
 
 
@@ -301,10 +306,11 @@ import * as m from '../paraglide/messages';
     await refreshAppDetails();
   }
 
-  async function togglePermission(permission: AppPermissionInfo) {
+  async function setPermission(permission: AppPermissionInfo, nextGranted: boolean) {
+    if (!permission.changeable) return;
     if (!selectedPackage || permissionUpdating[permission.name]) return;
     const previousGranted = permission.granted;
-    const nextGranted = !permission.granted;
+    if (previousGranted === nextGranted) return;
     permissionUpdating = { ...permissionUpdating, [permission.name]: true };
     if (appDetails) {
       appDetails = {
@@ -686,16 +692,17 @@ import * as m from '../paraglide/messages';
               </span>
             </header>
             <div class="apps-material-permissions">
-              {#each appDetails.permissions as permission (permission.name)}
+              {#each sortedPermissions as permission (permission.name)}
                 <div>
                   <span>
                     <strong>{permission.name.split('.').pop()}</strong>
                     <small>{permission.name}</small>
                   </span>
                   <md-switch 
-                    selected={permission.granted ? true : undefined} 
-                    disabled={permissionUpdating[permission.name] ? true : undefined} 
-                    onclick={() => togglePermission(permission)}
+                    {...(permission.granted ? { selected: true } : {})}
+                    {...(!permission.changeable || permissionUpdating[permission.name] ? { disabled: true } : {})}
+                    title={permission.changeable ? m.apps_permission_changeable() : m.apps_permission_readonly()}
+                    onchange={(event: Event) => setPermission(permission, Boolean((event.currentTarget as HTMLElement & { selected?: boolean }).selected))}
                   ></md-switch>
                 </div>
               {/each}

@@ -1,6 +1,12 @@
 use crate::adb;
 use crate::models::{Device, DeviceDetails};
 use crate::parsers::device_parser;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+static DEVICE_DETAILS_CACHE: OnceLock<Mutex<HashMap<String, (Instant, DeviceDetails)>>> =
+    OnceLock::new();
 
 /// List all connected ADB devices.
 #[tauri::command]
@@ -66,6 +72,15 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         });
     }
 
+    let cache = DEVICE_DETAILS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(cache) = cache.lock() {
+        if let Some((created_at, details)) = cache.get(&serial) {
+            if created_at.elapsed() < Duration::from_secs(6) {
+                return Ok(details.clone());
+            }
+        }
+    }
+
     // Run all info queries concurrently for maximum speed
     let (
         getprop,
@@ -106,7 +121,7 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         .await;
     }
 
-    Ok(device_parser::build_device_details(
+    let details = device_parser::build_device_details(
         &device,
         &getprop,
         &meminfo,
@@ -119,7 +134,13 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         &dark_mode,
         &screen_timeout,
         &uptime,
-    ))
+    );
+
+    if let Ok(mut cache) = cache.lock() {
+        cache.insert(serial, (Instant::now(), details.clone()));
+    }
+
+    Ok(details)
 }
 
 /// Helper to run an ADB command and return empty string on failure.
