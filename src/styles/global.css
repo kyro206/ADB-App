@@ -158,63 +158,126 @@ input:focus,select:focus,textarea:focus {
 }
 
 /* Mica/Vibrancy Effect (Windows) and native Vibrancy composition (macOS) */
-html.platform-windows,html.platform-windows body,html.platform-windows #root,html.platform-macos,html.platform-macos body,html.platform-macos #root {
+html.platform-windows.window-effect-enabled,html.platform-windows.window-effect-enabled body,html.platform-windows.window-effect-enabled #root,html.platform-macos.window-effect-enabled,html.platform-macos.window-effect-enabled body,html.platform-macos.window-effect-enabled #root {
   background: transparent !important;
 }
 
-html.platform-windows .app-layout,
-html.platform-windows .app-layout__body,
-html.platform-windows .topbar,
-html.platform-windows .sidebar,
-html.platform-macos .app-layout,
-html.platform-macos .app-layout__body,html.platform-macos .topbar,html.platform-macos .sidebar {
+html.platform-windows.window-effect-enabled .app-layout,
+html.platform-windows.window-effect-enabled .app-layout__body,
+html.platform-windows.window-effect-enabled .topbar,
+html.platform-windows.window-effect-enabled .sidebar,
+html.platform-macos.window-effect-enabled .app-layout,
+html.platform-macos.window-effect-enabled .app-layout__body,html.platform-macos.window-effect-enabled .topbar,html.platform-macos.window-effect-enabled .sidebar {
   background: transparent !important;
 }
 
-html.platform-macos .topbar,
-html.platform-macos .sidebar {
+html.window-effect-enabled .app-layout__body {
+  position: relative;
+}
+
+html.window-effect-enabled .app-layout__body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--sidebar-width);
+  width: 14px;
+  height: 14px;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+}
+
+html.window-effect-enabled .sidebar,
+html.window-effect-enabled .app-layout__content {
+  position: relative;
+  z-index: 1;
+}
+
+html.platform-windows.window-effect-acrylic .app-layout__body::before {
+  background: light-dark(
+    color-mix(in srgb, #fff 52%, transparent),
+    color-mix(in srgb, #08090a 56%, transparent)
+  );
+}
+
+html.platform-windows.window-effect-mica .app-layout__body::before,
+html.platform-macos.window-effect-enabled .app-layout__body::before {
+  background: transparent;
+}
+
+html.platform-macos.window-effect-enabled .topbar,
+html.platform-macos.window-effect-enabled .sidebar {
   border-color: color-mix(in srgb, var(--outline-variant) 65%, transparent);
 }
 
-html.platform-windows .topbar,
-html.platform-windows .sidebar {
+html.platform-windows.window-effect-enabled .topbar,
+html.platform-windows.window-effect-enabled .sidebar {
   border-color: color-mix(in srgb, var(--outline-variant) 65%, transparent);
 }
 
-html.platform-windows .app-layout__content {
+html.platform-windows.window-effect-enabled .app-layout__content {
   background: color-mix(in srgb, var(--bg) 96%, transparent) !important;
   border-color: color-mix(in srgb, var(--outline-variant) 78%, transparent) !important;
   border-radius: 12px 0 0;
 }
 
-html.platform-macos .app-layout__content {
+html.platform-windows.window-effect-acrylic .app-layout__content {
+  background: light-dark(
+    color-mix(in srgb, #fff 90%, transparent),
+    color-mix(in srgb, #08090a 88%, transparent)
+  ) !important;
+}
+
+html.platform-windows.window-effect-acrylic .topbar,
+html.platform-windows.window-effect-acrylic .sidebar {
+  background: light-dark(
+    color-mix(in srgb, #fff 58%, transparent),
+    color-mix(in srgb, #08090a 62%, transparent)
+  ) !important;
+}
+
+html.platform-windows.window-effect-mica .app-layout__content {
+  background: color-mix(in srgb, var(--bg) 96%, transparent) !important;
+}
+
+html.platform-macos.window-effect-enabled .app-layout__content {
   background: color-mix(in srgb, var(--bg) 94%, transparent) !important;
   border-color: color-mix(in srgb, var(--outline-variant) 75%, transparent) !important;
   border-radius: 12px 0 0;
 }
 
-html.platform-macos .sidebar__tab:not(.sidebar__tab--active):hover .sidebar__tab-icon {
+html.platform-macos.window-effect-enabled .sidebar__tab:not(.sidebar__tab--active):hover .sidebar__tab-icon {
   background: color-mix(in srgb, var(--on-surface) 10%, transparent);
 }
 
-html.platform-macos .topbar-device-picker__field,
-html.platform-macos .topbar__tcpip,
-html.platform-macos .topbar__wireless,
-html.platform-macos .topbar__action-btn {
+html.platform-macos.window-effect-enabled .topbar-device-picker__field,
+html.platform-macos.window-effect-enabled .topbar__tcpip,
+html.platform-macos.window-effect-enabled .topbar__wireless,
+html.platform-macos.window-effect-enabled .topbar__action-btn {
   background: color-mix(in srgb, var(--surface-container-high) 72%, transparent);
   border-color: color-mix(in srgb, var(--outline-variant) 45%, transparent);
 }
 
-html.platform-windows .sidebar__tab:not(.sidebar__tab--active):hover .sidebar__tab-icon {
+html.platform-windows.window-effect-enabled .sidebar__tab:not(.sidebar__tab--active):hover .sidebar__tab-icon {
   background: color-mix(in srgb, var(--on-surface) 10%, transparent);
 }
 
-html.platform-windows .topbar-device-picker__field,
-html.platform-windows .topbar__tcpip,
-html.platform-windows .topbar__wireless,
-html.platform-windows .topbar__action-btn {
+html.platform-windows.window-effect-enabled .topbar-device-picker__field,
+html.platform-windows.window-effect-enabled .topbar__tcpip,
+html.platform-windows.window-effect-enabled .topbar__wireless,
+html.platform-windows.window-effect-enabled .topbar__action-btn {
   background: color-mix(in srgb, var(--surface-container-high) 74%, transparent);
   border-color: color-mix(in srgb, var(--outline-variant) 48%, transparent);
+}
+
+html.platform-windows.window-effect-acrylic .topbar-device-picker__field,
+html.platform-windows.window-effect-acrylic .topbar__tcpip,
+html.platform-windows.window-effect-acrylic .topbar__wireless,
+html.platform-windows.window-effect-acrylic .topbar__action-btn {
+  background: light-dark(
+    color-mix(in srgb, #fff 72%, transparent),
+    color-mix(in srgb, #111315 74%, transparent)
+  );
 }
 
 html.platform-macos .topbar__device-section,

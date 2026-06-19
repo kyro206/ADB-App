@@ -128,6 +128,7 @@ pub struct AppSettings {
     pub kill_adb_on_exit: bool,
     pub material_you_enabled: bool,
     pub material_you_background_tint: bool,
+    pub window_effect: String,
     pub theme: String,
     pub language: String,
     pub adb_path: String,
@@ -143,6 +144,7 @@ impl Default for AppSettings {
             kill_adb_on_exit: true,
             material_you_enabled: true,
             material_you_background_tint: true,
+            window_effect: "system".to_string(),
             theme: String::new(),
             language: String::new(),
             adb_path: String::new(),
@@ -185,11 +187,14 @@ pub fn write_settings_sync(settings: &AppSettings) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn save_app_settings(settings: AppSettings) -> Result<Option<String>, String> {
+pub async fn save_app_settings(window: tauri::WebviewWindow, settings: AppSettings) -> Result<Option<String>, String> {
     let old_settings = read_settings();
     let old_data_dir = crate::app_paths::data_dir();
 
     write_settings_sync(&settings)?;
+    if old_settings.window_effect != settings.window_effect {
+        apply_window_effect(&window, &settings.window_effect);
+    }
 
     let path_changed = old_settings.cache_path != settings.cache_path;
 
@@ -287,6 +292,88 @@ pub fn set_window_theme(window: tauri::Window, theme: String) {
         _ => None,
     };
     let _ = window.set_theme(tauri_theme);
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WindowEffectInfo {
+    pub platform: String,
+    pub windows_11: bool,
+}
+
+#[tauri::command]
+pub fn get_window_effect_info() -> WindowEffectInfo {
+    WindowEffectInfo {
+        platform: std::env::consts::OS.to_string(),
+        windows_11: is_windows_11(),
+    }
+}
+
+pub fn apply_window_effect(window: &tauri::WebviewWindow, mode: &str) {
+    let effects = window_effects(mode);
+    let _ = window.set_effects(effects.map(|effects| tauri::utils::config::WindowEffectsConfig {
+        effects,
+        state: Some(tauri::window::EffectState::Active),
+        ..Default::default()
+    }));
+}
+
+#[cfg(target_os = "windows")]
+fn window_effects(mode: &str) -> Option<Vec<tauri::window::Effect>> {
+    match mode {
+        "disabled" => None,
+        "acrylic" => Some(vec![tauri::window::Effect::Acrylic]),
+        "mica" => Some(vec![tauri::window::Effect::Mica, tauri::window::Effect::Acrylic]),
+        _ if is_windows_11() => Some(vec![tauri::window::Effect::Mica, tauri::window::Effect::Acrylic]),
+        _ => Some(vec![tauri::window::Effect::Acrylic]),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn window_effects(mode: &str) -> Option<Vec<tauri::window::Effect>> {
+    if mode == "disabled" {
+        None
+    } else {
+        Some(vec![tauri::window::Effect::Sidebar])
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn window_effects(_mode: &str) -> Option<Vec<tauri::window::Effect>> {
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn is_windows_11() -> bool {
+    #[repr(C)]
+    struct RtlOsVersionInfo {
+        size: u32,
+        major: u32,
+        minor: u32,
+        build: u32,
+        platform_id: u32,
+        csd_version: [u16; 128],
+    }
+
+    #[link(name = "ntdll")]
+    extern "system" {
+        fn RtlGetVersion(version: *mut RtlOsVersionInfo) -> i32;
+    }
+
+    let mut version = RtlOsVersionInfo {
+        size: std::mem::size_of::<RtlOsVersionInfo>() as u32,
+        major: 0,
+        minor: 0,
+        build: 0,
+        platform_id: 0,
+        csd_version: [0; 128],
+    };
+
+    unsafe { RtlGetVersion(&mut version) == 0 && version.build >= 22000 }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_windows_11() -> bool {
+    false
 }
 
 #[tauri::command]

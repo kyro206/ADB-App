@@ -7,6 +7,7 @@ import * as m from '../../paraglide/messages';
   import Sidebar from './Sidebar.svelte';
   import TopBar from './TopBar.svelte';
   import AppModal from '../dialogs/AppModal.svelte';
+  import { applyWindowEffectClass } from '../../context/windowEffects';
   
   import type { ToolsStatus } from '../../pages/workbench/types';
 
@@ -70,6 +71,7 @@ import * as m from '../../paraglide/messages';
     } else if (platform.includes('mac')) {
       document.documentElement.classList.add('platform-macos');
     }
+    applyWindowEffectClass((window as any).__APP_SETTINGS__);
 
     let lastTabChangeTime = 0;
     const tabOrder: TabId[] = ['home', 'display', 'mirroring', 'control', 'apps', 'files', 'system', 'settings'];

@@ -54,26 +54,7 @@ pub fn run() {
             }
 
             let window = builder.build().map_err(|e| e.to_string())?;
-
-            #[cfg(target_os = "windows")]
-            {
-                let effects = tauri::utils::config::WindowEffectsConfig {
-                    effects: vec![tauri::window::Effect::Mica],
-                    state: Some(tauri::window::EffectState::Active),
-                    ..Default::default()
-                };
-                let _ = window.set_effects(Some(effects));
-            }
-
-            #[cfg(target_os = "macos")]
-            {
-                let effects = tauri::utils::config::WindowEffectsConfig {
-                    effects: vec![tauri::window::Effect::Sidebar],
-                    state: Some(tauri::window::EffectState::Active),
-                    ..Default::default()
-                };
-                let _ = window.set_effects(Some(effects));
-            }
+            operations::apply_window_effect(&window, &settings.window_effect);
             Ok(())
         })
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -128,6 +109,7 @@ pub fn run() {
             operations::set_tool_path,
             operations::install_or_update_tool,
             operations::set_window_theme,
+            operations::get_window_effect_info,
             operations::get_device_wallpaper,
             operations::sideload_device,
             operations::open_devtools,

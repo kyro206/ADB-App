@@ -18,6 +18,7 @@ import * as m from '../paraglide/messages';
   import AppModal from '../components/dialogs/AppModal.svelte';
   import Logo from '../components/Logo.svelte';
   import { languages, getLanguageName } from '../context/i18n.svelte';
+  import type { WindowEffectInfo, WindowEffectMode } from '../context/windowEffects';
   import { APACHE_LICENSE_2_0, MIT_LICENSE, ANDROID_LOGO_LICENSE } from '../utils/licenseTexts';
   let {
     theme,
@@ -48,8 +49,8 @@ import * as m from '../paraglide/messages';
     onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
     onInstallTool: (tool: InstallableTool) => void;
     onClearCache: () => void;
-    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; theme: string; language: string } | null;
-    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; theme: string; language: string }) => void;
+    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string } | null;
+    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string }) => void;
     defaultCacheDir: string;
   }>();
 
@@ -57,6 +58,7 @@ import * as m from '../paraglide/messages';
   let appName = $state('ADB App');
   let localCachePath = $state<string | null>(null);
   let licensesOpen = $state(false);
+  let windowEffectInfo = $state<WindowEffectInfo>({ platform: 'linux', windows_11: false });
 
   type LicenseInfo = { name: string; url: string; licenseType: string; licenseText: string };
   const LICENSES: LicenseInfo[] = [
@@ -87,6 +89,9 @@ import * as m from '../paraglide/messages';
   onMount(() => {
     getVersion().then(v => appVersion = v).catch(() => appVersion = 'Unknown');
     getName().then(n => appName = n).catch(() => {});
+    invoke<WindowEffectInfo>('get_window_effect_info')
+      .then(value => windowEffectInfo = value)
+      .catch(() => {});
   });
 
   $effect(() => {
@@ -125,6 +130,12 @@ import * as m from '../paraglide/messages';
     if (updateState.status === 'installing') return m.updater_status_installing();
     if (updateState.status === 'restarting') return m.updater_status_restarting();
     return '';
+  }
+
+  function saveWindowEffect(windowEffect: WindowEffectMode) {
+    if (appSettings) {
+      onSaveAppSettings({ ...appSettings, window_effect: windowEffect });
+    }
   }
 </script>
 
@@ -180,7 +191,6 @@ import * as m from '../paraglide/messages';
 
       <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
         <span class="md3-body-large">{m.settings_killAdbOnExit()}</span>
-        <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
           selected={appSettings?.kill_adb_on_exit ?? true}
           onchange={(e: any) => {
@@ -211,9 +221,37 @@ import * as m from '../paraglide/messages';
         </button>
       </div>
 
+      {#if appSettings && (windowEffectInfo.platform === 'windows' || windowEffectInfo.platform === 'macos')}
+        {#if windowEffectInfo.platform === 'windows' && windowEffectInfo.windows_11}
+          <md-outlined-select
+            label={m.settings_windowEffects()}
+            value={appSettings.window_effect || 'system'}
+            onchange={(e: any) => saveWindowEffect(e.target.value)}
+            style="width: 100%"
+          >
+            <md-select-option value="system">
+              <div slot="headline">{m.settings_windowEffect_mica()}</div>
+            </md-select-option>
+            <md-select-option value="acrylic">
+              <div slot="headline">{m.settings_windowEffect_acrylic()}</div>
+            </md-select-option>
+            <md-select-option value="disabled">
+              <div slot="headline">{m.settings_windowEffect_disabled()}</div>
+            </md-select-option>
+          </md-outlined-select>
+        {:else}
+          <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
+            <span class="md3-body-large">{m.settings_windowEffects()}</span>
+            <md-switch
+              selected={(appSettings.window_effect || 'system') !== 'disabled'}
+              onchange={(e: any) => saveWindowEffect(e.target.selected ? 'system' : 'disabled')}
+            ></md-switch>
+          </label>
+        {/if}
+      {/if}
+
       <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
         <span class="md3-body-large">{m.settings_materialYouWallpaper()}</span>
-        <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
           selected={appSettings?.material_you_enabled ?? true}
           onchange={(e: any) => {
@@ -225,7 +263,6 @@ import * as m from '../paraglide/messages';
       </label>
       <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
         <span class="md3-body-large">{m.settings_materialYouTint()}</span>
-        <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch
           selected={appSettings?.material_you_background_tint ?? true}
           disabled={appSettings ? !appSettings.material_you_enabled : false}
@@ -343,7 +380,6 @@ import * as m from '../paraglide/messages';
     <div class="form-stack">          
       <label class="settings-switch-row">
         <span class="md3-body-large">{m.settings_enableCache()}</span>
-        <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
           selected={appSettings?.cache_enabled ?? true}
           onchange={(e: any) => {
@@ -412,7 +448,6 @@ import * as m from '../paraglide/messages';
           </div>
         </div>
         <div style="display: flex; gap: 8px">
-          <!-- svelte-ignore a11y_missing_attribute -->
           <md-filled-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer">
             <MaterialIcon name="code" slot="icon" />
             GitHub

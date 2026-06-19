@@ -6,6 +6,7 @@ import * as m from '../paraglide/messages';
   import { devicesState } from '../context/devices.svelte';
   import { i18n, type Language } from '../context/i18n.svelte';
   import { themeState } from '../context/theme.svelte';
+  import { applyWindowEffectClass, type WindowEffectMode } from '../context/windowEffects';
   
   import DisplayPage from './DisplayPage.svelte';
   import MirroringPage from './MirroringPage.svelte';
@@ -41,7 +42,7 @@ import * as m from '../paraglide/messages';
   });
 
   let tools = $state<ToolsStatus | null>(null);
-  type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; theme: string; language: string };
+  type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string };
   let appSettings = $state<AppSettings | null>(null);
   let defaultCacheDir = $state('');
   let toolUpdatesChecking = $state(false);
@@ -178,6 +179,7 @@ import * as m from '../paraglide/messages';
       appSettings = value;
       themeState.setMaterialYouEnabled(value.material_you_enabled ?? true);
       themeState.setMaterialYouBackgroundTint(value.material_you_background_tint ?? true);
+      applyWindowEffectClass(value);
       defaultCacheDir = defaultDir;
     } catch (error: any) { status = translateError(error); }
   }
@@ -187,6 +189,7 @@ import * as m from '../paraglide/messages';
     appSettings = settings;
     themeState.setMaterialYouEnabled(settings.material_you_enabled ?? true);
     themeState.setMaterialYouBackgroundTint(settings.material_you_background_tint ?? true);
+    applyWindowEffectClass(settings);
     try {
       const oldPath = await invoke<string | null>('save_app_settings', { settings });
       
