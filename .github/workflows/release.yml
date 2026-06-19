@@ -773,7 +773,15 @@ jobs:
               body: newBody,
             });
 
-      - name: Publicar solo latest.json en rama gh-pages
+            // Las firmas ya han sido embebidas en latest.json. No deben quedar visibles como assets del Release.
+            for (const asset of assets) {
+              if (asset.name.toLowerCase().endsWith('.sig')) {
+                core.info(`Eliminando firma del Release: ${asset.name}`);
+                await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
+              }
+            }
+
+      - name: Actualizar latest.json en rama gh-pages
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -797,16 +805,15 @@ jobs:
             cd ..
           fi
 
-          find pages -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp latest.json pages/latest.json
 
           cd pages
-          git add -A
+          git add latest.json
 
           if git diff --cached --quiet; then
             echo "latest.json no ha cambiado."
             exit 0
           fi
 
-          git commit -m "Actualizar latest.json para ${TAG}"
+          git commit -m "Update latest.json for ${TAG}"
           git push --set-upstream origin gh-pages

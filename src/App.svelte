@@ -12,6 +12,15 @@ import * as m from './paraglide/messages';
   import { updateState } from './context/update.svelte';
   import { openUrl } from '@tauri-apps/plugin-opener';
 
+  function updaterStatusLabel() {
+    if (updateState.status === 'downloading') {
+      return updateState.totalBytes ? `${m.updater_status_downloading()} (${updateState.progress}%)` : m.updater_status_downloading();
+    }
+    if (updateState.status === 'installing') return m.updater_status_installing();
+    if (updateState.status === 'restarting') return m.updater_status_restarting();
+    return '';
+  }
+
   onMount(() => {
     // Initialize global singletons
     const cleanupTheme = initThemeEffects();
@@ -70,13 +79,24 @@ import * as m from './paraglide/messages';
             currentVersion: updateState.currentVersion 
           })}
         </p>
+        {#if updaterStatusLabel()}
+          <div style="display: flex; align-items: center; gap: 10px; color: var(--md-sys-color-primary);">
+            <md-circular-progress indeterminate></md-circular-progress>
+            <span>{updaterStatusLabel()}</span>
+          </div>
+        {/if}
+        {#if updateState.error}
+          <p style="margin: 0; color: var(--md-sys-color-error); line-height: 1.5; white-space: pre-wrap;">
+            {m.updater_error({ error: updateState.error })}
+          </p>
+        {/if}
       </div>
       {#snippet actions()}
-        <md-text-button onclick={() => openUrl('https://github.com/kyro206/ADB-App/blob/main/CHANGELOG.md')}>
+        <md-text-button disabled={updateState.busy ? true : undefined} onclick={() => openUrl('https://github.com/kyro206/ADB-App/blob/main/CHANGELOG.md')}>
           {m.updater_changelog()}
         </md-text-button>
-        <md-filled-button onclick={async () => await updateState.install()}>
-          {m.updater_updateNow()}
+        <md-filled-button disabled={updateState.busy ? true : undefined} onclick={async () => await updateState.install()}>
+          {updateState.busy ? m.updater_status_downloading() : m.updater_updateNow()}
         </md-filled-button>
       {/snippet}
     </AppModal>

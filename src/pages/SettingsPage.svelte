@@ -101,6 +101,15 @@ import * as m from '../paraglide/messages';
       onChange(selected);
     }
   }
+
+  function updaterStatusLabel() {
+    if (updateState.status === 'downloading') {
+      return updateState.totalBytes ? `${m.updater_status_downloading()} (${updateState.progress}%)` : m.updater_status_downloading();
+    }
+    if (updateState.status === 'installing') return m.updater_status_installing();
+    if (updateState.status === 'restarting') return m.updater_status_restarting();
+    return '';
+  }
 </script>
 
 <div class="settings-grid">
@@ -115,12 +124,23 @@ import * as m from '../paraglide/messages';
         <span style="font-size: 14px; color: var(--md-sys-color-on-surface-variant)">{m.updater_currentVersion()}: {updateState.currentVersion}</span>
         <span style="font-size: 14px; color: var(--md-sys-color-on-surface-variant)">{m.updater_newVersion()}: <strong style="color: var(--md-sys-color-primary)">{updateState.updateInfo!.version}</strong></span>
       </div>
+      {#if updaterStatusLabel()}
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; color: var(--md-sys-color-primary);">
+          <md-circular-progress indeterminate></md-circular-progress>
+          <span>{updaterStatusLabel()}</span>
+        </div>
+      {/if}
+      {#if updateState.error}
+        <p style="margin: 0 0 16px; color: var(--md-sys-color-error); line-height: 1.5; white-space: pre-wrap;">
+          {m.updater_error({ error: updateState.error })}
+        </p>
+      {/if}
       <div class="button-row" style="justify-content: flex-end;">
-        <md-outlined-button onclick={() => openUrl('https://github.com/kyro206/ADB-App/blob/main/CHANGELOG.md')}>
+        <md-outlined-button disabled={updateState.busy ? true : undefined} onclick={() => openUrl('https://github.com/kyro206/ADB-App/blob/main/CHANGELOG.md')}>
           {m.updater_changelog()}
         </md-outlined-button>
-        <md-filled-button onclick={async () => await updateState.install()}>
-          {m.updater_updateNow()}
+        <md-filled-button disabled={updateState.busy ? true : undefined} onclick={async () => await updateState.install()}>
+          {updateState.busy ? m.updater_status_downloading() : m.updater_updateNow()}
         </md-filled-button>
       </div>
     </section>
