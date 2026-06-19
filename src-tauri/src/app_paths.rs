@@ -27,7 +27,7 @@ pub fn initialize(app: &AppHandle) -> Result<(), String> {
         .path()
         .app_config_dir()
         .map_err(|error| error.to_string())?;
-    
+
     let identifier = app.config().identifier.clone();
 
     let paths = AppPaths {
@@ -38,7 +38,7 @@ pub fn initialize(app: &AppHandle) -> Result<(), String> {
         config,
         identifier,
     };
-    
+
     PATHS
         .set(RwLock::new(paths))
         .map_err(|_| "Las rutas de ADB App ya estaban inicializadas".to_string())
@@ -62,17 +62,41 @@ pub fn update_base_path(custom_parent_path: Option<&str>) {
 }
 
 pub fn data_dir() -> PathBuf {
-    PATHS.get().expect("ADB App paths must be initialized").read().unwrap().current_data.clone()
+    PATHS
+        .get()
+        .expect("ADB App paths must be initialized")
+        .read()
+        .unwrap()
+        .current_data
+        .clone()
 }
 
 pub fn default_data_dir() -> PathBuf {
-    PATHS.get().expect("ADB App paths must be initialized").read().unwrap().default_data.clone()
+    PATHS
+        .get()
+        .expect("ADB App paths must be initialized")
+        .read()
+        .unwrap()
+        .default_data
+        .clone()
 }
 
 pub fn config_dir() -> PathBuf {
-    PATHS.get().expect("ADB App paths must be initialized").read().unwrap().config.clone()
+    PATHS
+        .get()
+        .expect("ADB App paths must be initialized")
+        .read()
+        .unwrap()
+        .config
+        .clone()
 }
 
 pub fn cache_dir() -> PathBuf {
-    PATHS.get().expect("ADB App paths must be initialized").read().unwrap().current_cache.clone()
+    PATHS
+        .get()
+        .expect("ADB App paths must be initialized")
+        .read()
+        .unwrap()
+        .current_cache
+        .clone()
 }

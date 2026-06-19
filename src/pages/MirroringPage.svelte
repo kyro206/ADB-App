@@ -94,7 +94,6 @@ import * as m from '../paraglide/messages';
 </script>
 
 {#snippet Field(label: string, value: string, onValue: (v: string) => void, type = 'text', placeholder = '', disabled = false, actionIcon?: string, onActionClick?: () => void)}
-  <!-- svelte-ignore a11y_missing_attribute -->
   <md-outlined-text-field 
     {label} 
     {type} 
@@ -134,7 +133,6 @@ import * as m from '../paraglide/messages';
   <label class="mirror-material-toggle {disabled ? 'disabled' : ''}">
     <span class="mirror-material-toggle__icon"><MaterialIcon name={icon} filled={checked} /></span>
     <span class="mirror-material-toggle__label">{title}</span>
-    <!-- svelte-ignore a11y_missing_attribute -->
     <md-switch {...(checked ? { selected: true } : {})} {...(disabled ? { disabled: true } : {})} onclick={() => !disabled && onChange(!checked)}></md-switch>
   </label>
 {/snippet}

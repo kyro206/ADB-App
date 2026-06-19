@@ -109,7 +109,10 @@ pub fn parse_battery_health(output: &str) -> String {
     let asoc_re = Regex::new(r"(?im)^\s*mSavedBatteryAsoc:\s*(\d+)").unwrap();
     let health_re = Regex::new(r"(?im)^\s*health:\s*(\d+)").unwrap();
 
-    if let Some(caps) = bsoh_re.captures(output).or_else(|| asoc_re.captures(output)) {
+    if let Some(caps) = bsoh_re
+        .captures(output)
+        .or_else(|| asoc_re.captures(output))
+    {
         if let Ok(val) = caps.get(1).unwrap().as_str().parse::<i32>() {
             if val > 0 && val <= 100 {
                 return format!("{}%", val);
@@ -447,7 +450,7 @@ pub fn build_device_details(
     let dark_mode = parse_dark_mode(dark_mode_output);
     let screen_timeout = parse_screen_off_timeout(screen_timeout_output);
     let device_type = detect_device_type(&properties, features_output);
-    
+
     let uptime_seconds = uptime_output
         .split_whitespace()
         .next()

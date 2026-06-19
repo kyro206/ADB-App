@@ -76,6 +76,7 @@ import * as m from '../paraglide/messages';
     let result = apps;
     if (filter === 'user') result = result.filter(app => !app.system_app);
     if (filter === 'system') result = result.filter(app => app.system_app);
+    if (filter === 'disabled') result = result.filter(app => app.disabled);
     if (appFilter) {
       const lower = appFilter.toLowerCase();
       result = result.filter(app => app.display_name.toLowerCase().includes(lower) || app.package_name.toLowerCase().includes(lower));
@@ -88,12 +89,12 @@ import * as m from '../paraglide/messages';
 
 
 
-  async function refreshApps() {
+  async function refreshApps(forceRefresh = false) {
     if (!serial) return;
     busy = true;
     attemptedMetadata = false;
     try {
-      const value = await invoke<AppSummary[]>('list_apps', { serial });
+      const value = await invoke<AppSummary[]>('list_apps', { serial, forceRefresh });
       apps = value; 
       status = '';
     } catch (error) { 
@@ -274,7 +275,7 @@ import * as m from '../paraglide/messages';
     }));
     
     installingApps = false;
-    await refreshApps();
+    await refreshApps(true);
   }
 
   async function toggleAppEnabled() {
@@ -336,7 +337,7 @@ import * as m from '../paraglide/messages';
         await run(['uninstall', selectedPackage], m.workbench_status_appUninstalled());
         selectedPackage = '';
         appDetails = null;
-        await refreshApps();
+        await refreshApps(true);
       } else {
         await run(['shell', 'pm', 'clear', selectedPackage], m.workbench_status_appDataCleared());
         await refreshAppDetails();
@@ -436,7 +437,7 @@ import * as m from '../paraglide/messages';
           </md-filled-tonal-button>
         {/if}
         
-        <md-icon-button aria-label={m.apps_action_refresh()} title={m.apps_action_refresh()} onclick={refreshApps}>
+        <md-icon-button aria-label={m.apps_action_refresh()} title={m.apps_action_refresh()} onclick={() => refreshApps(true)}>
           <MaterialIcon name="refresh" />
         </md-icon-button>
         <md-filled-icon-button aria-label={m.apps_action_install()} title={m.apps_action_install()} onclick={() => installOpen = true}>
@@ -661,11 +662,10 @@ import * as m from '../paraglide/messages';
                     <strong>{permission.name.split('.').pop()}</strong>
                     <small>{permission.name}</small>
                   </span>
-                  <!-- svelte-ignore a11y_missing_attribute -->
                   <md-switch 
                     selected={permission.granted ? true : undefined} 
                     disabled={!permission.runtime ? true : undefined} 
-                    onclick={() => togglePermission(permission)}
+                    onchange={() => togglePermission(permission)}
                   ></md-switch>
                 </div>
               {/each}
@@ -722,7 +722,7 @@ import * as m from '../paraglide/messages';
 <style>
 :global {
 .apps-material-host {height: 100%;min-height: 0;container-type: inline-size;}.apps-material-page {height: 100%;min-height: 0;display: grid;grid-template-columns: minmax(470px, 1.25fr) minmax(430px, 1fr);gap: 16px;}.apps-material-catalog,.apps-material-detail{min-height:0;overflow:hidden;background:var(--surface-container-low);border:1px solid var(--outline-variant);border-radius:24px}.apps-material-catalog{display:flex;flex-direction:column}.apps-material-toolbar{display:grid;grid-template-columns:minmax(240px,1fr) auto auto auto;align-items:center;gap:8px;padding:14px;border-bottom:1px solid var(--outline-variant)}.apps-material-search{width:100%;--md-outlined-field-container-shape:999px;--md-outlined-field-top-space:8px;--md-outlined-field-bottom-space:8px;--md-outlined-field-content-size:12px;--md-outlined-field-label-text-size:12px}.apps-material-toolbar md-filled-tonal-button{--md-filled-tonal-button-container-shape:999px;white-space:nowrap}.apps-material-toolbar md-icon-button{--md-icon-button-icon-color:var(--on-surface-variant)}
-.apps-material-host .app-icon-frame{display:grid;place-items:center;flex:0 0 62px;width:62px;height:62px;aspect-ratio:1}.apps-material-host .app-icon-frame>img,.apps-material-host .app-icon-frame>.app-fallback{display:grid;width:100%;height:100%;min-width:100%;min-height:100%;place-items:center;border-radius:16px;object-fit:cover}.apps-material-host .app-fallback{display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#2778df,#17458f);font-size:16px;font-weight:800;letter-spacing:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.24)}.apps-material-host .app-fallback.tone-1{background:linear-gradient(145deg,#8b5cf6,#5430ad)}.apps-material-host .app-fallback.tone-2{background:linear-gradient(145deg,#ec4899,#9f245f)}.apps-material-host .app-fallback.tone-3{background:linear-gradient(145deg,#10b981,#087756)}.apps-material-host .app-fallback.tone-4{background:linear-gradient(145deg,#f59e0b,#a65d05)}.apps-material-host .app-fallback.tone-5{background:linear-gradient(145deg,#06b6d4,#08768a)}
+.apps-material-host .app-icon-frame{display:grid;place-items:center;flex:0 0 62px;width:62px;height:62px;aspect-ratio:1}.apps-material-host .app-icon-frame>img,.apps-material-host .app-icon-frame>.app-fallback{display:grid;width:100%;height:100%;min-width:100%;min-height:100%;place-items:center;border-radius:16px;object-fit:cover}.apps-material-host .app-fallback{display:grid;place-items:center;font-size:20px;font-weight:600;letter-spacing:0.5px;background:var(--primary-container);color:var(--on-primary-container)}.apps-material-host .app-fallback.tone-1{background:color-mix(in srgb,#9333ea 20%,var(--surface-container-highest));color:color-mix(in srgb,#9333ea 80%,var(--on-surface))}.apps-material-host .app-fallback.tone-2{background:color-mix(in srgb,#e11d48 20%,var(--surface-container-highest));color:color-mix(in srgb,#e11d48 80%,var(--on-surface))}.apps-material-host .app-fallback.tone-3{background:color-mix(in srgb,#059669 20%,var(--surface-container-highest));color:color-mix(in srgb,#059669 80%,var(--on-surface))}.apps-material-host .app-fallback.tone-4{background:color-mix(in srgb,#d97706 20%,var(--surface-container-highest));color:color-mix(in srgb,#d97706 80%,var(--on-surface))}.apps-material-host .app-fallback.tone-5{background:color-mix(in srgb,#0284c7 20%,var(--surface-container-highest));color:color-mix(in srgb,#0284c7 80%,var(--on-surface))}
 .apps-material-filters{display:flex;gap:5px;overflow:auto;padding:10px 14px;border-bottom:1px solid var(--outline-variant);scrollbar-width:none}.apps-material-filters::-webkit-scrollbar{display:none}.apps-material-filters button{position:relative;display:flex;height:36px;align-items:center;gap:6px;padding:0 11px;overflow:hidden;color:var(--on-surface-variant);background:transparent;border:0;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}.apps-material-filters button:hover{background:var(--surface-container-high)}.apps-material-filters button.active{color:var(--on-primary-container);background:var(--primary-container)}.apps-material-filters :global(.material-symbols-rounded){font-size:17px}.apps-material-filters strong{display:grid;min-width:20px;height:20px;place-items:center;padding:0 5px;background:color-mix(in srgb,currentColor 10%,transparent);border-radius:999px;font-size:9px}
 .apps-material-grid{display:grid;flex:1;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));grid-auto-rows:190px;align-content:start;gap:10px;overflow:auto;padding:12px}.apps-material-tile{position:relative;display:flex;min-width:0;flex-direction:column;align-items:center;gap:8px;padding:16px 11px 11px;overflow:hidden;color:var(--on-surface);background:var(--surface-container);border:1px solid transparent;border-radius:20px;text-align:center;transition:background-color var(--transition-fast),border-color var(--transition-fast);content-visibility:auto;contain-intrinsic-size:155px 190px;}.apps-material-tile:hover{background:var(--surface-container-high)}.apps-material-tile.selected{color:var(--on-primary-container);background:var(--primary-container);border-color:var(--primary)}.apps-material-tile .app-icon-frame{width:68px;height:68px;flex-basis:68px}.apps-material-tile .app-icon-frame>img,.apps-material-tile .app-fallback{border-radius:18px}.apps-material-tile__copy{display:block;width:100%;min-width:0}.apps-material-tile__copy strong,.apps-material-tile__copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.apps-material-tile__copy strong{font-size:14px}.apps-material-tile__copy small{margin-top:3px;color:var(--on-surface-variant);font-size:11px}.apps-material-status-icon {display: grid;place-items: center;width: 28px;height: 28px;background: var(--surface-container-highest);color: var(--on-surface-variant);border-radius: 50%;}
 .apps-material-status-icon :global(.material-symbols-rounded) {font-size: 16px;}.apps-material-status-icon.disabled {color: var(--error);background: color-mix(in srgb, var(--error) 12%, transparent);}.apps-material-tile .apps-material-status-icon {position: absolute;top: 10px;right: 10px;}.apps-material-detail__hero .apps-material-status-icon {margin-top: 6px;}

@@ -1,11 +1,10 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 use regex::Regex;
 use serde::Serialize;
-
-
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolStatus {
@@ -27,7 +26,30 @@ pub struct ToolsStatus {
     pub java: ToolStatus,
 }
 
+static TOOLS_STATUS_CACHE: OnceLock<Mutex<Option<ToolsStatus>>> = OnceLock::new();
+static TOOLS_UPDATES_CACHE: OnceLock<Mutex<Option<ToolsStatus>>> = OnceLock::new();
+static TOOLS_UPDATES_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
+fn cached_status() -> &'static Mutex<Option<ToolsStatus>> {
+    TOOLS_STATUS_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+fn cached_updates() -> &'static Mutex<Option<ToolsStatus>> {
+    TOOLS_UPDATES_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+fn updates_lock() -> &'static tokio::sync::Mutex<()> {
+    TOOLS_UPDATES_LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
+pub fn invalidate_tools_cache() {
+    if let Ok(mut cache) = cached_status().lock() {
+        *cache = None;
+    }
+    if let Ok(mut cache) = cached_updates().lock() {
+        *cache = None;
+    }
+}
 
 pub(crate) fn managed_dir(tool: &str) -> PathBuf {
     crate::app_paths::data_dir()
@@ -68,6 +90,7 @@ pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
         _ => return Err(format!("Unknown tool: {tool}")),
     }
     crate::commands::operations::write_settings_sync(&config)?;
+    invalidate_tools_cache();
     Ok(tools_status())
 }
 
@@ -159,9 +182,7 @@ fn common_directories(tool: &str) -> Vec<PathBuf> {
     #[cfg(target_os = "linux")]
     {
         if tool == "java" {
-            dirs.extend(vec![
-                PathBuf::from("/usr/lib/jvm"),
-            ]);
+            dirs.extend(vec![PathBuf::from("/usr/lib/jvm")]);
         } else if tool == "adb" {
             if let Ok(home) = env::var("HOME") {
                 dirs.push(PathBuf::from(home).join("Android/Sdk/platform-tools"));
@@ -223,9 +244,12 @@ fn tool_from_windows_registry(tool: &str) -> Option<PathBuf> {
 fn detect_tool_path(tool: &str) -> Option<PathBuf> {
     let env_candidate = match tool {
         "java" => env::var("JAVA_HOME").ok(),
-        "adb" => env::var("ANDROID_HOME")
-            .ok()
-            .map(|p| PathBuf::from(p).join("platform-tools").to_string_lossy().to_string()),
+        "adb" => env::var("ANDROID_HOME").ok().map(|p| {
+            PathBuf::from(p)
+                .join("platform-tools")
+                .to_string_lossy()
+                .to_string()
+        }),
         _ => None,
     };
 
@@ -255,14 +279,19 @@ fn detect_tool_path(tool: &str) -> Option<PathBuf> {
                     if tool == "java" {
                         if let Some(path) = normalize_candidate(
                             tool,
-                            candidate_path.join("Contents/Home").to_string_lossy().as_ref(),
+                            candidate_path
+                                .join("Contents/Home")
+                                .to_string_lossy()
+                                .as_ref(),
                         ) {
                             return Some(path);
                         }
                     }
                 }
 
-                if let Some(path) = normalize_candidate(tool, candidate_path.to_string_lossy().as_ref()) {
+                if let Some(path) =
+                    normalize_candidate(tool, candidate_path.to_string_lossy().as_ref())
+                {
                     return Some(path);
                 }
             }
@@ -382,11 +411,23 @@ fn status_for(tool: &str) -> ToolStatus {
 }
 
 pub fn tools_status() -> ToolsStatus {
-    ToolsStatus {
+    if let Ok(cache) = cached_status().lock() {
+        if let Some(status) = cache.clone() {
+            return status;
+        }
+    }
+
+    let status = ToolsStatus {
         adb: status_for("adb"),
         scrcpy: status_for("scrcpy"),
         java: status_for("java"),
+    };
+
+    if let Ok(mut cache) = cached_status().lock() {
+        *cache = Some(status.clone());
     }
+
+    status
 }
 
 fn numeric_version(value: &str) -> Vec<u64> {
@@ -461,15 +502,26 @@ fn update_available(_tool: &str, latest: &str, installed: &str) -> bool {
 }
 
 pub async fn tools_status_with_updates() -> ToolsStatus {
+    if let Ok(cache) = cached_updates().lock() {
+        if let Some(status) = cache.clone() {
+            return status;
+        }
+    }
+
+    let _guard = updates_lock().lock().await;
+    if let Ok(cache) = cached_updates().lock() {
+        if let Some(status) = cache.clone() {
+            return status;
+        }
+    }
+
     let mut status = tools_status();
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(12))
         .build()
         .unwrap_or_default();
-    let (adb_latest, scrcpy_latest) = tokio::join!(
-        latest_adb_version(&client),
-        latest_scrcpy_version(&client),
-    );
+    let (adb_latest, scrcpy_latest) =
+        tokio::join!(latest_adb_version(&client), latest_scrcpy_version(&client),);
     if let Ok(latest) = adb_latest {
         status.adb.update_checked = true;
         status.adb.update_available =
@@ -481,6 +533,9 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
         status.scrcpy.update_available =
             status.scrcpy.available && update_available("scrcpy", &latest, &status.scrcpy.version);
         status.scrcpy.latest_version = latest;
+    }
+    if let Ok(mut cache) = cached_updates().lock() {
+        *cache = Some(status.clone());
     }
     status
 }
@@ -494,15 +549,13 @@ pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
         _ => {}
     }
     crate::commands::operations::write_settings_sync(&config)?;
+    invalidate_tools_cache();
     Ok(tools_status())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        adb_platform_tools_version,
-        is_newer_version,
-    };
+    use super::{adb_platform_tools_version, is_newer_version};
 
     #[test]
     fn compares_tool_versions_numerically() {
@@ -520,5 +573,4 @@ mod tests {
             Some("37.0.0")
         );
     }
-
 }

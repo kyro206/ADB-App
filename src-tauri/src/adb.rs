@@ -1,9 +1,9 @@
 use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::AsyncReadExt;
-use tokio::time::timeout;
 use tauri::Emitter;
+use tokio::io::AsyncReadExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::time::timeout;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -141,8 +141,8 @@ pub async fn start_device_tracker(app: tauri::AppHandle) {
 
         let mut cmd = crate::process::tokio_command(path.to_string_lossy().as_ref());
         cmd.arg("track-devices")
-           .stdout(Stdio::piped())
-           .stderr(Stdio::piped());
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         if let Ok(mut child) = cmd.spawn() {
             if let Some(stdout) = child.stdout.take() {
@@ -153,7 +153,7 @@ pub async fn start_device_tracker(app: tauri::AppHandle) {
             }
             let _ = child.wait().await;
         }
-        
+
         tokio::time::sleep(Duration::from_secs(2)).await;
     }
 }

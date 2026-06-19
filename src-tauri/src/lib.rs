@@ -20,37 +20,43 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 crate::adb::start_device_tracker(app_handle).await;
             });
+            tauri::async_runtime::spawn(async {
+                let _ = crate::tools::tools_status_with_updates().await;
+            });
             let settings = crate::commands::operations::read_settings();
-            crate::app_paths::update_base_path(
-                if !settings.cache_path.trim().is_empty() {
-                    Some(&settings.cache_path)
-                } else {
-                    None
-                }
-            );
+            crate::app_paths::update_base_path(if !settings.cache_path.trim().is_empty() {
+                Some(&settings.cache_path)
+            } else {
+                None
+            });
 
-            let settings_json = serde_json::to_string(&settings).unwrap_or_else(|_| "{}".to_string());
+            let settings_json =
+                serde_json::to_string(&settings).unwrap_or_else(|_| "{}".to_string());
             let init_script = format!("window.__APP_SETTINGS__ = {};", settings_json);
 
             #[allow(unused_mut)]
-            let mut builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-                .title("ADB App")
-                .inner_size(1180.0, 760.0)
-                .min_inner_size(920.0, 620.0)
-                .data_directory(crate::app_paths::data_dir())
-                .initialization_script(&init_script);
+            let mut builder = tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("ADB App")
+            .inner_size(1180.0, 760.0)
+            .min_inner_size(920.0, 620.0)
+            .data_directory(crate::app_paths::data_dir())
+            .initialization_script(&init_script);
 
             #[cfg(target_os = "macos")]
             {
-                builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay)
-                                 .hidden_title(true)
-                                 .transparent(true);
+                builder = builder
+                    .title_bar_style(tauri::TitleBarStyle::Overlay)
+                    .hidden_title(true)
+                    .transparent(true);
             }
 
             #[cfg(not(target_os = "macos"))]
             {
-                builder = builder.transparent(true)
-                                 .decorations(false);
+                builder = builder.transparent(true).decorations(false);
             }
 
             let window = builder.build().map_err(|e| e.to_string())?;

@@ -196,7 +196,6 @@ import * as m from '../paraglide/messages';
         <h3>{m.control_orientation_title()}</h3>
         <label class="md3-switch-container">
           <span>{m.control_orientation_auto()}</span>
-          <!-- svelte-ignore a11y_missing_attribute -->
           <md-switch
             selected={rotationAuto ? true : undefined}
             onchange={async (event: any) => {

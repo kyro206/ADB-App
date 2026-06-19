@@ -13,7 +13,9 @@ impl From<String> for AppError {
 
 impl From<&str> for AppError {
     fn from(error: &str) -> Self {
-        Self { message: error.to_string() }
+        Self {
+            message: error.to_string(),
+        }
     }
 }
 

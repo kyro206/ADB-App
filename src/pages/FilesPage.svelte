@@ -531,6 +531,7 @@
   };
   
   let pathParts = $derived(path.split('/').filter(Boolean));
+  let hasTransferJobs = $derived(transferJobs.length > 0);
   
   function changeFileSort(key: FileSortKey) {
     fileSort = fileSort.key === key
@@ -604,16 +605,16 @@
   {/if}
   <section class="file-material-toolbar">
     <div class="file-navigation">
-      <md-icon-button aria-label={m.files_nav_back()} title={m.files_nav_back()} disabled={fileHistoryIndex <= 0 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex - 1)}>
+      <md-icon-button class="file-back-button" aria-label={m.files_nav_back()} title={m.files_nav_back()} disabled={fileHistoryIndex <= 0 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex - 1)}>
         <MaterialIcon name="arrow_back" />
       </md-icon-button>
-      <md-icon-button aria-label={m.files_nav_forward()} title={m.files_nav_forward()} disabled={fileHistoryIndex >= fileHistory.length - 1 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex + 1)}>
+      <md-icon-button class="file-forward-button" aria-label={m.files_nav_forward()} title={m.files_nav_forward()} disabled={fileHistoryIndex >= fileHistory.length - 1 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex + 1)}>
         <MaterialIcon name="arrow_forward" />
       </md-icon-button>
-      <md-icon-button aria-label={m.files_nav_up()} title={m.files_nav_up()} disabled={path === '/' ? true : undefined} onclick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}>
+      <md-icon-button class="file-up-button" aria-label={m.files_nav_up()} title={m.files_nav_up()} disabled={path === '/' ? true : undefined} onclick={() => refreshFiles(path.substring(0, path.lastIndexOf('/')) || '/', true)}>
         <MaterialIcon name="arrow_upward" />
       </md-icon-button>
-      <md-icon-button aria-label={m.files_nav_refresh()} title={m.files_nav_refresh()} onclick={() => refreshFiles()}>
+      <md-icon-button class="file-refresh-button" aria-label={m.files_nav_refresh()} title={m.files_nav_refresh()} onclick={() => refreshFiles()}>
         <MaterialIcon name="refresh" />
       </md-icon-button>
     </div>
@@ -671,13 +672,15 @@
       <button class={fileView === 'grid' ? 'active' : ''} aria-label={m.files_view_grid()} title={m.files_view_grid()} onclick={() => fileView = 'grid'}>
         <MaterialIcon name="grid_view" />
       </button>
-      <div style="width: 1px; background: var(--md-sys-color-outline-variant); margin: 4px 8px"></div>
-      <button class={transfersOpen ? 'active' : ''} onclick={() => transfersOpen = !transfersOpen} title={m.transfers_title()} style="position: relative">
-        <MaterialIcon name="swap_vert" />
-        {#if transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) || transferJobs.some(j => j.status === 'transferring' || j.status === 'idle')}
-          <span class="transfer-badge {transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) ? 'error' : ''}"></span>
-        {/if}
-      </button>
+      {#if hasTransferJobs}
+        <div style="width: 1px; background: var(--md-sys-color-outline-variant); margin: 4px 8px"></div>
+        <button class={transfersOpen ? 'active' : ''} onclick={() => transfersOpen = !transfersOpen} title={m.transfers_title()} style="position: relative">
+          <MaterialIcon name="swap_vert" />
+          {#if transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) || transferJobs.some(j => j.status === 'transferring' || j.status === 'idle')}
+            <span class="transfer-badge {transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) ? 'error' : ''}"></span>
+          {/if}
+        </button>
+      {/if}
     </div>
   </section>
   
@@ -687,7 +690,7 @@
         <MaterialIcon slot="icon" name="create_new_folder" />
         {m.files_action_newFolder()}
       </md-filled-tonal-button>
-      <md-filled-button onclick={uploadFiles}>
+      <md-filled-button class="file-command-upload" onclick={uploadFiles}>
         <MaterialIcon slot="icon" name="upload" />
         {m.files_action_upload()}
       </md-filled-button>
@@ -1116,15 +1119,18 @@
 .file-status-bar :global(.material-symbols-rounded){font-size:15px}
 
 @media(max-width:1200px){
-  .file-material-toolbar{grid-template-columns:auto minmax(220px,1fr) auto}
-  .file-search{grid-column:2/3}
-  .file-view-switch{grid-column:3;grid-row:1}
+  .file-material-toolbar{grid-template-columns:auto auto minmax(0,1fr) auto;gap:8px;padding:10px}
+  .file-navigation{display:grid;grid-column:1/3;grid-row:1/3;grid-template-columns:repeat(2,40px);grid-template-rows:repeat(2,40px);align-self:start;border-radius:18px}
+  .file-navigation md-icon-button{width:40px;height:40px}
+  .file-back-button{grid-column:1;grid-row:1}
+  .file-forward-button{grid-column:2;grid-row:1}
+  .file-up-button{grid-column:1;grid-row:2}
+  .file-refresh-button{grid-column:2;grid-row:2}
+  .file-address{grid-column:3/-1;grid-row:1;min-width:0}
+  .file-search{grid-column:3;grid-row:2}
+  .file-view-switch{grid-column:4;grid-row:2;justify-self:end}
 }
 @media(max-width:780px){
-  .file-material-toolbar{grid-template-columns:1fr auto}
-  .file-navigation{grid-column:1}
-  .file-view-switch{grid-column:2}
-  .file-address,.file-search{grid-column:1/-1}
   .file-primary-actions>*{flex:0 0 auto}
   .file-selection-actions>span{margin-right:auto}
   .file-grid-view{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px}
@@ -1133,7 +1139,7 @@
   .file-grid-view{grid-template-columns:1fr}
   .file-primary-actions{display:grid;grid-template-columns:1fr}
   .file-selection-actions>span{width:100%;max-width:none}
-  .file-navigation{justify-content:space-between}
+  .file-navigation md-icon-button{width:36px;height:36px}
 }
 
 .transfer-badge {

@@ -113,7 +113,7 @@ import * as m from '../paraglide/messages';
     if (!serial) return;
     if (mirrorApps.length === 0) {
       try {
-        const value = await invoke<AppSummary[]>('list_apps', { serial });
+        const value = await invoke<AppSummary[]>('list_apps', { serial, forceRefresh: false });
         mirrorApps = value.filter(app => !app.system_app);
       } catch { mirrorApps = []; }
     }
@@ -165,6 +165,9 @@ import * as m from '../paraglide/messages';
       toolUpdatesChecking = true;
       const updated = await invoke<ToolsStatus>('check_tool_updates');
       tools = updated;
+      adbPath = updated.adb.path;
+      scrcpyPath = updated.scrcpy.path;
+      javaPath = updated.java.path;
     } catch (error: any) { 
       status = translateError(error); 
     } finally { 
@@ -231,7 +234,6 @@ import * as m from '../paraglide/messages';
       javaPath = value.java.path;
       status = m.workbench_status_toolPathSaved({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
-      await refreshTools();
     } catch (error: any) { 
       status = translateError(error); 
     } finally { 
@@ -250,7 +252,6 @@ import * as m from '../paraglide/messages';
       javaPath = value.java.path;
       status = m.workbench_status_toolInstalled({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
-      await refreshTools();
     } catch (error: any) { 
       status = translateError(error); 
     } finally { 
@@ -259,11 +260,7 @@ import * as m from '../paraglide/messages';
   }
 
   $effect(() => {
-    if (tab === 'settings') {
-      if (!tools && !busy) refreshTools();
-    }
     if (tab === 'mirroring') {
-      if (!tools && !busy) refreshTools();
       refreshMirrorData();
     }
     serial; // Re-run when serial changes
@@ -271,6 +268,7 @@ import * as m from '../paraglide/messages';
 
   onMount(() => {
     refreshSettings();
+    refreshTools();
   });
 
   $effect(() => {
@@ -400,7 +398,7 @@ import * as m from '../paraglide/messages';
     </div>
   {/if}
 
-  {#if mountedTabs.has('apps')}
+  {#if tab === 'apps'}
     <div style="display: {tab === 'apps' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={tab === 'apps' && busy}>
         {#if serial}
@@ -410,7 +408,7 @@ import * as m from '../paraglide/messages';
     </div>
   {/if}
 
-  {#if mountedTabs.has('files')}
+  {#if tab === 'files'}
     <div style="display: {tab === 'files' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}
@@ -420,7 +418,7 @@ import * as m from '../paraglide/messages';
     </div>
   {/if}
 
-  {#if mountedTabs.has('system')}
+  {#if tab === 'system'}
     <div style="display: {tab === 'system' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}

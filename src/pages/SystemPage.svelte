@@ -154,7 +154,6 @@ import * as m from '../paraglide/messages';
           <strong>{m.system_settings_appLang()}</strong>
           <p>{m.system_settings_appLangDesc()}</p>
         </div>
-        <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
           selected={systemState?.app_languages_enabled ?? false}
           onclick={() => applySystemAction(
@@ -169,7 +168,6 @@ import * as m from '../paraglide/messages';
           <strong>{m.system_settings_gestures()}</strong>
           <p>{m.system_settings_gesturesDesc()}</p>
         </div>
-        <!-- svelte-ignore a11y_missing_attribute -->
         <md-switch 
           selected={systemState?.gestural_navigation ?? false}
           onclick={() => applySystemAction(

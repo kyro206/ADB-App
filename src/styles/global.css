@@ -5,16 +5,28 @@
 
 /* Keep Material Web hosts untouched; their spacing is part of the component. */
 *,
-*::before,*::after {
+*::before,
+*::after {
   box-sizing: border-box;
   transition: background-color 150ms ease, background 150ms ease, border-color 150ms ease, color 150ms ease, fill 150ms ease;
 }
 
-h1,h2,h3,h4,p,ul,ol,dl,dd,figure {
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
   margin: 0;
 }
 
-html,body,#root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
   overflow: hidden;
@@ -107,7 +119,8 @@ button[data-material-web="true"]:hover:not(:disabled) {
   box-shadow: none;
 }
 
-button.primary>md-ripple,.mirror-launch>md-ripple {
+button.primary>md-ripple,
+.mirror-launch>md-ripple {
   --md-ripple-hover-color: var(--on-primary);
   --md-ripple-pressed-color: var(--on-primary);
 }
@@ -119,7 +132,9 @@ button:disabled {
 
 
 /* Input base */
-input,select,textarea {
+input,
+select,
+textarea {
   font-family: inherit;
   font-size: inherit;
   color: var(--text-primary);
@@ -130,7 +145,9 @@ input,select,textarea {
   transition: border-color var(--transition-fast);
 }
 
-input:focus,select:focus,textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   border-color: var(--action-bg);
   outline: none;
   box-shadow: inset 0 -2px var(--primary);
@@ -158,7 +175,12 @@ input:focus,select:focus,textarea:focus {
 }
 
 /* Mica/Vibrancy Effect (Windows) and native Vibrancy composition (macOS) */
-html.platform-windows.window-effect-enabled,html.platform-windows.window-effect-enabled body,html.platform-windows.window-effect-enabled #root,html.platform-macos.window-effect-enabled,html.platform-macos.window-effect-enabled body,html.platform-macos.window-effect-enabled #root {
+html.platform-windows.window-effect-enabled,
+html.platform-windows.window-effect-enabled body,
+html.platform-windows.window-effect-enabled #root,
+html.platform-macos.window-effect-enabled,
+html.platform-macos.window-effect-enabled body,
+html.platform-macos.window-effect-enabled #root {
   background: transparent !important;
 }
 
@@ -167,7 +189,9 @@ html.platform-windows.window-effect-enabled .app-layout__body,
 html.platform-windows.window-effect-enabled .topbar,
 html.platform-windows.window-effect-enabled .sidebar,
 html.platform-macos.window-effect-enabled .app-layout,
-html.platform-macos.window-effect-enabled .app-layout__body,html.platform-macos.window-effect-enabled .topbar,html.platform-macos.window-effect-enabled .sidebar {
+html.platform-macos.window-effect-enabled .app-layout__body,
+html.platform-macos.window-effect-enabled .topbar,
+html.platform-macos.window-effect-enabled .sidebar {
   background: transparent !important;
 }
 
@@ -194,10 +218,8 @@ html.window-effect-enabled .app-layout__content {
 }
 
 html.platform-windows.window-effect-acrylic .app-layout__body::before {
-  background: light-dark(
-    color-mix(in srgb, #fff 52%, transparent),
-    color-mix(in srgb, #08090a 56%, transparent)
-  );
+  background: light-dark(color-mix(in srgb, #fff 52%, transparent),
+      color-mix(in srgb, #08090a 56%, transparent));
 }
 
 html.platform-windows.window-effect-mica .app-layout__body::before,
@@ -222,18 +244,14 @@ html.platform-windows.window-effect-enabled .app-layout__content {
 }
 
 html.platform-windows.window-effect-acrylic .app-layout__content {
-  background: light-dark(
-    color-mix(in srgb, #fff 90%, transparent),
-    color-mix(in srgb, #08090a 88%, transparent)
-  ) !important;
+  background: light-dark(color-mix(in srgb, #fff 90%, transparent),
+      color-mix(in srgb, #08090a 88%, transparent)) !important;
 }
 
 html.platform-windows.window-effect-acrylic .topbar,
 html.platform-windows.window-effect-acrylic .sidebar {
-  background: light-dark(
-    color-mix(in srgb, #fff 58%, transparent),
-    color-mix(in srgb, #08090a 62%, transparent)
-  ) !important;
+  background: light-dark(color-mix(in srgb, #fff 58%, transparent),
+      color-mix(in srgb, #08090a 62%, transparent)) !important;
 }
 
 html.platform-windows.window-effect-mica .app-layout__content {
@@ -274,10 +292,8 @@ html.platform-windows.window-effect-acrylic .topbar-device-picker__field,
 html.platform-windows.window-effect-acrylic .topbar__tcpip,
 html.platform-windows.window-effect-acrylic .topbar__wireless,
 html.platform-windows.window-effect-acrylic .topbar__action-btn {
-  background: light-dark(
-    color-mix(in srgb, #fff 72%, transparent),
-    color-mix(in srgb, #111315 74%, transparent)
-  );
+  background: light-dark(color-mix(in srgb, #fff 72%, transparent),
+      color-mix(in srgb, #111315 74%, transparent));
 }
 
 html.platform-macos .topbar__device-section,

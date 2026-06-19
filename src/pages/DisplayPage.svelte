@@ -60,7 +60,6 @@ import * as m from '../paraglide/messages';
 {/snippet}
 
 {#snippet Field(label: string, value: number, min: number, suffix: string, onValue: (value: number) => void)}
-  <!-- svelte-ignore a11y_missing_attribute -->
   <md-outlined-text-field 
     label={label} 
     type="number" 
@@ -102,8 +101,6 @@ import * as m from '../paraglide/messages';
     {/snippet}
     {@render EditCard("timer", m.display_edit_timeout(), timeoutChildren)}
 
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <article class="display-dark-card {darkMode ? 'active' : ''} {darkModeLoading ? 'loading' : ''}">
       <span class="display-dark-card__icon">
         <MaterialIcon name={darkMode ? 'dark_mode' : 'light_mode'} filled />
@@ -114,7 +111,6 @@ import * as m from '../paraglide/messages';
           {darkModeLoading ? m.display_dark_changing() : darkMode ? m.display_dark_on() : m.display_dark_off()}
         </strong>
       </div>
-      <!-- svelte-ignore a11y_missing_attribute -->
       <md-switch 
         selected={darkMode} 
         disabled={!details || darkModeLoading} 

@@ -52,7 +52,7 @@ fn tool_asset(
                 }
                 _ => {
                     return Err(
-                        "ADB does not provide Platform Tools for this operating system".to_string()
+                        "ADB does not provide Platform Tools for this operating system".to_string(),
                     )
                 }
             }
@@ -67,7 +67,8 @@ fn tool_asset(
                 ("macos", "aarch64") => ("scrcpy-macos-aarch64-", ArchiveKind::TarGz),
                 _ => {
                     return Err(
-                        "scrcpy does not publish a binary compatible with this computer".to_string()
+                        "scrcpy does not publish a binary compatible with this computer"
+                            .to_string(),
                     )
                 }
             };
@@ -172,7 +173,11 @@ pub fn install_tool(tool: &str) -> Result<(), String> {
         .join("dependency-install")
         .join(tool);
     remove_dir(&staging)?;
-    extract(&download_bytes(&client, &url)?, kind, &staging)?;
+    {
+        let archive = download_bytes(&client, &url)?;
+        extract(&archive, kind, &staging)?;
+        drop(archive);
+    }
     let executable = find_file(&staging, &executable_name(tool))
         .ok_or_else(|| format!("The download does not contain {}", executable_name(tool)))?;
     let extracted_root = if tool == "adb" {
@@ -237,6 +242,10 @@ pub fn ensure_bundletool() -> Result<PathBuf, String> {
             })
         })
         .ok_or_else(|| "Could not find bundletool".to_string())?;
-    fs::write(&jar, download_bytes(&client, &url)?).map_err(|error| error.to_string())?;
+    {
+        let archive = download_bytes(&client, &url)?;
+        fs::write(&jar, &archive).map_err(|error| error.to_string())?;
+        drop(archive);
+    }
     Ok(jar)
 }
