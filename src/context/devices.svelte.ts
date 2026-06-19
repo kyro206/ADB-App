@@ -44,12 +44,21 @@ export interface DeviceDetails {
   uptime_seconds: number;
 }
 
+export interface MockHomeDetails {
+  deviceName: string;
+  carrier: string;
+  lockscreenDate: string;
+  lockscreenTime: Date;
+}
+
 class DeviceState {
   devices = $state.raw<Device[]>([]);
   selectedDevice = $state.raw<Device | null>(null);
   deviceDetails = $state.raw<DeviceDetails | null>(null);
   loading = $state(false);
   error = $state<string | null>(null);
+  mockMode = $state(false);
+  mockHomeDetails = $state.raw<MockHomeDetails | null>(null);
 
   wallpaperImage = $state.raw<string | null>(null);
   screenshot = $state.raw<string | null>(null);
@@ -63,6 +72,7 @@ class DeviceState {
 
   async init() {
     if (this.#unlisten) return;
+    if (await this.#enableMockIfRequested()) return;
     this.refreshDevices();
     this.#unlisten = await listen('device-list-changed', () => {
       this.refreshDevices();
@@ -75,6 +85,10 @@ class DeviceState {
   }
 
   async refreshDevices(targetSerialToSelect?: string) {
+    if (this.mockMode) {
+      if (targetSerialToSelect && this.selectedDevice?.serial !== targetSerialToSelect) return;
+      return;
+    }
     if (this.#loadingInternally) return;
     this.#loadingInternally = true;
     this.loading = true;
@@ -155,6 +169,7 @@ class DeviceState {
   }
 
   async refreshDeviceDetailsSilent() {
+    if (this.mockMode) return;
     if (!this.selectedDevice || this.selectedDevice.state !== 'device') return;
     const serial = this.selectedDevice.serial;
     const requestId = ++this.#detailsRequestId;
@@ -169,6 +184,7 @@ class DeviceState {
   }
 
   async selectDevice(serial: string) {
+    if (this.mockMode) return;
     const device = this.devices.find(d => d.serial === serial);
     if (!device) return;
 
@@ -198,6 +214,7 @@ class DeviceState {
   }
 
   async loadWallpaper(serial: string) {
+    if (this.mockMode) return;
     if (!serial || this.selectedDevice?.serial !== serial) return;
     if (this.wallpaperImage || (this.wallpaperLoading && this.#wallpaperSerial === serial)) return;
 
@@ -220,6 +237,29 @@ class DeviceState {
         this.#wallpaperSerial = null;
       }
     }
+  }
+
+  async #enableMockIfRequested() {
+    if (!import.meta.env.DEV || import.meta.env.VITE_ADB_APP_MOCK_DEVICE !== 'pixel10') return false;
+
+    try {
+      const { createPixel10MockState } = await import('../dev/deviceMock');
+      const mock = createPixel10MockState();
+      this.mockMode = true;
+      this.devices = mock.devices;
+      this.selectedDevice = mock.selectedDevice;
+      this.deviceDetails = mock.deviceDetails;
+      this.wallpaperImage = mock.wallpaperImage;
+      this.mockHomeDetails = mock.homeDetails;
+      this.screenshot = null;
+      this.wallpaperLoading = false;
+      this.loading = false;
+      this.error = null;
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : String(error);
+    }
+
+    return true;
   }
 }
 

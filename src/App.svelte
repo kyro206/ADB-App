@@ -28,11 +28,12 @@ import * as m from './paraglide/messages';
     updateState.init();
 
     const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
+        e.preventDefault();
     };
     
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
+        e.key === 'F12' ||
         e.key === 'F5' || 
         e.key === 'F3' ||
         e.key === 'F7' ||
@@ -43,7 +44,9 @@ import * as m from './paraglide/messages';
         ((e.ctrlKey || e.metaKey) && e.key === 'p') ||
         ((e.ctrlKey || e.metaKey) && e.key === 'P')
       ) {
-        e.preventDefault();
+        if (import.meta.env.PROD) {
+          e.preventDefault();
+        }
       }
     };
 

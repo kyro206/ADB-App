@@ -43,3 +43,6 @@ DS_Store
 Thumbs.db
 debug.log
 TODO.md
+
+#mock
+public/mock*

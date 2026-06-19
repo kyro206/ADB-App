@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "paraglide-js compile --project ./project.inlang && vite",
+    "dev:mock": "paraglide-js compile --project ./project.inlang && vite --mode mock",
+    "tauri:mock": "tauri dev --config src-tauri/tauri.mock.conf.json",
     "build": "paraglide-js compile --project ./project.inlang && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"

@@ -1893,3 +1893,10 @@ pub async fn get_home_details(serial: String) -> Result<HomeDetails, String> {
         carrier,
     })
 }
+
+#[tauri::command]
+pub fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.open_devtools();
+    Ok(())
+}
+

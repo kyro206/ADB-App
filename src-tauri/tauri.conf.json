@@ -24,9 +24,8 @@
     }
   },
   "bundle": {
-    "createUpdaterArtifacts": true,
     "active": true,
-    "targets": ["msi", "nsis", "dmg", "app", "deb", "rpm", "appimage"],
+    "targets": ["nsis", "dmg", "app", "deb", "rpm", "appimage"],
     "category": "DeveloperTool",
     "publisher": "kyro206",
     "shortDescription": "Visual manager for the Android Debug Bridge (ADB).",

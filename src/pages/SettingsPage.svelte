@@ -8,6 +8,7 @@ import * as m from '../paraglide/messages';
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getVersion, getName } from '@tauri-apps/api/app';
+  import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import type { ToolStatus, ToolsStatus } from './workbench/types';
@@ -67,6 +68,21 @@ import * as m from '../paraglide/messages';
     { name: 'Svelte', url: 'https://github.com/sveltejs/svelte', licenseType: 'MIT License', licenseText: MIT_LICENSE },
     { name: 'Android Logo', url: 'https://creativecommons.org/licenses/by/3.0/', licenseType: 'CC BY 3.0', licenseText: ANDROID_LOGO_LICENSE }
   ];
+
+  let devtoolsClicks = 0;
+  let devtoolsTimeout: ReturnType<typeof setTimeout>;
+
+  function handleLogoClick() {
+    devtoolsClicks++;
+    if (devtoolsClicks >= 5) {
+      devtoolsClicks = 0;
+      invoke('open_devtools').catch(console.error);
+    }
+    clearTimeout(devtoolsTimeout);
+    devtoolsTimeout = setTimeout(() => {
+      devtoolsClicks = 0;
+    }, 1000);
+  }
 
   onMount(() => {
     getVersion().then(v => appVersion = v).catch(() => appVersion = 'Unknown');
@@ -387,7 +403,9 @@ import * as m from '../paraglide/messages';
       
       <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px">
         <div style="display: flex; align-items: center; gap: 16px">
-          <Logo size={64} />
+          <div style="cursor: pointer; -webkit-tap-highlight-color: transparent;" onclick={handleLogoClick} onkeydown={(e) => e.key === 'Enter' && handleLogoClick()} tabindex="0" role="button" aria-label="Logo">
+            <Logo size={64} />
+          </div>
           <div style="display: flex; flex-direction: column; justify-content: center">
             <h2 style="margin: 0 0 2px 0; font-size: 24px; line-height: 1.2">{appName}</h2>
             <span style="color: var(--md-sys-color-on-surface-variant); font-size: 14px">{appVersion}</span>
