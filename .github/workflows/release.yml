@@ -473,7 +473,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-release.outputs.tag_name }}
 
@@ -547,14 +547,74 @@ jobs:
       - name: Instalar dependencias frontend
         run: bun install
 
-      - name: Comprobar configuración MSIX
+      - name: Comprobar configuración MSIX y generar Assets
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f "src-tauri/gen/windows/bundle.config.json" ] || [ ! -f "src-tauri/gen/windows/AppxManifest.xml.template" ]; then
-            echo "::error::Falta la configuración de @choochmeque/tauri-windows-bundle. Ejecuta localmente: npx @choochmeque/tauri-windows-bundle@latest init --all-variants y commitea src-tauri/gen/windows/."
+
+          WINDOWS_GEN="src-tauri/gen/windows"
+          ASSETS_DIR="$WINDOWS_GEN/Assets"
+          CONFIG_FILE="$WINDOWS_GEN/bundle.config.json"
+          MANIFEST_TEMPLATE="$WINDOWS_GEN/AppxManifest.xml.template"
+
+          if [ ! -f "$CONFIG_FILE" ] || [ ! -f "$MANIFEST_TEMPLATE" ]; then
+            echo "::error::Falta la configuración base de @choochmeque/tauri-windows-bundle. Ejecuta localmente: npx @choochmeque/tauri-windows-bundle@latest init --all-variants y commitea bundle.config.json y AppxManifest.xml.template."
             exit 1
           fi
+
+          needs_assets="false"
+          if [ ! -d "$ASSETS_DIR" ]; then
+            needs_assets="true"
+          elif [ -z "$(find "$ASSETS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
+            needs_assets="true"
+          fi
+
+          if [ "$needs_assets" = "true" ]; then
+            echo "src-tauri/gen/windows/Assets no está versionado o está vacío. Generando Assets para que AppxManifest.xml sea válido."
+
+            tmp_backup="$(mktemp -d)"
+            restore_files() {
+              cp -f "$tmp_backup/bundle.config.json" "$CONFIG_FILE"
+              cp -f "$tmp_backup/AppxManifest.xml.template" "$MANIFEST_TEMPLATE"
+
+              for file in package.json bun.lock bun.lockb package-lock.json pnpm-lock.yaml yarn.lock; do
+                if [ -f "$tmp_backup/$file" ]; then
+                  cp -f "$tmp_backup/$file" "$file"
+                elif [ -f "$file" ] && [ -f "$tmp_backup/.missing-$file" ]; then
+                  rm -f "$file"
+                fi
+              done
+            }
+            trap restore_files EXIT
+
+            cp -f "$CONFIG_FILE" "$tmp_backup/bundle.config.json"
+            cp -f "$MANIFEST_TEMPLATE" "$tmp_backup/AppxManifest.xml.template"
+
+            for file in package.json bun.lock bun.lockb package-lock.json pnpm-lock.yaml yarn.lock; do
+              if [ -f "$file" ]; then
+                cp -f "$file" "$tmp_backup/$file"
+              else
+                touch "$tmp_backup/.missing-$file"
+              fi
+            done
+
+            rm -rf "$ASSETS_DIR"
+            CI=1 npx --yes @choochmeque/tauri-windows-bundle@latest init --all-variants
+
+            restore_files
+            trap - EXIT
+          else
+            echo "Assets MSIX ya presentes. No se regeneran."
+          fi
+
+          if [ ! -d "$ASSETS_DIR" ] || [ -z "$(find "$ASSETS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
+            echo "::error::No se pudieron generar los Assets MSIX en $ASSETS_DIR. El AppxManifest.xml necesita esos iconos para que el paquete sea válido."
+            exit 1
+          fi
+
+          echo "::group::Assets MSIX disponibles"
+          find "$ASSETS_DIR" -type f | sort
+          echo "::endgroup::"
 
       - name: Compilar MSIX bundle Microsoft Store x64 + ARM64
         shell: bash
