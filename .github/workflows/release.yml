@@ -327,7 +327,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: "adb-app-v2"
 
       - name: Instalar dependencias Linux
         if: runner.os == 'Linux'
@@ -539,7 +538,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: "adb-app-v2"
 
       - name: Configurar Bun
         uses: oven-sh/setup-bun@v2
