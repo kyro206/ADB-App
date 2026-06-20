@@ -31,37 +31,7 @@ import * as m from './paraglide/messages';
       updateState.init();
     }
 
-    const handleContextMenu = (e: MouseEvent) => {
-        e.preventDefault();
-    };
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Si no es producción, salir de la función y permitir todo
-      if (!import.meta.env.PROD) return;
-      
-      const key = e.key.toLowerCase();
-      const ctrlOrMeta = e.ctrlKey || e.metaKey;
-
-      if (
-        key === 'f5' ||
-        key === 'f3' ||
-        key === 'f7' ||
-        (ctrlOrMeta && key === 'r') ||
-        (ctrlOrMeta && key === 'f') ||
-        (ctrlOrMeta && key === 'p') ||
-        (ctrlOrMeta && e.shiftKey && (key === 'j' || key === 'c')) ||
-        (ctrlOrMeta && e.altKey && (key === 'j' || key === 'c'))
-      ) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('keydown', handleKeyDown);
-
     return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('keydown', handleKeyDown);
       cleanupTheme();
       devicesState.destroy();
       toolsState.destroy();

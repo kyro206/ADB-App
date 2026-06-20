@@ -7,6 +7,12 @@
   <a href="https://github.com/kyro206/ADB-App/commits/main"><img src="https://img.shields.io/github/last-commit/kyro206/ADB-App?style=for-the-badge&color=blue" alt="Last Commit"></a>
   <a href="https://github.com/kyro206/ADB-App/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kyro206/ADB-App?style=for-the-badge&color=green" alt="License"></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/-Changelog-orange?style=for-the-badge" alt="Changelog"></a>
+
+  <br />
+  
+  <a href="https://apps.microsoft.com/detail/9N4VV2153B05?referrer=appbadge&mode=full" target="_blank"  rel="noopener noreferrer">
+  	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+  </a>
 </p>
 
 <div align="center">

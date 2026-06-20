@@ -77,6 +77,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init());
 
+    #[cfg(debug_assertions)]
+    let builder = builder.plugin(
+        tauri_plugin_prevent_default::Builder::new()
+            .with_flags(
+                tauri_plugin_prevent_default::Flags::all()
+                    .difference(tauri_plugin_prevent_default::Flags::DEV_TOOLS | tauri_plugin_prevent_default::Flags::RELOAD)
+            )
+            .build()
+    );
+
+    #[cfg(not(debug_assertions))]
+    let builder = builder.plugin(tauri_plugin_prevent_default::init());
+
     #[cfg(not(store_build))]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
