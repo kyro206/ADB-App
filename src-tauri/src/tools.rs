@@ -1,10 +1,11 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolStatus {
@@ -26,27 +27,36 @@ pub struct ToolsStatus {
     pub java: ToolStatus,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ToolsSnapshot {
+    pub tools: ToolsStatus,
+    pub checking_updates: bool,
+}
+
+#[derive(Deserialize)]
+struct GithubRelease {
+    tag_name: String,
+}
+
 static TOOLS_STATUS_CACHE: OnceLock<Mutex<Option<ToolsStatus>>> = OnceLock::new();
-static TOOLS_UPDATES_CACHE: OnceLock<Mutex<Option<ToolsStatus>>> = OnceLock::new();
+static TOOLS_STATUS_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 static TOOLS_UPDATES_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+static TOOLS_UPDATES_FINISHED: AtomicBool = AtomicBool::new(false);
 
 fn cached_status() -> &'static Mutex<Option<ToolsStatus>> {
     TOOLS_STATUS_CACHE.get_or_init(|| Mutex::new(None))
-}
-
-fn cached_updates() -> &'static Mutex<Option<ToolsStatus>> {
-    TOOLS_UPDATES_CACHE.get_or_init(|| Mutex::new(None))
 }
 
 fn updates_lock() -> &'static tokio::sync::Mutex<()> {
     TOOLS_UPDATES_LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
+fn status_lock() -> &'static tokio::sync::Mutex<()> {
+    TOOLS_STATUS_LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
 pub fn invalidate_tools_cache() {
     if let Ok(mut cache) = cached_status().lock() {
-        *cache = None;
-    }
-    if let Ok(mut cache) = cached_updates().lock() {
         *cache = None;
     }
 }
@@ -82,7 +92,13 @@ pub fn read_config() -> crate::commands::operations::AppSettings {
 
 pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
     let mut config = read_config();
-    let normalized = path.trim().trim_matches('"').to_string();
+    let normalized = if tool == "java" && path.trim().is_empty() {
+        detect_java_path()
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    } else {
+        path.trim().trim_matches('"').to_string()
+    };
     match tool {
         "adb" => config.adb_path = normalized,
         "scrcpy" => config.scrcpy_path = normalized,
@@ -94,13 +110,15 @@ pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
     Ok(tools_status())
 }
 
-fn custom_path(tool: &str) -> String {
-    let config = read_config();
+fn configured_path<'a>(
+    config: &'a crate::commands::operations::AppSettings,
+    tool: &str,
+) -> &'a str {
     match tool {
-        "adb" => config.adb_path,
-        "scrcpy" => config.scrcpy_path,
-        "java" => config.java_path,
-        _ => String::new(),
+        "adb" => &config.adb_path,
+        "scrcpy" => &config.scrcpy_path,
+        "java" => &config.java_path,
+        _ => "",
     }
 }
 
@@ -141,19 +159,80 @@ fn system_path(tool: &str) -> Option<PathBuf> {
         .filter(|path| path.is_file())
 }
 
+fn detect_java_path() -> Option<PathBuf> {
+    env::var("JAVA_HOME")
+        .ok()
+        .and_then(|path| normalize_candidate("java", &path))
+        .or_else(|| system_path("java"))
+        .or_else(java_platform_path)
+}
+
+#[cfg(windows)]
+fn java_platform_path() -> Option<PathBuf> {
+    const KEYS: [&str; 4] = [
+        r"HKLM\SOFTWARE\Eclipse Adoptium\JDK",
+        r"HKLM\SOFTWARE\Eclipse Adoptium\JRE",
+        r"HKLM\SOFTWARE\JavaSoft\JDK",
+        r"HKLM\SOFTWARE\JavaSoft\Java Runtime Environment",
+    ];
+    for key in KEYS {
+        let Ok(versions) = crate::process::command("reg").args(["query", key]).output() else {
+            continue;
+        };
+        if !versions.status.success() {
+            continue;
+        }
+        for version_key in String::from_utf8_lossy(&versions.stdout)
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("HKEY"))
+        {
+            for value_name in ["Path", "JavaHome"] {
+                let Ok(value) = crate::process::command("reg")
+                    .args(["query", version_key, "/v", value_name])
+                    .output()
+                else {
+                    continue;
+                };
+                if !value.status.success() {
+                    continue;
+                }
+                if let Some(path) = String::from_utf8_lossy(&value.stdout)
+                    .lines()
+                    .find_map(|line| line.split_once("REG_SZ").map(|(_, path)| path.trim()))
+                    .and_then(|path| normalize_candidate("java", path))
+                {
+                    return Some(path);
+                }
+            }
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn java_platform_path() -> Option<PathBuf> {
+    let output = crate::process::command("/usr/libexec/java_home")
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
+        .and_then(|path| normalize_candidate("java", &path))
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn java_platform_path() -> Option<PathBuf> {
+    None
+}
+
 fn common_directories(tool: &str) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 
     #[cfg(windows)]
     {
-        if tool == "java" {
-            dirs.extend(vec![
-                PathBuf::from(r"C:\Program Files\Eclipse Adoptium"),
-                PathBuf::from(r"C:\Program Files\Java"),
-                PathBuf::from(r"C:\Program Files\Microsoft"),
-                PathBuf::from(r"C:\Program Files\Android\Android Studio\jbr"),
-            ]);
-        } else if tool == "adb" {
+        if tool == "adb" {
             if let Ok(localappdata) = env::var("LOCALAPPDATA") {
                 dirs.push(PathBuf::from(localappdata).join(r"Android\Sdk\platform-tools"));
             }
@@ -162,12 +241,7 @@ fn common_directories(tool: &str) -> Vec<PathBuf> {
 
     #[cfg(target_os = "macos")]
     {
-        if tool == "java" {
-            dirs.extend(vec![
-                PathBuf::from("/Library/Java/JavaVirtualMachines"),
-                PathBuf::from("/System/Library/Java/JavaVirtualMachines"),
-            ]);
-        } else if tool == "adb" {
+        if tool == "adb" {
             if let Ok(home) = env::var("HOME") {
                 dirs.push(PathBuf::from(home).join("Library/Android/sdk/platform-tools"));
             }
@@ -181,9 +255,7 @@ fn common_directories(tool: &str) -> Vec<PathBuf> {
 
     #[cfg(target_os = "linux")]
     {
-        if tool == "java" {
-            dirs.extend(vec![PathBuf::from("/usr/lib/jvm")]);
-        } else if tool == "adb" {
+        if tool == "adb" {
             if let Ok(home) = env::var("HOME") {
                 dirs.push(PathBuf::from(home).join("Android/Sdk/platform-tools"));
             }
@@ -193,64 +265,16 @@ fn common_directories(tool: &str) -> Vec<PathBuf> {
     dirs
 }
 
-fn tool_from_windows_registry(tool: &str) -> Option<PathBuf> {
-    if !cfg!(windows) {
-        return None;
-    }
-    if tool == "java" {
-        let keys = [
-            r"HKLM\SOFTWARE\Eclipse Adoptium\JDK",
-            r"HKLM\SOFTWARE\Eclipse Adoptium\JRE",
-            r"HKLM\SOFTWARE\JavaSoft\JDK",
-            r"HKLM\SOFTWARE\JavaSoft\Java Runtime Environment",
-        ];
-        for key in keys {
-            let versions = crate::process::command("reg")
-                .args(["query", key])
-                .output()
-                .ok()
-                .filter(|output| output.status.success())
-                .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
-                .unwrap_or_default();
-            for version_key in versions
-                .lines()
-                .map(str::trim)
-                .filter(|line| line.starts_with("HKEY"))
-            {
-                for value_name in ["Path", "JavaHome"] {
-                    let output = crate::process::command("reg")
-                        .args(["query", version_key, "/v", value_name])
-                        .output()
-                        .ok()
-                        .filter(|output| output.status.success())
-                        .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
-                        .unwrap_or_default();
-                    if let Some(path) = output
-                        .lines()
-                        .find(|line| line.contains("REG_SZ"))
-                        .and_then(|line| line.split("REG_SZ").nth(1))
-                        .map(str::trim)
-                        .and_then(|path| normalize_candidate("java", path))
-                    {
-                        return Some(path);
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
 fn detect_tool_path(tool: &str) -> Option<PathBuf> {
-    let env_candidate = match tool {
-        "java" => env::var("JAVA_HOME").ok(),
-        "adb" => env::var("ANDROID_HOME").ok().map(|p| {
-            PathBuf::from(p)
+    let env_candidate = if tool == "adb" {
+        env::var("ANDROID_HOME").ok().map(|path| {
+            PathBuf::from(path)
                 .join("platform-tools")
                 .to_string_lossy()
                 .to_string()
-        }),
-        _ => None,
+        })
+    } else {
+        None
     };
 
     if let Some(val) = env_candidate {
@@ -263,10 +287,6 @@ fn detect_tool_path(tool: &str) -> Option<PathBuf> {
         return Some(path);
     }
 
-    if let Some(path) = tool_from_windows_registry(tool) {
-        return Some(path);
-    }
-
     for root in common_directories(tool) {
         if let Some(path) = normalize_candidate(tool, root.to_string_lossy().as_ref()) {
             return Some(path);
@@ -274,21 +294,6 @@ fn detect_tool_path(tool: &str) -> Option<PathBuf> {
         if let Ok(entries) = fs::read_dir(root) {
             for entry in entries.flatten() {
                 let candidate_path = entry.path();
-                #[cfg(target_os = "macos")]
-                {
-                    if tool == "java" {
-                        if let Some(path) = normalize_candidate(
-                            tool,
-                            candidate_path
-                                .join("Contents/Home")
-                                .to_string_lossy()
-                                .as_ref(),
-                        ) {
-                            return Some(path);
-                        }
-                    }
-                }
-
                 if let Some(path) =
                     normalize_candidate(tool, candidate_path.to_string_lossy().as_ref())
                 {
@@ -301,12 +306,37 @@ fn detect_tool_path(tool: &str) -> Option<PathBuf> {
     None
 }
 
-pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
-    normalize_candidate(tool, &custom_path(tool))
+fn resolve_tool_path_with_config(
+    tool: &str,
+    config: &crate::commands::operations::AppSettings,
+) -> Option<PathBuf> {
+    let configured = configured_path(config, tool);
+    let custom = normalize_candidate(tool, configured);
+    if tool == "java" {
+        return custom.or_else(detect_java_path);
+    }
+    custom
         .or_else(|| {
-            (tool != "java" && managed_executable(tool).is_file()).then(|| managed_executable(tool))
+            managed_executable(tool)
+                .is_file()
+                .then(|| managed_executable(tool))
         })
         .or_else(|| detect_tool_path(tool))
+}
+
+pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
+    if let Ok(cache) = cached_status().lock() {
+        if let Some(status) = cache.as_ref() {
+            let tool_status = match tool {
+                "adb" => &status.adb,
+                "scrcpy" => &status.scrcpy,
+                "java" => &status.java,
+                _ => return None,
+            };
+            return (!tool_status.path.is_empty()).then(|| PathBuf::from(&tool_status.path));
+        }
+    }
+    resolve_tool_path_with_config(tool, &read_config())
 }
 
 fn version_for(tool: &str, path: &Path) -> String {
@@ -336,8 +366,9 @@ fn version_for(tool: &str, path: &Path) -> String {
 }
 
 fn adb_platform_tools_version(output: &str) -> Option<String> {
-    Regex::new(r"(?m)^\s*Version\s+(\d+\.\d+\.\d+)(?:-\d+)?\s*$")
-        .ok()?
+    static PATTERN: OnceLock<Regex> = OnceLock::new();
+    PATTERN
+        .get_or_init(|| Regex::new(r"(?m)^\s*Version\s+(\d+\.\d+\.\d+)(?:-\d+)?\s*$").unwrap())
         .captures(output)?
         .get(1)
         .map(|value| value.as_str().to_string())
@@ -373,13 +404,14 @@ fn java_major_version(path: &Path) -> i32 {
     }
 }
 
-fn status_for(tool: &str) -> ToolStatus {
-    let path = resolve_tool_path(tool);
-    let custom = custom_path(tool);
+fn status_for(tool: &str, config: &crate::commands::operations::AppSettings) -> ToolStatus {
+    let path = resolve_tool_path_with_config(tool, config);
+    let configured = configured_path(config, tool);
     let source = path
         .as_ref()
         .map(|candidate| {
-            if !custom.is_empty() && normalize_candidate(tool, &custom).as_ref() == Some(candidate)
+            if !configured.is_empty()
+                && normalize_candidate(tool, configured).as_ref() == Some(candidate)
             {
                 "custom"
             } else if tool != "java" && candidate == &managed_executable(tool) {
@@ -410,6 +442,38 @@ fn status_for(tool: &str) -> ToolStatus {
     }
 }
 
+fn persist_detected_paths(status: &ToolsStatus) {
+    let detected = [&status.adb, &status.scrcpy, &status.java];
+    if !detected
+        .iter()
+        .any(|tool| tool.available && tool.source == "system" && !tool.path.is_empty())
+    {
+        return;
+    }
+
+    let mut config = read_config();
+    let mut changed = false;
+    for tool in detected {
+        if !tool.available || tool.source != "system" || tool.path.is_empty() {
+            continue;
+        }
+        let configured = match tool.name.as_str() {
+            "adb" => &mut config.adb_path,
+            "scrcpy" => &mut config.scrcpy_path,
+            "java" => &mut config.java_path,
+            _ => continue,
+        };
+        if configured != &tool.path {
+            configured.clone_from(&tool.path);
+            changed = true;
+        }
+    }
+
+    if changed {
+        let _ = crate::commands::operations::write_settings_sync(&config);
+    }
+}
+
 pub fn tools_status() -> ToolsStatus {
     if let Ok(cache) = cached_status().lock() {
         if let Some(status) = cache.clone() {
@@ -417,11 +481,13 @@ pub fn tools_status() -> ToolsStatus {
         }
     }
 
+    let config = read_config();
     let status = ToolsStatus {
-        adb: status_for("adb"),
-        scrcpy: status_for("scrcpy"),
-        java: status_for("java"),
+        adb: status_for("adb", &config),
+        scrcpy: status_for("scrcpy", &config),
+        java: status_for("java", &config),
     };
+    persist_detected_paths(&status);
 
     if let Ok(mut cache) = cached_status().lock() {
         *cache = Some(status.clone());
@@ -430,13 +496,51 @@ pub fn tools_status() -> ToolsStatus {
     status
 }
 
+pub async fn tools_status_cached() -> ToolsStatus {
+    if let Ok(cache) = cached_status().lock() {
+        if let Some(status) = cache.clone() {
+            return status;
+        }
+    }
+
+    let _guard = status_lock().lock().await;
+    if let Ok(cache) = cached_status().lock() {
+        if let Some(status) = cache.clone() {
+            return status;
+        }
+    }
+
+    tauri::async_runtime::spawn_blocking(tools_status)
+        .await
+        .unwrap_or_else(|_| tools_status())
+}
+
+pub async fn tools_snapshot() -> ToolsSnapshot {
+    let local = tools_status_cached().await;
+    let finished = TOOLS_UPDATES_FINISHED.load(Ordering::Acquire);
+    let tools = if finished {
+        cached_status()
+            .lock()
+            .ok()
+            .and_then(|cache| cache.clone())
+            .unwrap_or(local)
+    } else {
+        local
+    };
+    ToolsSnapshot {
+        tools,
+        checking_updates: !finished,
+    }
+}
+
 fn numeric_version(value: &str) -> Vec<u64> {
-    Regex::new(r"\d+(?:\.\d+)+")
-        .ok()
-        .and_then(|pattern| pattern.find(value))
-        .map(|matched| {
-            matched
-                .as_str()
+    value
+        .split(|character: char| !character.is_ascii_digit() && character != '.')
+        .find(|candidate| {
+            candidate.contains('.') && candidate.bytes().any(|byte| byte.is_ascii_digit())
+        })
+        .map(|candidate| {
+            candidate
                 .split('.')
                 .filter_map(|part| part.parse::<u64>().ok())
                 .collect()
@@ -464,10 +568,14 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
         .text()
         .await
         .map_err(|error| error.to_string())?;
-    let package = Regex::new(
-        r#"(?s)<remotePackage path="platform-tools".*?<revision>\s*<major>(\d+)</major>(?:\s*<minor>(\d+)</minor>)?(?:\s*<micro>(\d+)</micro>)?"#,
-    )
-    .map_err(|error| error.to_string())?
+    static PATTERN: OnceLock<Regex> = OnceLock::new();
+    let package = PATTERN
+    .get_or_init(|| {
+        Regex::new(
+            r#"(?s)<remotePackage path="platform-tools".*?<revision>\s*<major>(\d+)</major>(?:\s*<minor>(\d+)</minor>)?(?:\s*<micro>(\d+)</micro>)?"#,
+        )
+        .unwrap()
+    })
     .captures(&repository)
     .ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
     Ok(format!(
@@ -481,20 +589,16 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
 async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, String> {
     let release = client
         .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
-        .header(reqwest::header::USER_AGENT, "ADB-Manager")
+        .header(reqwest::header::USER_AGENT, "ADB App")
         .send()
         .await
         .map_err(|error| error.to_string())?
         .error_for_status()
         .map_err(|error| error.to_string())?
-        .json::<serde_json::Value>()
+        .json::<GithubRelease>()
         .await
         .map_err(|error| error.to_string())?;
-    release
-        .get("tag_name")
-        .and_then(serde_json::Value::as_str)
-        .map(|value| value.trim_start_matches('v').to_string())
-        .ok_or_else(|| "Could not download the latest scrcpy version".to_string())
+    Ok(release.tag_name.trim_start_matches('v').to_string())
 }
 
 fn update_available(_tool: &str, latest: &str, installed: &str) -> bool {
@@ -502,20 +606,16 @@ fn update_available(_tool: &str, latest: &str, installed: &str) -> bool {
 }
 
 pub async fn tools_status_with_updates() -> ToolsStatus {
-    if let Ok(cache) = cached_updates().lock() {
-        if let Some(status) = cache.clone() {
-            return status;
-        }
+    if TOOLS_UPDATES_FINISHED.load(Ordering::Acquire) {
+        return tools_status_cached().await;
     }
 
     let _guard = updates_lock().lock().await;
-    if let Ok(cache) = cached_updates().lock() {
-        if let Some(status) = cache.clone() {
-            return status;
-        }
+    if TOOLS_UPDATES_FINISHED.load(Ordering::Acquire) {
+        return tools_status_cached().await;
     }
 
-    let mut status = tools_status();
+    let mut status = tools_status_cached().await;
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(12))
         .build()
@@ -534,9 +634,10 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
             status.scrcpy.available && update_available("scrcpy", &latest, &status.scrcpy.version);
         status.scrcpy.latest_version = latest;
     }
-    if let Ok(mut cache) = cached_updates().lock() {
+    if let Ok(mut cache) = cached_status().lock() {
         *cache = Some(status.clone());
     }
+    TOOLS_UPDATES_FINISHED.store(true, Ordering::Release);
     status
 }
 

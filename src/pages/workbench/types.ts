@@ -1,4 +1,5 @@
 export type TabId = 'home' | 'display' | 'mirroring' | 'control' | 'apps' | 'files' | 'system' | 'settings';
+export type { ToolStatus, ToolsStatus } from '../../context/tools.svelte';
 export type WorkTab = Exclude<TabId, 'home'>;
 export type AppSummary = { package_name: string; display_name: string; apk_path: string; system_app: boolean; disabled: boolean; icon_data_url: string };
 export type AppPermissionInfo = { name: string; granted: boolean; runtime: boolean; changeable: boolean };
@@ -7,8 +8,6 @@ export type AppFilter = 'user' | 'all' | 'system' | 'disabled';
 export type FileEntry = { name: string; permissions: string; size: number; modified: string; is_directory: boolean; is_link: boolean; link_target: string };
 export type FileView = 'list' | 'grid';
 export type FileSortKey = 'name' | 'type' | 'size' | 'permissions' | 'modified';
-export type ToolStatus = { name: string; available: boolean; version: string; latest_version: string; update_checked: boolean; update_available: boolean; path: string; source: string; install_supported: boolean };
-export type ToolsStatus = { adb: ToolStatus; scrcpy: ToolStatus; java: ToolStatus };
 export type MediaVolumeState = { level: number; maximum: number };
 export type MirrorMode = 'display' | 'virtual' | 'camera';
 export type SoundMode = 'NORMAL' | 'VIBRATE' | 'SILENT';

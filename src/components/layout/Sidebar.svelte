@@ -5,6 +5,7 @@ import * as m from '../../paraglide/messages';
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { TabId } from '../../context/layout.svelte';
+  import { toolsState } from '../../context/tools.svelte';
   import { updateState } from '../../context/update.svelte';
   
   import MaterialIcon from '../MaterialIcon.svelte';
@@ -40,6 +41,7 @@ import * as m from '../../paraglide/messages';
     home: m.nav_home(), display: m.nav_display(), mirroring: m.nav_mirroring(), control: m.nav_control(),
     apps: m.nav_apps(), files: m.nav_files(), system: m.nav_system(), settings: m.nav_settings(),
   });
+  let settingsUpdateAvailable = $derived(updateState.hasUpdate || toolsState.hasUpdate);
 </script>
 
 <aside class="sidebar">
@@ -68,11 +70,11 @@ import * as m from '../../paraglide/messages';
       onclick={() => onTabChange('settings')} 
       title={labels['settings']}
     >
-      <span class="sidebar__tab-icon">
+      <span class="sidebar__tab-icon" class:sidebar__tab-icon--update={adbAvailable && settingsUpdateAvailable}>
         <MaterialIcon name={TAB_ICONS['settings']} filled={activeTab === 'settings'} />
         {#if !adbAvailable}
           <div class="sidebar__badge error"></div>
-        {:else if updateState.hasUpdate}
+        {:else if settingsUpdateAvailable}
           <div class="sidebar__badge blue"></div>
         {/if}
       </span>
@@ -86,4 +88,5 @@ import * as m from '../../paraglide/messages';
 .sidebar__badge { position: absolute; top: 4px; right: 14px; width: 10px; height: 10px; background-color: var(--md-sys-color-error); border-radius: 50%; border: 2px solid var(--surface-container-low); }
 .sidebar__badge.blue { background-color: var(--md-sys-color-primary); }
 .sidebar__badge.error { background-color: var(--md-sys-color-error); }
+.sidebar__tab .sidebar__tab-icon--update { color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent); }
 </style>

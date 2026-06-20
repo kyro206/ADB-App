@@ -460,23 +460,15 @@ import * as m from '../paraglide/messages';
       </p>
       
       <div style="display: flex; align-items: center; gap: 12px; width: 100%">
-        <div style="position: relative">
-          <img 
-            src="https://github.com/kyro206.png?size=200" 
-            alt="Kyro206" 
-            draggable="false"
-            style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--md-sys-color-surface-variant); user-select: none; -webkit-user-drag: none;"
-            onerror={(e) => {
-              (e.currentTarget as HTMLElement).style.display = 'none';
-              if (e.currentTarget.nextElementSibling) {
-                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-              }
-            }}
-          />
-          <div style="display: none; width: 40px; height: 40px; border-radius: 50%; background: var(--md-sys-color-surface-variant); align-items: center; justify-content: center; color: var(--md-sys-color-on-surface-variant)">
-            <MaterialIcon name="person" size={24} />
-          </div>
-        </div>
+        <img 
+          src="https://github.com/kyro206.png?size=200" 
+          alt="Kyro206" 
+          draggable="false"
+          style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--md-sys-color-surface-variant); user-select: none; -webkit-user-drag: none;"
+          onerror={(e) => {
+            (e.currentTarget as HTMLElement).style.display = 'none';
+          }}
+        />
         <div style="display: flex; flex-direction: column">
           <span style="font-size: 12px; color: var(--md-sys-color-on-surface-variant)">
             {m.settings_aboutCreator()}

@@ -8,6 +8,7 @@ import * as m from './paraglide/messages';
   import { i18n } from './context/i18n.svelte';
   import { themeState, initThemeEffects } from './context/theme.svelte';
   import { devicesState } from './context/devices.svelte';
+  import { toolsState } from './context/tools.svelte';
   import AppModal from './components/dialogs/AppModal.svelte';
   import { updateState } from './context/update.svelte';
   import { openUrl } from '@tauri-apps/plugin-opener';
@@ -25,6 +26,7 @@ import * as m from './paraglide/messages';
     // Initialize global singletons
     const cleanupTheme = initThemeEffects();
     devicesState.init();
+    toolsState.init();
     if (!import.meta.env.VITE_STORE_BUILD && !(window as any).__APP_SETTINGS__?.packaged) {
       updateState.init();
     }
@@ -62,6 +64,7 @@ import * as m from './paraglide/messages';
       document.removeEventListener('keydown', handleKeyDown);
       cleanupTheme();
       devicesState.destroy();
+      toolsState.destroy();
     };
   });
 </script>

@@ -1,42 +1,30 @@
 <script lang="ts">
-import * as m from '../../paraglide/messages';
+  import * as m from '../../paraglide/messages';
 
   import { onMount } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import type { TabId } from '../../context/layout.svelte';
   import Sidebar from './Sidebar.svelte';
   import TopBar from './TopBar.svelte';
   import AppModal from '../dialogs/AppModal.svelte';
   import { applyWindowEffectClass } from '../../context/windowEffects';
-  
-  import type { ToolsStatus } from '../../pages/workbench/types';
+  import { toolsState } from '../../context/tools.svelte';
 
   import HomePage from '../../pages/HomePage.svelte';
   import WorkbenchPage from '../../pages/WorkbenchPage.svelte';
   import { layoutState } from '../../context/layout.svelte';
 
   let activeTab = $derived(layoutState.activeTab);
-  let adbAvailable = $state(true);
+  let adbAvailable = $derived(toolsState.status?.adb.available ?? true);
   let showAdbModal = $state(false);
   let adbWarningShown = false;
   let pageElement: HTMLDivElement | undefined = $state();
 
-  async function checkAdb() {
-    try {
-      const tools = await invoke<ToolsStatus>('get_tools_status');
-      adbAvailable = tools.adb.available;
-      if (!tools.adb.available && !adbWarningShown) {
-        showAdbModal = true;
-        adbWarningShown = true;
-      }
-    } catch {
-      adbAvailable = false;
-      if (!adbWarningShown) {
-        showAdbModal = true;
-        adbWarningShown = true;
-      }
+  $effect(() => {
+    if (toolsState.status && !adbAvailable && !adbWarningShown) {
+      showAdbModal = true;
+      adbWarningShown = true;
     }
-  }
+  });
 
   function changeTab(tab: TabId) {
     if (tab === activeTab) return;
@@ -62,9 +50,6 @@ import * as m from '../../paraglide/messages';
   });
 
   onMount(() => {
-    checkAdb();
-    window.addEventListener('focus', checkAdb);
-
     const platform = navigator.platform.toLowerCase();
     if (platform.includes('win')) {
       document.documentElement.classList.add('platform-windows');
@@ -106,7 +91,6 @@ import * as m from '../../paraglide/messages';
     window.addEventListener('change-tab', handleTabChange);
 
     return () => {
-      window.removeEventListener('focus', checkAdb);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('change-tab', handleTabChange);
     };

@@ -10,24 +10,28 @@ mod tools;
 use commands::devices;
 use commands::operations;
 use commands::screenshot;
+use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
         .setup(|app| {
             app_paths::initialize(&app.handle())?;
-            let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                crate::adb::start_device_tracker(app_handle).await;
-            });
-            tauri::async_runtime::spawn(async {
-                let _ = crate::tools::tools_status_with_updates().await;
-            });
             let settings = crate::commands::operations::read_settings();
             crate::app_paths::update_base_path(if !settings.cache_path.trim().is_empty() {
                 Some(&settings.cache_path)
             } else {
                 None
+            });
+
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                crate::adb::start_device_tracker(app_handle).await;
+            });
+            let tools_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let status = crate::tools::tools_status_with_updates().await;
+                let _ = tools_app.emit("tools-updates-checked", status);
             });
 
             let mut settings_value = serde_json::to_value(&settings).unwrap_or_default();
@@ -123,8 +127,7 @@ pub fn run() {
             operations::get_file_thumbnail,
             operations::launch_scrcpy,
             operations::list_scrcpy_cameras,
-            operations::get_tools_status,
-            operations::check_tool_updates,
+            operations::get_tools_snapshot,
             operations::set_tool_path,
             operations::install_or_update_tool,
             operations::set_window_theme,

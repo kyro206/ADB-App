@@ -9,13 +9,9 @@
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/-Changelog-orange?style=for-the-badge" alt="Changelog"></a>
 </p>
 
-<br />
-
 <div align="center">
   <img src="screenshot.webp" alt="ADB App Screenshot" width="800" style="border-radius: 12px;">
 </div>
-
-<br />
 
 ## About
 

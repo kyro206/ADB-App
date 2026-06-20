@@ -1810,7 +1810,7 @@ pub async fn install_application_packages(
                         "install".into()
                     });
                     if options.replace_existing {
-                        args.push("-r".into());
+                        args.push("-r -d".into());
                     }
                     if options.grant_runtime_permissions {
                         args.push("-g".into());
@@ -2278,20 +2278,15 @@ pub async fn list_scrcpy_cameras(serial: String) -> Result<Vec<String>, String> 
 }
 
 #[tauri::command]
-pub async fn get_tools_status() -> ToolsStatus {
-    tauri::async_runtime::spawn_blocking(tools::tools_status)
+pub async fn get_tools_snapshot() -> tools::ToolsSnapshot {
+    tools::tools_snapshot().await
+}
+
+#[tauri::command]
+pub async fn set_tool_path(tool: String, path: String) -> Result<ToolsStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || tools::save_tool_path(&tool, &path))
         .await
-        .unwrap()
-}
-
-#[tauri::command]
-pub async fn check_tool_updates() -> ToolsStatus {
-    tools::tools_status_with_updates().await
-}
-
-#[tauri::command]
-pub fn set_tool_path(tool: String, path: String) -> Result<ToolsStatus, String> {
-    tools::save_tool_path(&tool, &path)
+        .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

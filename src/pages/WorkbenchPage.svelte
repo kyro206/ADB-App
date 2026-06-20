@@ -6,6 +6,7 @@ import * as m from '../paraglide/messages';
   import { devicesState } from '../context/devices.svelte';
   import { i18n, type Language } from '../context/i18n.svelte';
   import { themeState } from '../context/theme.svelte';
+  import { toolsState } from '../context/tools.svelte';
   import { applyWindowEffectClass, type WindowEffectMode } from '../context/windowEffects';
   
   import DisplayPage from './DisplayPage.svelte';
@@ -41,11 +42,11 @@ import * as m from '../paraglide/messages';
     }
   });
 
-  let tools = $state<ToolsStatus | null>(null);
+  let tools = $derived(toolsState.status);
   type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean };
   let appSettings = $state<AppSettings | null>(null);
   let defaultCacheDir = $state('');
-  let toolUpdatesChecking = $state(false);
+  let toolUpdatesChecking = $derived(toolsState.checkingUpdates);
   
   let adbPath = $state('');
   let scrcpyPath = $state('');
@@ -154,27 +155,6 @@ import * as m from '../paraglide/messages';
     scrcpy(args);
   }
 
-  async function refreshTools() {
-    try {
-      const value = await invoke<ToolsStatus>('get_tools_status');
-      tools = value;
-      adbPath = value.adb.path;
-      scrcpyPath = value.scrcpy.path;
-      javaPath = value.java.path;
-      
-      toolUpdatesChecking = true;
-      const updated = await invoke<ToolsStatus>('check_tool_updates');
-      tools = updated;
-      adbPath = updated.adb.path;
-      scrcpyPath = updated.scrcpy.path;
-      javaPath = updated.java.path;
-    } catch (error: any) { 
-      status = translateError(error); 
-    } finally { 
-      toolUpdatesChecking = false; 
-    }
-  }
-
   async function refreshSettings() {
     try {
       const value = await invoke<AppSettings>('get_app_settings');
@@ -197,7 +177,6 @@ import * as m from '../paraglide/messages';
       const oldPath = await invoke<string | null>('save_app_settings', { settings });
       
       if (oldPath) {
-        await refreshTools();
         await invoke('close_app', { oldDataDir: oldPath });
       }
       sessionStorage.setItem('cached_settings', JSON.stringify(settings));
@@ -228,10 +207,7 @@ import * as m from '../paraglide/messages';
     busy = true;
     try {
       const value = await invoke<ToolsStatus>('set_tool_path', { tool, path: pathValue });
-      tools = value;
-      adbPath = value.adb.path;
-      scrcpyPath = value.scrcpy.path;
-      javaPath = value.java.path;
+      toolsState.set(value);
       status = m.workbench_status_toolPathSaved({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
     } catch (error: any) { 
@@ -246,10 +222,7 @@ import * as m from '../paraglide/messages';
     status = m.workbench_status_toolDownloading({ tool });
     try {
       const value = await invoke<ToolsStatus>('install_or_update_tool', { tool });
-      tools = value;
-      adbPath = value.adb.path;
-      scrcpyPath = value.scrcpy.path;
-      javaPath = value.java.path;
+      toolsState.set(value);
       status = m.workbench_status_toolInstalled({ tool });
       if (tool === 'adb') await devicesState.refreshDevices();
     } catch (error: any) { 
@@ -268,7 +241,13 @@ import * as m from '../paraglide/messages';
 
   onMount(() => {
     refreshSettings();
-    refreshTools();
+  });
+
+  $effect(() => {
+    if (!tools) return;
+    adbPath = tools.adb.path;
+    scrcpyPath = tools.scrcpy.path;
+    javaPath = tools.java.path;
   });
 
   $effect(() => {
