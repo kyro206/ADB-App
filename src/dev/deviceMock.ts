@@ -1,7 +1,7 @@
 import type { Device, DeviceDetails, MockHomeDetails } from '../context/devices.svelte';
 
 const mockDevice: Device = {
-  serial: 'MOCK-PIXEL10-FRANKEL',
+  serial: '0A4312B01795714827',
   state: 'device',
   product: 'frankel',
   model: "Pixel 10",
@@ -14,7 +14,7 @@ const mockDetails: DeviceDetails = {
   state: 'device',
   manufacturer: 'Google',
   brand: 'google',
-  model: 'Google Pixel 10',
+  model: 'Pixel 10',
   marketing_name: 'Google Pixel 10',
   codename: 'frankel',
   product_name: 'frankel',
@@ -22,7 +22,7 @@ const mockDetails: DeviceDetails = {
   api_level: '37',
   soc: 'Google Tensor G5',
   architecture: 'arm64-v8a',
-  device_type: 'device',
+  device_type: 'phone',
   physical_width: 1080,
   physical_height: 2424,
   current_width: 1080,

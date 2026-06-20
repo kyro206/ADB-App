@@ -1453,6 +1453,7 @@
       box-sizing: border-box;
       color: #fff;
       text-align: center;
+      text-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
     }
     .home-lockscreen__scrim {
       position: absolute;
@@ -1460,9 +1461,11 @@
       z-index: -1;
       background: linear-gradient(
         180deg,
-        rgba(0, 0, 0, 0.12) 0%,
-        rgba(0, 0, 0, 0.01) 38%,
-        rgba(0, 0, 0, 0.28) 100%
+        rgba(0, 0, 0, 0.45) 0%,
+        rgba(0, 0, 0, 0.05) 30%,
+        transparent 50%,
+        rgba(0, 0, 0, 0.05) 75%,
+        rgba(0, 0, 0, 0.35) 100%
       );
     }
     .home-lockscreen__top {
@@ -1476,6 +1479,7 @@
       justify-content: flex-start;
       gap: 18px;
       text-align: left;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
     }
     .home-lockscreen__operator {
       max-width: min(72%, 240px);
@@ -1507,6 +1511,7 @@
       color: var(--home-clock-color, #eef3ff);
       font-family: var(--font-family);
       font-weight: 450;
+      filter: drop-shadow(0 5px 18px rgba(0, 0, 0, 0.25));
       font-variant-numeric: tabular-nums;
     }
     .home-lockscreen__clock span {
