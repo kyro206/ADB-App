@@ -339,6 +339,28 @@ fn invalidate_apps_cache(serial: &str) {
     }
 }
 
+fn cached_apps(serial: &str) -> Vec<AppSummary> {
+    apps_list_cache()
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(serial).map(|entry| entry.apps.clone()))
+        .unwrap_or_default()
+}
+
+fn update_cached_app(serial: &str, updated: &AppSummary) {
+    if let Ok(mut cache) = apps_list_cache().lock() {
+        if let Some(entry) = cache.get_mut(serial) {
+            if let Some(app) = entry
+                .apps
+                .iter_mut()
+                .find(|app| app.package_name == updated.package_name)
+            {
+                *app = updated.clone();
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct WindowEffectInfo {
     pub platform: String,
@@ -1282,35 +1304,54 @@ fn parse_keyboard_ids(output: &str) -> Vec<String> {
     ids
 }
 
+fn keyboard_package_name(id: &str) -> &str {
+    id.split_once('/').map_or(id, |(package, _)| package)
+}
+
 #[tauri::command]
 pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
-    let users_output = run_system_query(&serial, &["shell", "pm", "list", "users"]).await?;
-    let current_user_output =
-        run_system_query(&serial, &["shell", "am", "get-current-user"]).await?;
-    let app_languages_output = run_system_query(
-        &serial,
-        &[
-            "shell",
-            "settings",
-            "get",
-            "global",
-            "settings_app_locale_opt_in_enabled",
-        ],
-    )
-    .await?;
-    let overlays_output = run_system_query(&serial, &["shell", "cmd", "overlay", "list"]).await?;
-    let all_keyboards_output =
+    let all_keyboards_query = async {
         match run_system_query(&serial, &["shell", "ime", "list", "-a", "-s"]).await {
-            Ok(output) => output,
-            Err(_) => run_system_query(&serial, &["shell", "ime", "list", "-a"]).await?,
-        };
-    let enabled_keyboards_output =
-        run_system_query(&serial, &["shell", "ime", "list", "-s"]).await?;
-    let current_keyboard_id = run_system_query(
-        &serial,
-        &["shell", "settings", "get", "secure", "default_input_method"],
-    )
-    .await?;
+            Ok(output) => Ok(output),
+            Err(_) => run_system_query(&serial, &["shell", "ime", "list", "-a"]).await,
+        }
+    };
+    let (
+        users_output,
+        current_user_output,
+        app_languages_output,
+        overlays_output,
+        all_keyboards_output,
+        enabled_keyboards_output,
+        current_keyboard_id,
+    ) = tokio::join!(
+        run_system_query(&serial, &["shell", "pm", "list", "users"]),
+        run_system_query(&serial, &["shell", "am", "get-current-user"]),
+        run_system_query(
+            &serial,
+            &[
+                "shell",
+                "settings",
+                "get",
+                "global",
+                "settings_app_locale_opt_in_enabled",
+            ],
+        ),
+        run_system_query(&serial, &["shell", "cmd", "overlay", "list"]),
+        all_keyboards_query,
+        run_system_query(&serial, &["shell", "ime", "list", "-s"]),
+        run_system_query(
+            &serial,
+            &["shell", "settings", "get", "secure", "default_input_method"],
+        ),
+    );
+    let users_output = users_output?;
+    let current_user_output = current_user_output?;
+    let app_languages_output = app_languages_output?;
+    let overlays_output = overlays_output?;
+    let all_keyboards_output = all_keyboards_output?;
+    let enabled_keyboards_output = enabled_keyboards_output?;
+    let current_keyboard_id = current_keyboard_id?;
 
     let current_user_id = last_integer(&current_user_output).unwrap_or(-1);
     let mut all_keyboard_ids = parse_keyboard_ids(&all_keyboards_output);
@@ -1321,6 +1362,49 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
             .any(|keyboard| keyboard == &current_keyboard_id)
     {
         all_keyboard_ids.push(current_keyboard_id.clone());
+    }
+
+    let keyboard_packages = all_keyboard_ids
+        .iter()
+        .map(|id| keyboard_package_name(id).to_string())
+        .collect::<HashSet<_>>();
+    let mut apps = cached_apps(&serial);
+    if keyboard_packages.iter().any(|package| {
+        !apps
+            .iter()
+            .any(|app| &app.package_name == package && app.display_name != app.package_name)
+    }) {
+        if let Ok(loaded_apps) = list_apps(serial.clone(), None).await {
+            apps = loaded_apps;
+        }
+    }
+
+    let mut keyboard_labels = apps
+        .iter()
+        .filter(|app| {
+            keyboard_packages.contains(&app.package_name) && app.display_name != app.package_name
+        })
+        .map(|app| (app.package_name.clone(), app.display_name.clone()))
+        .collect::<HashMap<_, _>>();
+
+    for package in keyboard_packages {
+        if keyboard_labels.contains_key(&package) {
+            continue;
+        }
+        let Some(app) = apps.iter().find(|app| app.package_name == package) else {
+            continue;
+        };
+        if let Ok(enriched) = enrich_app_summary(
+            serial.clone(),
+            app.package_name.clone(),
+            app.apk_path.clone(),
+            app.system_app,
+            app.disabled,
+        )
+        .await
+        {
+            keyboard_labels.insert(package, enriched.display_name);
+        }
     }
 
     Ok(SystemState {
@@ -1337,7 +1421,10 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
         keyboards: all_keyboard_ids
             .into_iter()
             .map(|id| KeyboardInputMethod {
-                label: id.clone(),
+                label: keyboard_labels
+                    .get(keyboard_package_name(&id))
+                    .cloned()
+                    .unwrap_or_else(|| keyboard_package_name(&id).to_string()),
                 enabled: enabled_keyboard_ids.iter().any(|keyboard| keyboard == &id),
                 is_default: id == current_keyboard_id,
                 id,
@@ -1551,14 +1638,16 @@ pub async fn enrich_app_summary(
     if let Ok(cached) = fs::read_to_string(&cache_path) {
         if let Ok(presentation) = serde_json::from_str::<CachedAppPresentation>(&cached) {
             if !presentation.icon_data_url.is_empty() {
-                return Ok(AppSummary {
+                let summary = AppSummary {
                     package_name,
                     display_name: presentation.display_name,
                     apk_path,
                     system_app,
                     disabled,
                     icon_data_url: presentation.icon_data_url,
-                });
+                };
+                update_cached_app(&serial, &summary);
+                return Ok(summary);
             }
         }
     }
@@ -1653,14 +1742,16 @@ pub async fn enrich_app_summary(
         }
     }
 
-    Ok(AppSummary {
+    let summary = AppSummary {
         package_name,
         display_name,
         apk_path,
         system_app,
         disabled,
         icon_data_url,
-    })
+    };
+    update_cached_app(&serial, &summary);
+    Ok(summary)
 }
 
 #[tauri::command]
@@ -2009,7 +2100,10 @@ pub async fn get_file_thumbnail(serial: String, path: String) -> Result<String, 
 
 #[cfg(test)]
 mod wireless_tests {
-    use super::{generate_wireless_qr, parse_changeable_permissions, parse_permissions};
+    use super::{
+        generate_wireless_qr, keyboard_package_name, parse_changeable_permissions,
+        parse_permissions,
+    };
     use std::collections::HashSet;
 
     #[test]
@@ -2018,6 +2112,15 @@ mod wireless_tests {
         assert!(qr.service_name.starts_with("adb-"));
         assert_eq!(qr.password.len(), 12);
         assert!(qr.qr_data_url.starts_with("data:image/svg+xml;base64,"));
+    }
+
+    #[test]
+    fn extracts_keyboard_package_from_component_id() {
+        assert_eq!(
+            keyboard_package_name("com.samsung.android.honeyboard/.service.HoneyBoardService"),
+            "com.samsung.android.honeyboard"
+        );
+        assert_eq!(keyboard_package_name("package.only"), "package.only");
     }
 
     #[test]
