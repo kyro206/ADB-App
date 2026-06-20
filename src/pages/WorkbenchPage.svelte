@@ -42,7 +42,7 @@ import * as m from '../paraglide/messages';
   });
 
   let tools = $state<ToolsStatus | null>(null);
-  type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string };
+  type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean };
   let appSettings = $state<AppSettings | null>(null);
   let defaultCacheDir = $state('');
   let toolUpdatesChecking = $state(false);

@@ -65,6 +65,7 @@ jobs:
       selected_platforms: ${{ steps.prepare.outputs.selected_platforms }}
       pages_base_url: ${{ steps.prepare.outputs.pages_base_url }}
       prerelease: ${{ steps.prepare.outputs.prerelease }}
+      build_microsoft_store: ${{ steps.prepare.outputs.build_microsoft_store }}
 
     steps:
       - name: Checkout
@@ -98,6 +99,7 @@ jobs:
 
             const tagName = `v${version}`;
             const prerelease = process.env.INPUT_PRERELEASE === 'true';
+            const buildMicrosoftStore = !prerelease && (process.env.BUILD_WINDOWS_X64 === 'true' || process.env.BUILD_WINDOWS_ARM64 === 'true');
             const releaseName = (process.env.INPUT_RELEASE_NAME || '').trim() || `ADB App ${tagName}`;
             const releaseNotes = (process.env.INPUT_RELEASE_NOTES || '').trim();
 
@@ -107,33 +109,30 @@ jobs:
             }
 
             add(process.env.BUILD_LINUX_X64, {
-              os: 'ubuntu-latest',
+              os: 'ubuntu-22.04',
               target: 'x86_64-unknown-linux-gnu',
               bundles: 'deb,appimage',
               name: 'linux-x64',
               platform: 'linux-x86_64',
               kind: 'linux',
-              store: false,
             });
 
             add(process.env.BUILD_MACOS_X64, {
-              os: 'macos-26-intel',
+              os: 'macos-15-intel',
               target: 'x86_64-apple-darwin',
               bundles: 'app,dmg',
               name: 'macos-x64',
               platform: 'darwin-x86_64',
               kind: 'macos',
-              store: false,
             });
 
             add(process.env.BUILD_MACOS_ARM64, {
-              os: 'macos-latest',
+              os: 'macos-15',
               target: 'aarch64-apple-darwin',
               bundles: 'app,dmg',
               name: 'macos-arm64',
               platform: 'darwin-aarch64',
               kind: 'macos',
-              store: false,
             });
 
             add(process.env.BUILD_WINDOWS_X64, {
@@ -143,7 +142,6 @@ jobs:
               name: 'windows-x64',
               platform: 'windows-x86_64',
               kind: 'windows',
-              store: true,
             });
 
             add(process.env.BUILD_WINDOWS_ARM64, {
@@ -153,7 +151,6 @@ jobs:
               name: 'windows-arm64',
               platform: 'windows-aarch64',
               kind: 'windows',
-              store: true,
             });
 
             if (selected.length === 0) {
@@ -245,6 +242,7 @@ jobs:
             core.info(`${tagExists ? 'Etiqueta existente reutilizada' : 'Etiqueta creada'}: ${tagName}`);
             core.info(`Release listo: ${release.html_url}`);
             core.info(`Endpoint updater en GitHub Pages: ${pagesBaseUrl}/latest.json`);
+            core.info(`Microsoft Store MSIX bundle: ${buildMicrosoftStore ? 'sí, x64 + ARM64' : 'no'}`);
             core.info(`Matriz seleccionada:\n${JSON.stringify(selected, null, 2)}`);
 
             core.setOutput('version', version);
@@ -254,6 +252,7 @@ jobs:
             core.setOutput('selected_platforms', JSON.stringify(selected.map((item) => item.platform)));
             core.setOutput('pages_base_url', pagesBaseUrl);
             core.setOutput('prerelease', prerelease ? 'true' : 'false');
+            core.setOutput('build_microsoft_store', buildMicrosoftStore ? 'true' : 'false');
 
   build:
     name: Compilar ${{ matrix.name }}
@@ -466,76 +465,127 @@ jobs:
           set -euo pipefail
           gh release upload "$TAG" release-assets/* --clobber
 
-      - name: Preparar configuración Microsoft Store con updater activo
-        if: needs.prepare-release.outputs.prerelease == 'false' && matrix.store == true
+  microsoft-store-bundle:
+    name: Compilar Microsoft Store MSIX bundle x64 + ARM64
+    needs: prepare-release
+    runs-on: windows-latest
+    if: needs.prepare-release.outputs.build_microsoft_store == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
+
+      - name: Sincronizar versión y endpoint updater para Microsoft Store
         shell: bash
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          PAGES_BASE_URL: ${{ needs.prepare-release.outputs.pages_base_url }}
         run: |
           set -euo pipefail
 
           node <<'NODE'
           const fs = require('fs');
-          const path = 'src-tauri/tauri.conf.json';
-          const tauriConf = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const version = process.env.VERSION;
+          const pagesBaseUrl = process.env.PAGES_BASE_URL;
 
+          function readJson(path) {
+            return JSON.parse(fs.readFileSync(path, 'utf8'));
+          }
+
+          function writeJson(path, value) {
+            fs.writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
+          }
+
+          const pkgPath = 'package.json';
+          if (fs.existsSync(pkgPath)) {
+            const pkg = readJson(pkgPath);
+            pkg.version = version;
+            writeJson(pkgPath, pkg);
+          }
+
+          const tauriPath = 'src-tauri/tauri.conf.json';
+          const tauriConf = readJson(tauriPath);
+          tauriConf.version = version;
+
+          tauriConf.plugins = tauriConf.plugins || {};
+          tauriConf.plugins.updater = tauriConf.plugins.updater || {};
+          tauriConf.plugins.updater.endpoints = [`${pagesBaseUrl}/latest.json`];
+
+          // El MSIX no se usa como artifact del updater. La app conserva el endpoint
+          // anterior para auto-actualizarse contra latest.json, pero el bundle Store
+          // se genera con @choochmeque/tauri-windows-bundle.
           tauriConf.bundle = tauriConf.bundle || {};
+          tauriConf.bundle.createUpdaterArtifacts = false;
 
-          // Se mantiene en true: esta build conserva la configuración de updater y se firma.
-          // El latest.json seguirá apuntando al instalador Windows normal, no al asset Microsoft Store.
-          tauriConf.bundle.createUpdaterArtifacts = true;
+          writeJson(tauriPath, tauriConf);
 
-          tauriConf.bundle.windows = tauriConf.bundle.windows || {};
-          tauriConf.bundle.windows.webviewInstallMode = { type: 'offlineInstaller' };
-
-          fs.writeFileSync(path, JSON.stringify(tauriConf, null, 2) + '\n');
+          const cargoPath = 'src-tauri/Cargo.toml';
+          if (fs.existsSync(cargoPath)) {
+            let cargo = fs.readFileSync(cargoPath, 'utf8');
+            cargo = cargo.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
+            fs.writeFileSync(cargoPath, cargo);
+          }
           NODE
 
-      - name: Compilar versión Microsoft Store con auto-actualizaciones
-        if: needs.prepare-release.outputs.prerelease == 'false' && matrix.store == true
+      - name: Configurar Rust multiarch Windows
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc, aarch64-pc-windows-msvc
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Instalar dependencias frontend
+        run: bun install
+
+      - name: Comprobar configuración MSIX
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "src-tauri/gen/windows/bundle.config.json" ] || [ ! -f "src-tauri/gen/windows/AppxManifest.xml.template" ]; then
+            echo "::error::Falta la configuración de @choochmeque/tauri-windows-bundle. Ejecuta localmente: npx @choochmeque/tauri-windows-bundle@latest init --all-variants y commitea src-tauri/gen/windows/."
+            exit 1
+          fi
+
+      - name: Compilar MSIX bundle Microsoft Store x64 + ARM64
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          bun run tauri build --target "${{ matrix.target }}" --bundles nsis
+          npx @choochmeque/tauri-windows-bundle@latest build --arch x64,arm64 --runner bun --verbose
 
-      - name: Subir versión Microsoft Store
-        if: needs.prepare-release.outputs.prerelease == 'false' && matrix.store == true
+      - name: Subir MSIX bundle Microsoft Store
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare-release.outputs.tag_name }}
-          VERSION: ${{ needs.prepare-release.outputs.version }}
-          PLATFORM_NAME: ${{ matrix.name }}
-          TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
 
-          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle/nsis"
           OUT="store-assets"
           mkdir -p "$OUT"
 
-          exe="$(find "$BUNDLE_DIR" -type f -name "*.exe" | sort | head -n 1)"
-          if [ -z "${exe:-}" ] || [ ! -f "$exe" ]; then
-            echo "No se encontró el instalador NSIS de Microsoft Store." >&2
+          bundle="$(find "src-tauri/target/msix" -type f -name "*.msixbundle" | sort | head -n 1)"
+          if [ -z "${bundle:-}" ] || [ ! -f "$bundle" ]; then
+            echo "No se encontró el .msixbundle de Microsoft Store." >&2
+            echo "Contenido de src-tauri/target/msix:" >&2
+            find "src-tauri/target/msix" -maxdepth 3 -print 2>/dev/null || true
             exit 1
           fi
 
-          case "$PLATFORM_NAME" in
-            windows-arm64) STORE_ARCH="arm64" ;;
-            windows-x64) STORE_ARCH="x64" ;;
-            *)
-              echo "Plataforma Microsoft Store no soportada: $PLATFORM_NAME" >&2
-              exit 1
-              ;;
-          esac
-
-          dest="ADB-App-MicrosoftStore-Version-${STORE_ARCH}.exe"
-          cp "$exe" "$OUT/$dest"
-          if [ -f "$exe.sig" ]; then
-            cp "$exe.sig" "$OUT/$dest.sig"
-          fi
-
-          gh release upload "$TAG" "$OUT"/* --clobber
+          dest="ADB-App-MicrosoftStore-Version-x64-arm64.msixbundle"
+          cp "$bundle" "$OUT/$dest"
+          gh release upload "$TAG" "$OUT/$dest" --clobber
 
   publish-latest:
     name: Publicar latest.json en GitHub Pages
@@ -623,7 +673,7 @@ jobs:
               if (n.includes('linux') || n.endsWith('.appimage')) {
                 return `linux-${arch}`;
               }
-              if (n.includes('windows') || n.endsWith('.exe') || n.endsWith('.msi')) {
+              if (n.includes('windows') || n.endsWith('.exe')) {
                 return `windows-${arch}`;
               }
               return null;
@@ -637,7 +687,6 @@ jobs:
               if (n.endsWith('.app.tar.gz')) return 100;
               if (n.endsWith('.appimage')) return 100;
               if (n.endsWith('.exe')) return 100;
-              if (n.endsWith('.msi')) return 80;
 
               return 0;
             }
@@ -691,7 +740,7 @@ jobs:
                 `No se pudo generar latest.json completo. Plataformas seleccionadas sin updater/signature: ${missingPlatforms.join(', ')}\n\n` +
                 `Assets encontrados:\n${assetNames || '(ninguno)'}\n\n` +
                 `Firmas encontradas:\n${sigNames || '(ninguna)'}\n\n` +
-                'Revisa que TAURI_SIGNING_PRIVATE_KEY llegue al paso de build y que createUpdaterArtifacts esté activado.'
+                'Revisa que TAURI_SIGNING_PRIVATE_KEY llegue al paso de build y que createUpdaterArtifacts esté activado. En Windows Tauri v2 debe publicar el .exe del instalador con su .exe.sig, no un .zip.'
               );
             }
 
@@ -734,8 +783,6 @@ jobs:
 
               if (n.endsWith('.exe')) {
                 addUnique('Windows', `[${arch} (.exe)](${asset.browser_download_url})`);
-              } else if (n.endsWith('.msi')) {
-                addUnique('Windows', `[${arch} (.msi)](${asset.browser_download_url})`);
               } else if (n.endsWith('.dmg')) {
                 addUnique('macOS', `[${arch === 'ARM64' ? 'Apple Silicon' : 'Intel'} (.dmg)](${asset.browser_download_url})`);
               } else if (n.endsWith('.appimage')) {

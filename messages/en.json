@@ -262,6 +262,7 @@
   "settings_downloadTemurin": "Download Temurin LTS",
   "settings_cacheTitle": "Almacenamiento y Caché",
   "settings_cacheRestartWarning": "Changing the cache path requires restarting the application",
+  "settings_storeManagedPath": "Windows manages the app data folder in the Microsoft Store version. You can move the app to another drive from Settings.",
   "dialog_missingTool_title": "{tool} not found",
   "dialog_missingTool_desc": "To use this feature, you need to configure or install {tool}.",
   "dialog_missingTool_adbDesc": "ADB App will not work until you configure it.",

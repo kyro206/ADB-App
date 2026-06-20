@@ -1,0 +1,21 @@
+{
+  "identifier": "Kyro206.ADBApp",
+  "publisher": "CN=510A0534-E430-4B17-AA31-6B6F79827460",
+  "publisherDisplayName": "Kyro206",
+  "capabilities": {
+    "general": []
+  },
+  "extensions": {
+    "shareTarget": false,
+    "fileAssociations": [],
+    "protocolHandlers": []
+  },
+  "signing": {
+    "pfx": null,
+    "pfxPassword": null
+  },
+  "resourceIndex": {
+    "enabled": true,
+    "keepConfig": false
+  }
+}

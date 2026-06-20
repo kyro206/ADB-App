@@ -262,6 +262,7 @@
   "settings_downloadTemurin": "Descargar Temurin LTS",
   "settings_cacheTitle": "Almacenamiento y Caché",
   "settings_cacheRestartWarning": "Cambiar la ruta de caché requiere reiniciar la aplicación",
+  "settings_storeManagedPath": "Windows administra la carpeta de datos del programa en la versión de Microsoft Store. Puedes mover el programa a otro disco desde Configuración.",
   "dialog_missingTool_title": "{tool} no encontrado",
   "dialog_missingTool_desc": "Para usar esta función, necesitas configurar o instalar {tool}.",
   "dialog_missingTool_adbDesc": "ADB App no funcionará hasta que no lo configures.",

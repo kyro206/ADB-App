@@ -162,7 +162,9 @@ pub fn read_settings() -> AppSettings {
         .and_then(|value| serde_json::from_str(&value).ok())
         .unwrap_or_default();
 
-    if !settings.cache_path.trim().is_empty() {
+    if crate::app_paths::is_packaged() {
+        settings.cache_path.clear();
+    } else if !settings.cache_path.trim().is_empty() {
         let path = std::path::Path::new(&settings.cache_path);
         if !path.exists() {
             settings.cache_path = String::new();
@@ -176,9 +178,19 @@ pub fn read_settings() -> AppSettings {
     settings
 }
 
+#[derive(Serialize)]
+pub struct AppSettingsView {
+    #[serde(flatten)]
+    settings: AppSettings,
+    packaged: bool,
+}
+
 #[tauri::command]
-pub fn get_app_settings() -> AppSettings {
-    read_settings()
+pub fn get_app_settings() -> AppSettingsView {
+    AppSettingsView {
+        settings: read_settings(),
+        packaged: crate::app_paths::is_packaged(),
+    }
 }
 
 pub fn write_settings_sync(settings: &AppSettings) -> Result<(), String> {
@@ -191,10 +203,14 @@ pub fn write_settings_sync(settings: &AppSettings) -> Result<(), String> {
 #[tauri::command]
 pub async fn save_app_settings(
     window: tauri::WebviewWindow,
-    settings: AppSettings,
+    mut settings: AppSettings,
 ) -> Result<Option<String>, String> {
     let old_settings = read_settings();
     let old_data_dir = crate::app_paths::data_dir();
+
+    if crate::app_paths::is_packaged() {
+        settings.cache_path.clear();
+    }
 
     write_settings_sync(&settings)?;
     if old_settings.window_effect != settings.window_effect {

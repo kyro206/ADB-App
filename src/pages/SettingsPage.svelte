@@ -50,8 +50,8 @@ import * as m from '../paraglide/messages';
     onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
     onInstallTool: (tool: InstallableTool) => void;
     onClearCache: () => void;
-    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string } | null;
-    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string }) => void;
+    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean } | null;
+    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean }) => void;
     defaultCacheDir: string;
   }>();
 
@@ -378,44 +378,53 @@ import * as m from '../paraglide/messages';
         ></md-switch>
       </label>
 
-      <md-outlined-text-field 
-        use:materialTextFieldValue={localCachePath || appSettings?.cache_path || defaultCacheDir}
-        oninput={(e: any) => localCachePath = e.target.value} 
-        label={m.settings_cachePathPlaceholder()}
-        style="width: 100%"
-      >
-        <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => localCachePath = p)}>
-          <MaterialIcon name="folder_open" />
-        </md-icon-button>
-      </md-outlined-text-field>
+      {#if appSettings?.packaged}
+        <p style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; gap: 6px; margin: 8px 0 0">
+          <MaterialIcon name="info" size={16} />
+          {m.settings_storeManagedPath()}
+        </p>
+      {:else}
+        <md-outlined-text-field
+          use:materialTextFieldValue={localCachePath || appSettings?.cache_path || defaultCacheDir}
+          oninput={(e: any) => localCachePath = e.target.value}
+          label={m.settings_cachePathPlaceholder()}
+          style="width: 100%"
+        >
+          <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => localCachePath = p)}>
+            <MaterialIcon name="folder_open" />
+          </md-icon-button>
+        </md-outlined-text-field>
+
+        <div class="button-row settings-cache-actions" style="margin-top: 16px">
+          <md-filled-button onclick={() => {
+            if (appSettings && localCachePath !== null) {
+              onSaveAppSettings({ ...appSettings, cache_path: localCachePath });
+            }
+          }}>
+            {m.settings_savePath()}
+          </md-filled-button>
+
+          <md-outlined-button onclick={() => {
+            if (appSettings) {
+              localCachePath = '';
+              onSaveAppSettings({ ...appSettings, cache_path: '' });
+            }
+          }}>
+            {m.common_reset()}
+          </md-outlined-button>
+        </div>
+        <p style="font-size: 13px; color: var(--md-sys-color-error); display: flex; align-items: center; gap: 6px; margin: 8px 0 0">
+          <MaterialIcon name="info" size={16} />
+          {m.settings_cacheRestartWarning()}
+        </p>
+      {/if}
 
       <div class="button-row settings-cache-actions" style="margin-top: 16px">
-        <md-filled-button onclick={() => {
-          if (appSettings && localCachePath !== null) {
-            onSaveAppSettings({ ...appSettings, cache_path: localCachePath });
-          }
-        }}>
-          {m.settings_savePath()}
-        </md-filled-button>
-
-        <md-outlined-button onclick={() => {
-          if (appSettings) {
-            localCachePath = '';
-            onSaveAppSettings({ ...appSettings, cache_path: '' });
-          }
-        }}>
-          {m.common_reset()}
-        </md-outlined-button>
-
         <md-outlined-button onclick={onClearCache}>
           <MaterialIcon name="delete" slot="icon" />
           {m.common_clearCache()}
         </md-outlined-button>
       </div>
-      <p style="font-size: 13px; color: var(--md-sys-color-error); margin-top: 8px; display: flex; align-items: center; gap: 6px; margin: 8px 0 0 0">
-        <MaterialIcon name="info" size={16} />
-        {m.settings_cacheRestartWarning()}
-      </p>
     </div>
   </section>
 

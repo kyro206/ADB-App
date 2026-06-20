@@ -46,3 +46,6 @@ TODO.md
 
 #mock
 public/mock*
+
+# Microsoft Store
+src-tauri/gen/windows/Assets

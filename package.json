@@ -9,7 +9,8 @@
     "tauri:mock": "tauri dev --config src-tauri/tauri.mock.conf.json",
     "build": "paraglide-js compile --project ./project.inlang && tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "node scripts/tauri.mjs",
+    "tauri:windows:build": "tauri-windows-bundle build --runner bun"
   },
   "dependencies": {
     "@fontsource-variable/google-sans-flex": "^5.2.3",
@@ -23,6 +24,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1"
   },
   "devDependencies": {
+    "@choochmeque/tauri-windows-bundle": "^0.1.25",
     "@inlang/paraglide-js": "^2.19.0",
     "@inlang/plugin-message-format": "^4.4.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

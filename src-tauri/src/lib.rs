@@ -13,7 +13,7 @@ use commands::screenshot;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .setup(|app| {
             app_paths::initialize(&app.handle())?;
             let app_handle = app.handle().clone();
@@ -30,8 +30,15 @@ pub fn run() {
                 None
             });
 
+            let mut settings_value = serde_json::to_value(&settings).unwrap_or_default();
+            if let Some(settings_object) = settings_value.as_object_mut() {
+                settings_object.insert(
+                    "packaged".to_string(),
+                    serde_json::Value::Bool(crate::app_paths::is_packaged()),
+                );
+            }
             let settings_json =
-                serde_json::to_string(&settings).unwrap_or_else(|_| "{}".to_string());
+                serde_json::to_string(&settings_value).unwrap_or_else(|_| "{}".to_string());
             let init_script = format!("window.__APP_SETTINGS__ = {};", settings_json);
 
             #[allow(unused_mut)]
@@ -43,7 +50,7 @@ pub fn run() {
             .title("ADB App")
             .inner_size(1180.0, 760.0)
             .min_inner_size(920.0, 620.0)
-            .data_directory(crate::app_paths::data_dir())
+            .data_directory(crate::app_paths::webview_data_dir())
             .initialization_script(&init_script);
 
             #[cfg(target_os = "macos")]
@@ -63,10 +70,15 @@ pub fn run() {
             operations::apply_window_effect(&window, &settings.window_effect);
             Ok(())
         })
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init());
+
+    #[cfg(not(store_build))]
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init());
+
+    builder
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let settings = crate::commands::operations::read_settings();

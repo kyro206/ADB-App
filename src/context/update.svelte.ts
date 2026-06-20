@@ -1,9 +1,13 @@
-import { check, type Update } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
 
+type UpdateHandle = {
+  version: string;
+  download: (callback: (event: any) => void) => Promise<void>;
+  install: () => Promise<void>;
+};
+
 class UpdateState {
-  updateInfo = $state<Update | null>(null);
+  updateInfo = $state<UpdateHandle | null>(null);
   showUpdateDialog = $state(false);
   hasUpdate = $derived(this.updateInfo !== null);
   currentVersion = $state<string>('');
@@ -18,6 +22,9 @@ class UpdateState {
     try {
       this.error = '';
       this.currentVersion = await getVersion();
+      if (import.meta.env.VITE_STORE_BUILD) return;
+
+      const { check } = await import('@tauri-apps/plugin-updater');
       const update = await check();
       if (update) {
         this.updateInfo = update;
@@ -29,7 +36,7 @@ class UpdateState {
   }
 
   async install() {
-    if (!this.updateInfo || this.busy) return;
+    if (import.meta.env.VITE_STORE_BUILD || !this.updateInfo || this.busy) return;
 
     this.busy = true;
     this.error = '';
@@ -51,6 +58,7 @@ class UpdateState {
       });
       await this.updateInfo.install();
       this.status = 'restarting';
+      const { relaunch } = await import('@tauri-apps/plugin-process');
       await relaunch();
     } catch (error) {
       this.error = readableError(error);

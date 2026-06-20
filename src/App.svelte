@@ -25,7 +25,9 @@ import * as m from './paraglide/messages';
     // Initialize global singletons
     const cleanupTheme = initThemeEffects();
     devicesState.init();
-    updateState.init();
+    if (!import.meta.env.VITE_STORE_BUILD && !(window as any).__APP_SETTINGS__?.packaged) {
+      updateState.init();
+    }
 
     const handleContextMenu = (e: MouseEvent) => {
         e.preventDefault();
