@@ -81,44 +81,40 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         }
     }
 
-    // Run all info queries concurrently for maximum speed
-    let (
-        getprop,
-        proc_meminfo,
-        battery,
-        storage,
-        features,
-        wm_size,
-        wm_density,
-        display,
-        mut dark_mode,
-        screen_timeout,
-        uptime,
-    ) = tokio::join!(
-        run_or_empty(&serial, &["shell", "getprop"]),
-        run_or_empty(&serial, &["shell", "cat", "/proc/meminfo"]),
-        run_or_empty(&serial, &["shell", "dumpsys", "battery"]),
-        run_or_empty(&serial, &["shell", "df", "-k", "/data"]),
-        run_or_empty(&serial, &["shell", "pm", "list", "features"]),
-        run_or_empty(&serial, &["shell", "wm", "size"]),
-        run_or_empty(&serial, &["shell", "wm", "density"]),
-        run_or_empty(&serial, &["shell", "dumpsys", "display"]),
-        run_or_empty(&serial, &["shell", "cmd", "uimode", "night"]),
-        run_or_empty(
-            &serial,
-            &["shell", "settings", "get", "system", "screen_off_timeout"]
-        ),
-        run_or_empty(&serial, &["shell", "cat", "/proc/uptime"])
-    );
+    let script = "\
+        getprop; echo '---ADBAPPSEP---'; \
+        cat /proc/meminfo; echo '---ADBAPPSEP---'; \
+        dumpsys battery; echo '---ADBAPPSEP---'; \
+        df -k /data; echo '---ADBAPPSEP---'; \
+        pm list features; echo '---ADBAPPSEP---'; \
+        wm size; echo '---ADBAPPSEP---'; \
+        wm density; echo '---ADBAPPSEP---'; \
+        dumpsys display; echo '---ADBAPPSEP---'; \
+        cmd uimode night 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get secure ui_night_mode 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get system screen_off_timeout 2>/dev/null; echo '---ADBAPPSEP---'; \
+        cat /proc/uptime\
+    ";
 
-    let meminfo = proc_meminfo;
+    let result = run_or_empty(&serial, &["shell", script]).await;
+    let mut parts = result.split("---ADBAPPSEP---");
 
-    if dark_mode.trim().is_empty() {
-        dark_mode = run_or_empty(
-            &serial,
-            &["shell", "settings", "get", "secure", "ui_night_mode"],
-        )
-        .await;
+    let getprop = parts.next().unwrap_or("").trim();
+    let meminfo = parts.next().unwrap_or("").trim();
+    let battery = parts.next().unwrap_or("").trim();
+    let storage = parts.next().unwrap_or("").trim();
+    let features = parts.next().unwrap_or("").trim();
+    let wm_size = parts.next().unwrap_or("").trim();
+    let wm_density = parts.next().unwrap_or("").trim();
+    let display = parts.next().unwrap_or("").trim();
+    let uimode = parts.next().unwrap_or("").trim();
+    let secure_uimode = parts.next().unwrap_or("").trim();
+    let screen_timeout = parts.next().unwrap_or("").trim();
+    let uptime = parts.next().unwrap_or("").trim();
+
+    let mut dark_mode = uimode.to_string();
+    if dark_mode.is_empty() {
+        dark_mode = secure_uimode.to_string();
     }
 
     let details = device_parser::build_device_details(

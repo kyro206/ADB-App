@@ -7,11 +7,21 @@ pub fn parse_devices(output: &str) -> Vec<Device> {
     let mut devices = Vec::new();
     let lines: Vec<&str> = output.lines().collect();
 
-    if lines.is_empty() || !lines[0].contains("List of devices attached") {
+    let mut iter = lines.iter();
+    let mut found_list = false;
+
+    for &line in iter.by_ref() {
+        if line.contains("List of devices attached") {
+            found_list = true;
+            break;
+        }
+    }
+
+    if !found_list {
         return devices;
     }
 
-    for line in lines.iter().skip(1) {
+    for line in iter {
         let trimmed = line.trim();
         if trimmed.is_empty() || trimmed.starts_with('*') {
             continue;

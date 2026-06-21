@@ -1,6 +1,7 @@
 use std::process::Stdio;
 use std::time::Duration;
 use tauri::Emitter;
+use tokio::io::AsyncReadExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::time::timeout;
 
@@ -25,7 +26,8 @@ pub async fn run_adb(args: &[&str]) -> Result<AdbResult, String> {
     run_adb_with_path(path.to_string_lossy().as_ref(), args).await
 }
 
-async fn execute_adb_process(adb_path: &str, args: &[&str]) -> Result<std::process::Output, String> {
+/// Run an ADB command with a specific adb path.
+pub async fn run_adb_with_path(adb_path: &str, args: &[&str]) -> Result<AdbResult, String> {
     let result = timeout(DEFAULT_TIMEOUT, async {
         let mut cmd = crate::process::tokio_command(adb_path);
         cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -34,10 +36,28 @@ async fn execute_adb_process(adb_path: &str, args: &[&str]) -> Result<std::proce
             .spawn()
             .map_err(|e| format!("Failed to spawn adb: {}", e))?;
 
-        child
+        let output = child
             .wait_with_output()
             .await
-            .map_err(|e| format!("Failed to wait for adb: {}", e))
+            .map_err(|e| format!("Failed to wait for adb: {}", e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        let combined = if stderr.is_empty() {
+            stdout
+        } else if stdout.is_empty() {
+            stderr
+        } else {
+            format!("{}\n{}", stdout, stderr)
+        };
+
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        Ok::<AdbResult, String>(AdbResult {
+            exit_code,
+            output: combined,
+        })
     })
     .await;
 
@@ -45,29 +65,6 @@ async fn execute_adb_process(adb_path: &str, args: &[&str]) -> Result<std::proce
         Ok(inner) => inner,
         Err(_) => Err("ADB command timed out".to_string()),
     }
-}
-
-/// Run an ADB command with a specific adb path.
-pub async fn run_adb_with_path(adb_path: &str, args: &[&str]) -> Result<AdbResult, String> {
-    let output = execute_adb_process(adb_path, args).await?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    let combined = if stderr.is_empty() {
-        stdout
-    } else if stdout.is_empty() {
-        stderr
-    } else {
-        format!("{}\n{}", stdout, stderr)
-    };
-
-    let exit_code = output.status.code().unwrap_or(-1);
-
-    Ok(AdbResult {
-        exit_code,
-        output: combined,
-    })
 }
 
 /// Run an ADB command targeting a specific device serial.
@@ -89,9 +86,36 @@ pub async fn run_adb_binary_with_path(
     adb_path: &str,
     args: &[&str],
 ) -> Result<(i32, Vec<u8>), String> {
-    let output = execute_adb_process(adb_path, args).await?;
-    let exit_code = output.status.code().unwrap_or(-1);
-    Ok((exit_code, output.stdout))
+    let result = timeout(DEFAULT_TIMEOUT, async {
+        let mut cmd = crate::process::tokio_command(adb_path);
+        cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("Failed to spawn adb: {}", e))?;
+
+        let mut stdout_bytes = Vec::new();
+        if let Some(mut stdout) = child.stdout.take() {
+            stdout
+                .read_to_end(&mut stdout_bytes)
+                .await
+                .map_err(|e| format!("Failed to read stdout: {}", e))?;
+        }
+
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("Failed to wait for adb: {}", e))?;
+
+        let exit_code = status.code().unwrap_or(-1);
+        Ok::<(i32, Vec<u8>), String>((exit_code, stdout_bytes))
+    })
+    .await;
+
+    match result {
+        Ok(inner) => inner,
+        Err(_) => Err("ADB binary command timed out".to_string()),
+    }
 }
 
 /// Run an ADB binary command targeting a specific device serial.
