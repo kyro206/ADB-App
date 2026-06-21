@@ -41,13 +41,8 @@ import * as m from '../../paraglide/messages';
 
 {#if open}
   <div class="app-modal-layer" ondblclick={e => e.stopPropagation()}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="app-modal-scrim" onclick={onClose} aria-hidden="true"></div>
-    
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <section 
+    <div 
       class="app-modal app-modal--{width}" 
       role="dialog" 
       aria-modal="true" 
@@ -83,7 +78,7 @@ import * as m from '../../paraglide/messages';
           {@render actions?.()}
         </footer>
       {/if}
-    </section>
+    </div>
   </div>
 {/if}
 

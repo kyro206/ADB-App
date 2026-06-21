@@ -20,13 +20,11 @@
 
   let {
     serial,
-    run,
     tab,
     status = $bindable(),
     busy = $bindable()
   } = $props<{
     serial: string;
-    run: (args: string[], success?: string) => Promise<any>;
     tab: string;
     status: string;
     busy: boolean;
@@ -117,43 +115,59 @@
 
 
 
-  async function asyncPrompt(title: string, initialValue: string = ''): Promise<string | null> {
+  async function asyncPrompt(
+    title: string,
+    initialValue: string,
+    action: (value: string) => Promise<void>
+  ): Promise<void> {
     return new Promise((resolve) => {
       promptConfig = {
         open: true,
         title,
         initialValue,
-        onConfirm: (val) => {
+        onConfirm: async (val) => {
+          await action(val);
           promptConfig = null;
-          resolve(val);
+          resolve();
         },
         onCancel: () => {
           promptConfig = null;
-          resolve(null);
+          resolve();
         }
       };
     });
   }
 
-  async function asyncPermissions(title: string, initialMode: string = '755'): Promise<string | null> {
+  async function asyncPermissions(
+    title: string,
+    initialMode: string,
+    action: (value: string) => Promise<void>
+  ): Promise<void> {
     return new Promise((resolve) => {
       permissionsConfig = {
         open: true,
         title,
         initialMode,
-        onConfirm: (val) => {
+        onConfirm: async (val) => {
+          await action(val);
           permissionsConfig = null;
-          resolve(val);
+          resolve();
         },
         onCancel: () => {
           permissionsConfig = null;
-          resolve(null);
+          resolve();
         }
       };
     });
   }
 
-  async function asyncConfirm(title: string, message: string, confirmText: string, isDanger: boolean = false): Promise<boolean> {
+  async function asyncConfirm(
+    title: string,
+    message: string,
+    confirmText: string,
+    action: () => Promise<void>,
+    isDanger: boolean = false
+  ): Promise<void> {
     return new Promise((resolve) => {
       confirmConfig = {
         open: true,
@@ -161,13 +175,14 @@
         message,
         confirmText,
         isDanger,
-        onConfirm: () => {
+        onConfirm: async () => {
+          await action();
           confirmConfig = null;
-          resolve(true);
+          resolve();
         },
         onCancel: () => {
           confirmConfig = null;
-          resolve(false);
+          resolve();
         }
       };
     });
@@ -258,7 +273,7 @@
       transferJobs = transferJobs.map(j => j.id === job.id ? { ...j, status: 'transferring', error: undefined, children: undefined } : j);
       try {
         if (job.type === 'upload') {
-          await invoke<string>('run_device_action', { serial: serial, args: ['push', job.source, job.destination] });
+          await invoke<string>('run_device_action', { serial: serial, args: ['push', '--sync', job.source, job.destination] });
           if (path === job.destination) refreshFiles(path);
         } else {
           await invoke<string>('pull_file', { serial: serial, remotePath: job.source, localPath: job.destination });
@@ -330,14 +345,20 @@
     if (!paths.length) return;
     for (const localPath of paths) {
       let isDirectory = false;
+      let statError: string | undefined = undefined;
       try {
         const metadata = await stat(localPath);
         isDirectory = metadata.isDirectory;
       } catch (e) {
-        status = translateError(e);
+        statError = translateError(e);
       }
       const name = localPath.split(/[\\/]/).pop() || localPath;
-      enqueueTransfer('upload', localPath, path, name, isDirectory);
+      
+      if (statError) {
+        transferJobs = [...transferJobs, { id: Date.now().toString() + Math.random().toString(), type: 'upload', name, source: localPath, destination: path, isDirectory: false, status: 'error', error: statError }];
+      } else {
+        enqueueTransfer('upload', localPath, path, name, isDirectory);
+      }
     }
     if (!transfersOpen) transfersOpen = true;
   }
@@ -364,18 +385,35 @@
     return `'${p.replace(/'/g, "'\\''")}'`;
   }
 
+  async function runFileAction(args: string[]) {
+    if (!serial) throw new Error(m.workbench_status_selectDevice());
+    busy = true;
+    try {
+      const output = await invoke<string>('run_device_action', { serial, args });
+      status = output;
+    } catch (error) {
+      throw new Error(translateError(error));
+    } finally {
+      busy = false;
+    }
+  }
+
   async function createDeviceFolder() {
     const defaultName = m.files_prompt_defaultNewFolder();
-    const name = await asyncPrompt(m.files_prompt_newFolder(), defaultName);
-    if (name?.trim() && name !== defaultName) await run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
-    else if (name?.trim() === defaultName) await run(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
+    await asyncPrompt(m.files_prompt_newFolder(), defaultName, async name => {
+      await runFileAction(['shell', 'mkdir', '-p', escapeAdbPath(`${path}/${name.trim()}`)]);
+      await refreshFiles();
+    });
   }
 
   async function renameSelectedFile() {
     const file = selectedFileEntries[0];
     if (!file) return;
-    const name = await asyncPrompt(m.files_prompt_rename(), file.name);
-    if (name?.trim() && name !== file.name) await run(['shell', 'mv', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
+    await asyncPrompt(m.files_prompt_rename(), file.name, async name => {
+      if (name.trim() === file.name) return;
+      await runFileAction(['shell', 'mv', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]);
+      await refreshFiles();
+    });
   }
 
   async function duplicateSelectedFile() {
@@ -385,22 +423,26 @@
     const suggestedName = extensionIndex > 0
       ? `${file.name.slice(0, extensionIndex)}${m.files_prompt_copySuffix()}${file.name.slice(extensionIndex)}`
       : `${file.name}${m.files_prompt_copySuffix()}`;
-    const name = await asyncPrompt(m.files_prompt_copyName(), suggestedName);
-    if (name?.trim()) await run(['shell', 'cp', '-r', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]).then(() => refreshFiles());
+    await asyncPrompt(m.files_prompt_copyName(), suggestedName, async name => {
+      await runFileAction(['shell', 'cp', '-r', escapeAdbPath(filePath(file)), escapeAdbPath(`${path}/${name.trim()}`)]);
+      await refreshFiles();
+    });
   }
 
   async function deleteSelectedFiles() {
     if (!selectedFileEntries.length) return;
-    const accepted = await asyncConfirm(
+    await asyncConfirm(
       m.files_confirm_deleteTitle(),
       m.files_confirm_deleteDesc({ count: selectedFileEntries.length }),
       m.common_delete(),
+      async () => {
+        for (const file of selectedFileEntries) {
+          await runFileAction(['shell', 'rm', '-rf', escapeAdbPath(filePath(file))]);
+        }
+        await refreshFiles();
+      },
       true
     );
-    if (!accepted) return;
-    
-    for (const file of selectedFileEntries) await run(['shell', 'rm', '-rf', escapeAdbPath(filePath(file))]);
-    await refreshFiles();
   }
 
   async function changeSelectedPermissions() {
@@ -427,10 +469,12 @@
       }
     }
 
-    const mode = await asyncPermissions(m.files_action_permissions(), initialMode);
-    if (!mode?.match(/^[0-7]{3,4}$/)) return;
-    for (const file of selectedFileEntries) await run(['shell', 'chmod', mode, escapeAdbPath(filePath(file))]);
-    await refreshFiles();
+    await asyncPermissions(m.files_action_permissions(), initialMode, async mode => {
+      for (const file of selectedFileEntries) {
+        await runFileAction(['shell', 'chmod', mode, escapeAdbPath(filePath(file))]);
+      }
+      await refreshFiles();
+    });
   }
 
   $effect(() => {

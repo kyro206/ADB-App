@@ -14,16 +14,20 @@ import * as m from '../../paraglide/messages';
     open: boolean;
     title: string;
     initialMode?: string;
-    onConfirm: (value: string) => void;
+    onConfirm: (value: string) => void | Promise<void>;
     onCancel: () => void;
   }>();
 
   let octal = $state('755');
+  let errorText = $state('');
+  let submitting = $state(false);
 
   $effect(() => {
     if (open) {
       const match = initialMode.match(/([0-7]{3})$/);
       octal = match ? match[1] : '755';
+      errorText = '';
+      submitting = false;
     }
   });
 
@@ -48,12 +52,28 @@ import * as m from '../../paraglide/messages';
   function handleOctalInput(e: any) {
     let val = e.target.value.replace(/[^0-7]/g, '').slice(0, 3);
     octal = val;
+    errorText = '';
   }
 
-  function handleConfirm() {
-    let finalOctal = octal;
-    while (finalOctal.length < 3) finalOctal += '0';
-    onConfirm(finalOctal);
+  async function handleConfirm() {
+    if (submitting) return;
+    if (!/^[0-7]{3}$/.test(octal)) {
+      errorText = m.files_permissions_invalid();
+      return;
+    }
+    submitting = true;
+    errorText = '';
+    try {
+      await onConfirm(octal);
+    } catch (error) {
+      errorText = error instanceof Error ? error.message : String(error);
+    } finally {
+      submitting = false;
+    }
+  }
+
+  function handleCancel() {
+    if (!submitting) onCancel();
   }
 
   function hasBit(p: number, bit: number) {
@@ -61,7 +81,7 @@ import * as m from '../../paraglide/messages';
   }
 </script>
 
-<AppModal {open} {title} onClose={onCancel} width="compact">
+<AppModal {open} {title} onClose={handleCancel} width="compact" cancelDisabled={submitting}>
   <div class="permissions-dialog-content">
     <div class="permissions-grid">
       <div></div>
@@ -90,12 +110,14 @@ import * as m from '../../paraglide/messages';
       <md-outlined-text-field 
         use:materialTextFieldValue={octal}
         oninput={handleOctalInput} 
+        error={errorText ? true : undefined}
+        error-text={errorText}
       ></md-outlined-text-field>
     </div>
   </div>
 
   {#snippet actions()}
-    <md-filled-button onclick={handleConfirm}>{m.common_confirm()}</md-filled-button>
+    <md-filled-button disabled={submitting ? true : undefined} onclick={handleConfirm}>{m.common_confirm()}</md-filled-button>
   {/snippet}
 </AppModal>
 

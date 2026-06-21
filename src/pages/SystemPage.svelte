@@ -93,8 +93,6 @@ import * as m from '../paraglide/messages';
       {#if systemState}
         {#each systemState.users as user (user.id)}
           {@const isCurrent = systemState.current_user_id === user.id}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div 
             class="md-system-list-item {isCurrent ? 'selected' : ''}"
             style="cursor: {isCurrent ? 'default' : 'pointer'}"
@@ -194,8 +192,6 @@ import * as m from '../paraglide/messages';
           {@const isDefault = systemState.current_keyboard_id === keyboard.id}
           {@const isSelected = selectedKeyboard === keyboard.id}
           
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div 
             class="md-system-list-item {isSelected ? 'selected' : ''} {isDefault ? 'default' : ''}"
             onclick={() => selectedKeyboard = keyboard.id}

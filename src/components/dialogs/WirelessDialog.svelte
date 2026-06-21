@@ -51,7 +51,7 @@ import * as m from '../../paraglide/messages';
     endpointError = false;
     try { 
       const oldDevices = await invoke<any[]>('list_devices').catch(() => []);
-      const output = await invoke<string>(command, payload); 
+      await invoke<string>(command, payload); 
       if (currentGen !== genId) return;
       
       const newDevices = await invoke<any[]>('list_devices').catch(() => []);

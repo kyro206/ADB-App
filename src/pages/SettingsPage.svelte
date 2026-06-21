@@ -365,6 +365,12 @@ import * as m from '../paraglide/messages';
   
   <section class="settings-card">
     <h3 class="settings-title">{m.settings_cacheTitle()}</h3>
+    {#snippet clearCacheButton()}
+      <md-outlined-button onclick={onClearCache}>
+        <MaterialIcon name="delete" slot="icon" />
+        {m.common_clearCache()}
+      </md-outlined-button>
+    {/snippet}
     <div class="form-stack">          
       <label class="settings-switch-row">
         <span class="md3-body-large">{m.settings_enableCache()}</span>
@@ -383,6 +389,9 @@ import * as m from '../paraglide/messages';
           <MaterialIcon name="info" size={16} />
           {m.settings_storeManagedPath()}
         </p>
+        <div class="button-row settings-cache-actions" style="margin-top: 16px">
+          {@render clearCacheButton()}
+        </div>
       {:else}
         <md-outlined-text-field
           use:materialTextFieldValue={localCachePath || appSettings?.cache_path || defaultCacheDir}
@@ -412,19 +421,13 @@ import * as m from '../paraglide/messages';
           }}>
             {m.common_reset()}
           </md-outlined-button>
+          {@render clearCacheButton()}
         </div>
         <p style="font-size: 13px; color: var(--md-sys-color-error); display: flex; align-items: center; gap: 6px; margin: 8px 0 0">
           <MaterialIcon name="info" size={16} />
           {m.settings_cacheRestartWarning()}
         </p>
       {/if}
-
-      <div class="button-row settings-cache-actions" style="margin-top: 16px">
-        <md-outlined-button onclick={onClearCache}>
-          <MaterialIcon name="delete" slot="icon" />
-          {m.common_clearCache()}
-        </md-outlined-button>
-      </div>
     </div>
   </section>
 

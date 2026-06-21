@@ -14,9 +14,6 @@ dist-ssr/
 # dotenv environment variables file
 env
 
-# VSCode workspace settings file
-.vscode
-
 # Lock files
 package-lock.json
 *.lock

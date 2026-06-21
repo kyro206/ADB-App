@@ -129,7 +129,6 @@ import * as m from '../../paraglide/messages';
     <h3>{m.install_options_title()}</h3>
     <div class="install-dialog-options">
       {#each optionDefinitions as [key, title, description]}
-        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label>
           <md-checkbox checked={options[key] ? true : undefined} onclick={() => onOptionChange(key, !options[key])}></md-checkbox>
           <span>

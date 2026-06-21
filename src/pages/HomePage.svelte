@@ -27,21 +27,6 @@
       .filter((value) => value && value !== "-")
       .join(" · ");
 
-  const normalizeCarrierName = (value: string) =>
-    [
-      ...new Set(
-        value
-          .trim()
-          .split(",")
-          .map((part) => part.trim())
-          .filter(
-            (part) =>
-              part &&
-              part.toLowerCase() !== "unknown" &&
-              part.toLowerCase() !== "null",
-          ),
-      ),
-    ].join(" / ");
 
   let timeNow = $state(new Date());
   let capturing = $state(false);

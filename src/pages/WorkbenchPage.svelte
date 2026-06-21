@@ -377,7 +377,7 @@ import * as m from '../paraglide/messages';
     </div>
   {/if}
 
-  {#if tab === 'apps'}
+  {#if mountedTabs.has('apps')}
     <div style="display: {tab === 'apps' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={tab === 'apps' && busy}>
         {#if serial}
@@ -387,17 +387,17 @@ import * as m from '../paraglide/messages';
     </div>
   {/if}
 
-  {#if tab === 'files'}
+  {#if mountedTabs.has('files')}
     <div style="display: {tab === 'files' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}
-          <FilesPage {serial} bind:status bind:busy {run} {tab} />
+          <FilesPage {serial} bind:status bind:busy {tab} />
         {/if}
       </DeviceStateScreen>
     </div>
   {/if}
 
-  {#if tab === 'system'}
+  {#if mountedTabs.has('system')}
     <div style="display: {tab === 'system' ? 'contents' : 'none'}">
       <DeviceStateScreen {serial} loading={loading}>
         {#if serial}

@@ -3,7 +3,7 @@
     open: boolean;
     title: string;
     initialValue: string;
-    onConfirm: (value: string) => void;
+    onConfirm: (value: string) => void | Promise<void>;
     onCancel: () => void;
   };
 
@@ -11,7 +11,7 @@
     open: boolean;
     title: string;
     initialMode: string;
-    onConfirm: (value: string) => void;
+    onConfirm: (value: string) => void | Promise<void>;
     onCancel: () => void;
   };
 
@@ -21,7 +21,7 @@
     message: string;
     isDanger: boolean;
     confirmText: string;
-    onConfirm: () => void;
+    onConfirm: () => void | Promise<void>;
     onCancel: () => void;
   };
 </script>
