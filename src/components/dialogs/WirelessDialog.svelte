@@ -3,6 +3,7 @@ import * as m from '../../paraglide/messages';
 
   import { invoke } from '@tauri-apps/api/core';
   import { devicesState } from '../../context/devices.svelte';
+  import QRCode from 'qrcode';
   
   import MaterialIcon from '../MaterialIcon.svelte';
   import AppModal from './AppModal.svelte';
@@ -10,7 +11,7 @@ import * as m from '../../paraglide/messages';
   let { open = false, onClose } = $props<{ open: boolean; onClose: () => void }>();
 
   type WirelessMode = 'manual' | 'qr';
-  type WirelessQrPayload = { service_name: string; password: string; qr_data_url: string };
+  type WirelessQrPayload = { service_name: string; password: string; qr_data: string };
 
   let mode = $state<WirelessMode>('manual');
   let busy = $state(false);
@@ -20,6 +21,7 @@ import * as m from '../../paraglide/messages';
   let endpointError = $state(false);
   let code = $state('');
   let qrPayload = $state<WirelessQrPayload | null>(null);
+  let qrDataUrl = $state('');
 
   let isPairing = $derived(code.trim().length > 0);
   let genId = 0;
@@ -95,6 +97,11 @@ import * as m from '../../paraglide/messages';
     try { 
       payload = await invoke<WirelessQrPayload>('generate_wireless_qr');
       if (mode === 'qr' && open && currentGen === genId) {
+        qrDataUrl = await QRCode.toDataURL(payload.qr_data, {
+            margin: 1,
+            color: { dark: '#000000ff', light: '#ffffffff' },
+            width: 360
+        });
         qrPayload = payload; 
       }
     }
@@ -194,7 +201,7 @@ import * as m from '../../paraglide/messages';
         {#if !qrPayload && busy}
           <md-circular-progress indeterminate></md-circular-progress>
         {:else if qrPayload}
-          <img src={qrPayload.qr_data_url} alt={m.wireless_qr_alt()} />
+          <img src={qrDataUrl} alt={m.wireless_qr_alt()} />
         {:else}
           <MaterialIcon name="qr_code_2" />
         {/if}

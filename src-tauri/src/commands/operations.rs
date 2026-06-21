@@ -7,7 +7,6 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use qrcode::{render::svg, QrCode};
 use rand::{distr::Alphanumeric, Rng};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -85,7 +84,7 @@ pub struct MediaVolumeState {
 pub struct WirelessQrPayload {
     pub service_name: String,
     pub password: String,
-    pub qr_data_url: String,
+    pub qr_data: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1209,17 +1208,10 @@ pub fn generate_wireless_qr() -> Result<WirelessQrPayload, String> {
     let service_name = format!("adb-{}", random_wireless_token(8));
     let password = random_wireless_token(12);
     let payload = format!("WIFI:T:ADB;S:{service_name};P:{password};;");
-    let svg = QrCode::new(payload.as_bytes())
-        .map_err(|error| error.to_string())?
-        .render::<svg::Color>()
-        .min_dimensions(360, 360)
-        .dark_color(svg::Color("#000000"))
-        .light_color(svg::Color("#ffffff"))
-        .build();
     Ok(WirelessQrPayload {
         service_name,
         password,
-        qr_data_url: format!("data:image/svg+xml;base64,{}", STANDARD.encode(svg)),
+        qr_data: payload,
     })
 }
 
@@ -2160,7 +2152,7 @@ mod wireless_tests {
         let qr = generate_wireless_qr().expect("QR generation should succeed");
         assert!(qr.service_name.starts_with("adb-"));
         assert_eq!(qr.password.len(), 12);
-        assert!(qr.qr_data_url.starts_with("data:image/svg+xml;base64,"));
+        assert!(qr.qr_data.starts_with("WIFI:T:ADB;S:"));
     }
 
     #[test]
