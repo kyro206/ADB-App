@@ -152,6 +152,8 @@
   --md-sys-color-outline-variant: var(--outline-variant);
   --md-sys-color-error: var(--error);
   --md-sys-color-on-error: var(--surface);
+  --md-sys-color-error-container: color-mix(in srgb, var(--error) 20%, transparent);
+  --md-sys-color-on-error-container: var(--error);
   --md-sys-color-scrim: #000;
 }
 
