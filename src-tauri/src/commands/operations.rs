@@ -1817,7 +1817,8 @@ pub async fn install_application_packages(
                         "install".into()
                     });
                     if options.replace_existing {
-                        args.push("-r -d".into());
+                        args.push("-r".into());
+                        args.push("-d".into());
                     }
                     if options.grant_runtime_permissions {
                         args.push("-g".into());

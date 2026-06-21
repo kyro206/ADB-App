@@ -32,7 +32,7 @@ import * as m from '../../paraglide/messages';
 
   onMount(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (open && event.key === 'Escape') onClose();
+      if (open && event.key === 'Escape' && !cancelDisabled) onClose();
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
@@ -41,7 +41,7 @@ import * as m from '../../paraglide/messages';
 
 {#if open}
   <div class="app-modal-layer" ondblclick={e => e.stopPropagation()}>
-    <div class="app-modal-scrim" onclick={onClose} aria-hidden="true"></div>
+    <div class="app-modal-scrim" onclick={() => { if (!cancelDisabled) onClose(); }} aria-hidden="true"></div>
     <div 
       class="app-modal app-modal--{width}" 
       role="dialog" 
@@ -58,7 +58,7 @@ import * as m from '../../paraglide/messages';
           {/if}
         </div>
         {#if showHeaderClose}
-          <md-icon-button aria-label={m.common_close()} onclick={onClose}>
+          <md-icon-button disabled={cancelDisabled ? true : undefined} aria-label={m.common_close()} onclick={onClose}>
             <MaterialIcon name="close" />
           </md-icon-button>
         {/if}
