@@ -8,7 +8,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use rand::{distr::Alphanumeric, Rng};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::adb;
@@ -572,19 +571,20 @@ fn modern_java_path() -> Result<PathBuf, String> {
         "Java is not configured. Set its path in Settings. It is recommended to install the latest LTS version of Temurin from https://adoptium.net/temurin/releases".to_string()
     })?;
     let output = run_local_command(&java, &["-version".into()])?;
-    let version = Regex::new(r#"version "(\d+)(?:\.(\d+))?"#)
-        .ok()
-        .and_then(|regex| regex.captures(&output))
-        .and_then(|capture| {
-            let first = capture.get(1)?.as_str().parse::<i32>().ok()?;
+    let version = output.find("version \"")
+        .and_then(|idx| {
+            let rest = &output[idx + 9..];
+            let end_idx = rest.find('"')?;
+            let ver_str = &rest[..end_idx];
+            let mut parts = ver_str.split('.');
+            let first = parts.next()?.parse::<i32>().ok()?;
             let major = if first == 1 {
-                capture.get(2)?.as_str().parse::<i32>().ok()?
+                parts.next()?.parse::<i32>().ok()?
             } else {
                 first
             };
             Some(major)
-        })
-        .unwrap_or(0);
+        }).unwrap_or(0);
     if version < 11 {
         Err(format!(
             "Java {version} is not compatible with bundletool. Configure Java 11 or higher in Settings; the latest LTS version of Temurin is recommended."
@@ -1220,16 +1220,16 @@ pub async fn pair_wireless_qr(service_name: String, password: String) -> Result<
     if service_name.trim().is_empty() || password.trim().is_empty() {
         return Err("Generate and scan a QR code first".to_string());
     }
-    let endpoint_pattern =
-        Regex::new(r"(?m)^(\S+)\s+(_adb-tls-pairing\._tcp)\s+((?:\d{1,3}\.){3}\d{1,3}):(\d+)")
-            .map_err(|error| error.to_string())?;
     for _ in 0..30 {
         let result = adb::run_adb(&["mdns", "services"]).await?;
         if result.ok() {
-            for captures in endpoint_pattern.captures_iter(&result.output) {
-                if captures.get(1).map_or("", |value| value.as_str()) == service_name.trim() {
-                    let endpoint = format!("{}:{}", &captures[3], &captures[4]);
-                    return pair_wireless_device(endpoint, password).await;
+            for line in result.output.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 3 && parts[1] == "_adb-tls-pairing._tcp" {
+                    if parts[0] == service_name.trim() {
+                        let endpoint = parts[2];
+                        return pair_wireless_device(endpoint.to_string(), password).await;
+                    }
                 }
             }
         }
@@ -1239,30 +1239,24 @@ pub async fn pair_wireless_qr(service_name: String, password: String) -> Result<
 }
 
 async fn wireless_host_for_serial(serial: &str) -> Result<String, String> {
-    let patterns = [
-        (
-            vec!["shell", "ip", "route", "show", "dev", "wlan0"],
-            r"\bsrc\s+((?:\d{1,3}\.){3}\d{1,3})\b",
-        ),
-        (
-            vec!["shell", "ip", "route"],
-            r"\bsrc\s+((?:\d{1,3}\.){3}\d{1,3})\b",
-        ),
-        (
-            vec!["shell", "ip", "-f", "inet", "addr", "show", "wlan0"],
-            r"\binet\s+((?:\d{1,3}\.){3}\d{1,3})\b",
-        ),
+    let queries = [
+        (vec!["shell", "ip", "route", "show", "dev", "wlan0"], "src "),
+        (vec!["shell", "ip", "route"], "src "),
+        (vec!["shell", "ip", "-f", "inet", "addr", "show", "wlan0"], "inet "),
     ];
-    for (args, pattern) in patterns {
+
+    for (args, keyword) in queries {
         let result = adb::run_adb_for_serial(serial, &args).await?;
         if result.ok() {
-            let regex = Regex::new(pattern).map_err(|error| error.to_string())?;
-            if let Some(host) = regex
-                .captures(&result.output)
-                .and_then(|captures| captures.get(1))
-                .map(|value| value.as_str().to_string())
-            {
-                return Ok(host);
+            for line in result.output.lines() {
+                if let Some(idx) = line.find(keyword) {
+                    let rest = &line[idx + keyword.len()..].trim_start();
+                    let ip_candidate = rest.split_whitespace().next().unwrap_or("");
+                    let parts: Vec<&str> = ip_candidate.split('.').collect();
+                    if parts.len() == 4 && parts.iter().all(|p| p.parse::<u8>().is_ok()) {
+                        return Ok(ip_candidate.to_string());
+                    }
+                }
             }
         }
     }
@@ -1302,16 +1296,22 @@ async fn run_system_query(serial: &str, args: &[&str]) -> Result<String, String>
 }
 
 fn parse_system_users(output: &str, current_user_id: i32) -> Vec<AndroidUser> {
-    let pattern = Regex::new(r"UserInfo\{(\d+):([^:}]+):[^}]*\}(.*)$").unwrap();
     let mut users = output
         .lines()
         .filter_map(|line| {
-            let captures = pattern.captures(line.trim())?;
-            let id = captures.get(1)?.as_str().parse::<i32>().ok()?;
-            let suffix = captures.get(3).map_or("", |value| value.as_str());
+            let trimmed = line.trim();
+            let start = trimmed.find("UserInfo{")? + 9;
+            let end = trimmed[start..].find('}')?;
+            let content = &trimmed[start..start + end];
+            let suffix = &trimmed[start + end + 1..];
+            
+            let mut parts = content.split(':');
+            let id = parts.next()?.parse::<i32>().ok()?;
+            let name = parts.next()?.trim().to_string();
+            
             Some(AndroidUser {
                 id,
-                name: captures.get(2)?.as_str().trim().to_string(),
+                name,
                 is_running: id == current_user_id
                     || suffix.to_ascii_lowercase().contains("running"),
             })

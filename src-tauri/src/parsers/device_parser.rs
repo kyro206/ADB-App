@@ -1,4 +1,3 @@
-use regex::Regex;
 use std::collections::HashMap;
 
 use crate::models::{Device, DeviceDetails};
@@ -64,14 +63,16 @@ fn extract_field(field: &str) -> String {
 
 /// Parse `getprop` output into a map of properties.
 pub fn parse_properties(output: &str) -> HashMap<String, String> {
-    let re = Regex::new(r"^\[(.+?)\]: \[(.*?)\]$").unwrap();
     let mut props = HashMap::new();
 
     for line in output.lines() {
-        if let Some(caps) = re.captures(line.trim()) {
-            let key = caps.get(1).unwrap().as_str().to_string();
-            let value = caps.get(2).unwrap().as_str().to_string();
-            props.insert(key, value);
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            if let Some((key_part, val_part)) = trimmed.split_once("]: [") {
+                let key = key_part.strip_prefix('[').unwrap_or(key_part).to_string();
+                let value = val_part.strip_suffix(']').unwrap_or(val_part).to_string();
+                props.insert(key, value);
+            }
         }
     }
 
@@ -80,18 +81,17 @@ pub fn parse_properties(output: &str) -> HashMap<String, String> {
 
 /// Parse battery level from `dumpsys battery` output.
 pub fn parse_battery_level(output: &str) -> i32 {
-    let level_re = Regex::new(r"(?m)^\s*level:\s*(\d+)\s*$").unwrap();
-    let scale_re = Regex::new(r"(?m)^\s*scale:\s*(\d+)\s*$").unwrap();
+    let mut level: i64 = -1;
+    let mut scale: i64 = -1;
 
-    let level: i64 = level_re
-        .captures(output)
-        .and_then(|c| c.get(1)?.as_str().parse().ok())
-        .unwrap_or(-1);
-
-    let scale: i64 = scale_re
-        .captures(output)
-        .and_then(|c| c.get(1)?.as_str().parse().ok())
-        .unwrap_or(-1);
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("level:") {
+            level = trimmed["level:".len()..].trim().parse().unwrap_or(-1);
+        } else if trimmed.starts_with("scale:") {
+            scale = trimmed["scale:".len()..].trim().parse().unwrap_or(-1);
+        }
+    }
 
     if level < 0 || scale <= 0 {
         return -1;
@@ -105,30 +105,28 @@ pub fn parse_battery_level(output: &str) -> i32 {
 
 /// Parse battery health from `dumpsys battery` output.
 pub fn parse_battery_health(output: &str) -> String {
-    let bsoh_re = Regex::new(r"(?im)^\s*mSavedBatteryBsoh:\s*(\d+)").unwrap();
-    let asoc_re = Regex::new(r"(?im)^\s*mSavedBatteryAsoc:\s*(\d+)").unwrap();
-    let health_re = Regex::new(r"(?im)^\s*health:\s*(\d+)").unwrap();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        let lower = trimmed.to_ascii_lowercase();
 
-    if let Some(caps) = bsoh_re
-        .captures(output)
-        .or_else(|| asoc_re.captures(output))
-    {
-        if let Ok(val) = caps.get(1).unwrap().as_str().parse::<i32>() {
-            if val > 0 && val <= 100 {
-                return format!("{}%", val);
+        if lower.starts_with("msavedbatterybsoh:") || lower.starts_with("msavedbatteryasoc:") {
+            let val_str = trimmed.split(':').nth(1).unwrap_or("").trim();
+            if let Ok(val) = val_str.parse::<i32>() {
+                if val > 0 && val <= 100 {
+                    return format!("{}%", val);
+                }
             }
-        }
-    }
-
-    if let Some(caps) = health_re.captures(output) {
-        match caps.get(1).unwrap().as_str() {
-            "2" => return "good".to_string(),
-            "3" => return "overheat".to_string(),
-            "4" => return "dead".to_string(),
-            "5" => return "over_voltage".to_string(),
-            "6" => return "failure".to_string(),
-            "7" => return "cold".to_string(),
-            _ => return "unknown".to_string(),
+        } else if lower.starts_with("health:") {
+            let val_str = trimmed.split(':').nth(1).unwrap_or("").trim();
+            match val_str {
+                "2" => return "good".to_string(),
+                "3" => return "overheat".to_string(),
+                "4" => return "dead".to_string(),
+                "5" => return "over_voltage".to_string(),
+                "6" => return "failure".to_string(),
+                "7" => return "cold".to_string(),
+                _ => return "unknown".to_string(),
+            }
         }
     }
 
@@ -137,56 +135,63 @@ pub fn parse_battery_health(output: &str) -> String {
 
 /// Parse Android's `dumpsys meminfo` summary, falling back to `/proc/meminfo`.
 pub fn parse_memory(output: &str) -> (i64, i64) {
-    let dumpsys_total_re = Regex::new(r"(?im)^\s*Total RAM:\s*([\d,]+)K\b").unwrap();
-    let dumpsys_free_re = Regex::new(r"(?im)^\s*Free RAM:\s*([\d,]+)K\b").unwrap();
-    let parse_dumpsys_kb = |regex: &Regex| {
-        regex
-            .captures(output)
-            .and_then(|captures| captures.get(1))
-            .and_then(|value| value.as_str().replace(',', "").parse::<i64>().ok())
-    };
+    let mut dumpsys_total: i64 = -1;
+    let mut dumpsys_free: i64 = -1;
+    let mut mem_total: i64 = -1;
+    let mut mem_available: i64 = -1;
+    let mut mem_free: i64 = -1;
 
-    if let (Some(total_kb), Some(free_kb)) = (
-        parse_dumpsys_kb(&dumpsys_total_re),
-        parse_dumpsys_kb(&dumpsys_free_re),
-    ) {
-        if total_kb > 0 && free_kb >= 0 && free_kb <= total_kb {
-            let used_kb = total_kb - free_kb;
-            return (
-                (total_kb as f64 / 1024.0).round() as i64,
-                (used_kb as f64 / 1024.0).round() as i64,
-            );
+    for line in output.lines() {
+        let trimmed = line.trim();
+        let lower = trimmed.to_ascii_lowercase();
+
+        if lower.starts_with("total ram:") {
+            let parts: Vec<&str> = trimmed["Total RAM:".len()..].trim().split_whitespace().collect();
+            if let Some(val_str) = parts.first() {
+                dumpsys_total = val_str.replace("K", "").replace(",", "").parse().unwrap_or(-1);
+            }
+        } else if lower.starts_with("free ram:") {
+            let parts: Vec<&str> = trimmed["Free RAM:".len()..].trim().split_whitespace().collect();
+            if let Some(val_str) = parts.first() {
+                dumpsys_free = val_str.replace("K", "").replace(",", "").parse().unwrap_or(-1);
+            }
+        } else if lower.starts_with("memtotal:") {
+            let parts: Vec<&str> = trimmed["MemTotal:".len()..].trim().split_whitespace().collect();
+            if let Some(val_str) = parts.first() {
+                mem_total = val_str.parse().unwrap_or(-1);
+            }
+        } else if lower.starts_with("memavailable:") {
+            let parts: Vec<&str> = trimmed["MemAvailable:".len()..].trim().split_whitespace().collect();
+            if let Some(val_str) = parts.first() {
+                mem_available = val_str.parse().unwrap_or(-1);
+            }
+        } else if lower.starts_with("memfree:") {
+            let parts: Vec<&str> = trimmed["MemFree:".len()..].trim().split_whitespace().collect();
+            if let Some(val_str) = parts.first() {
+                mem_free = val_str.parse().unwrap_or(-1);
+            }
         }
     }
 
-    let total_re = Regex::new(r"(?im)^MemTotal:\s+(\d+)\s+kB\s*$").unwrap();
-    let available_re = Regex::new(r"(?im)^MemAvailable:\s+(\d+)\s+kB\s*$").unwrap();
-    let free_re = Regex::new(r"(?im)^MemFree:\s+(\d+)\s+kB\s*$").unwrap();
-
-    let total_kb: i64 = total_re
-        .captures(output)
-        .and_then(|c| c.get(1)?.as_str().parse().ok())
-        .unwrap_or(-1);
-
-    let mut available_kb: i64 = available_re
-        .captures(output)
-        .and_then(|c| c.get(1)?.as_str().parse().ok())
-        .unwrap_or(-1);
-
-    if available_kb < 0 {
-        available_kb = free_re
-            .captures(output)
-            .and_then(|c| c.get(1)?.as_str().parse().ok())
-            .unwrap_or(-1);
+    if dumpsys_total > 0 && dumpsys_free >= 0 && dumpsys_free <= dumpsys_total {
+        let used_kb = dumpsys_total - dumpsys_free;
+        return (
+            (dumpsys_total as f64 / 1024.0).round() as i64,
+            (used_kb as f64 / 1024.0).round() as i64,
+        );
     }
 
-    if total_kb <= 0 {
+    if mem_available < 0 {
+        mem_available = mem_free;
+    }
+
+    if mem_total <= 0 {
         return (-1, -1);
     }
 
-    let total_mb = (total_kb as f64 / 1024.0).round() as i64;
-    let available_mb = if available_kb > 0 {
-        (available_kb as f64 / 1024.0).round() as i64
+    let total_mb = (mem_total as f64 / 1024.0).round() as i64;
+    let available_mb = if mem_available > 0 {
+        (mem_available as f64 / 1024.0).round() as i64
     } else {
         -1
     };
@@ -246,22 +251,26 @@ pub fn parse_storage(output: &str) -> (i64, i64) {
 
 /// Parse `wm size` output.
 pub fn parse_wm_size(output: &str) -> (i32, i32, i32, i32) {
-    let physical_re = Regex::new(r"Physical size:\s*(\d+)x(\d+)").unwrap();
-    let override_re = Regex::new(r"Override size:\s*(\d+)x(\d+)").unwrap();
-
     let (mut pw, mut ph) = (0, 0);
     let (mut cw, mut ch) = (0, 0);
 
-    if let Some(caps) = physical_re.captures(output) {
-        pw = caps.get(1).unwrap().as_str().parse().unwrap_or(0);
-        ph = caps.get(2).unwrap().as_str().parse().unwrap_or(0);
-        cw = pw;
-        ch = ph;
-    }
-
-    if let Some(caps) = override_re.captures(output) {
-        cw = caps.get(1).unwrap().as_str().parse().unwrap_or(cw);
-        ch = caps.get(2).unwrap().as_str().parse().unwrap_or(ch);
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("Physical size:") {
+            let val_str = trimmed["Physical size:".len()..].trim();
+            if let Some((w_str, h_str)) = val_str.split_once('x') {
+                pw = w_str.parse().unwrap_or(0);
+                ph = h_str.parse().unwrap_or(0);
+                cw = pw;
+                ch = ph;
+            }
+        } else if trimmed.starts_with("Override size:") {
+            let val_str = trimmed["Override size:".len()..].trim();
+            if let Some((w_str, h_str)) = val_str.split_once('x') {
+                cw = w_str.parse().unwrap_or(cw);
+                ch = h_str.parse().unwrap_or(ch);
+            }
+        }
     }
 
     (pw, ph, cw, ch)
@@ -269,40 +278,51 @@ pub fn parse_wm_size(output: &str) -> (i32, i32, i32, i32) {
 
 /// Parse `wm density` output.
 pub fn parse_wm_density(output: &str) -> (i32, i32) {
-    let physical_re = Regex::new(r"Physical density:\s*(\d+)").unwrap();
-    let override_re = Regex::new(r"Override density:\s*(\d+)").unwrap();
-
     let mut pd = 0;
     let mut cd = 0;
 
-    if let Some(caps) = physical_re.captures(output) {
-        pd = caps.get(1).unwrap().as_str().parse().unwrap_or(0);
-        cd = pd;
-    }
-
-    if let Some(caps) = override_re.captures(output) {
-        cd = caps.get(1).unwrap().as_str().parse().unwrap_or(cd);
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("Physical density:") {
+            let val_str = trimmed["Physical density:".len()..].trim();
+            pd = val_str.parse().unwrap_or(0);
+            cd = pd;
+        } else if trimmed.starts_with("Override density:") {
+            let val_str = trimmed["Override density:".len()..].trim();
+            cd = val_str.parse().unwrap_or(cd);
+        }
     }
 
     (pd, cd)
 }
 
 pub fn parse_refresh_rates(output: &str) -> (f64, Vec<f64>) {
-    let rate_re = Regex::new(r"(?:fps|refreshRate|renderFrameRate)[=: ]+(\d+(?:\.\d+)?)").unwrap();
-    let current_re = Regex::new(r"renderFrameRate[=: ]+(\d+(?:\.\d+)?)").unwrap();
-    let mut rates = rate_re
-        .captures_iter(output)
-        .filter_map(|capture| capture.get(1)?.as_str().parse::<f64>().ok())
-        .filter(|rate| *rate > 1.0 && *rate < 1000.0)
-        .map(|rate| (rate * 100.0).round() / 100.0)
-        .collect::<Vec<_>>();
+    let mut rates = Vec::new();
+    let mut current = 0.0;
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        for keyword in ["fps", "refreshRate", "renderFrameRate"] {
+            if let Some(idx) = trimmed.find(keyword) {
+                let rest = &trimmed[idx + keyword.len()..].trim();
+                let rest = rest.trim_start_matches(|c| c == '=' || c == ':' || c == ' ');
+                let val_str = rest.split_whitespace().next().unwrap_or("").split(|c: char| !c.is_ascii_digit() && c != '.').next().unwrap_or("");
+                if let Ok(rate) = val_str.parse::<f64>() {
+                    if rate > 1.0 && rate < 1000.0 {
+                        rates.push((rate * 100.0).round() / 100.0);
+                    }
+                    if keyword == "renderFrameRate" {
+                        current = rate;
+                    }
+                }
+            }
+        }
+    }
     rates.sort_by(|left, right| left.total_cmp(right));
     rates.dedup();
-    let current = current_re
-        .captures(output)
-        .and_then(|capture| capture.get(1)?.as_str().parse().ok())
-        .or_else(|| rates.first().copied())
-        .unwrap_or(0.0);
+    if current == 0.0 {
+        current = rates.first().copied().unwrap_or(0.0);
+    }
     (current, rates)
 }
 

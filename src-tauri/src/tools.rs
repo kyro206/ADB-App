@@ -3,8 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
-
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
@@ -375,12 +373,14 @@ fn version_for(tool: &str, path: &Path) -> String {
 }
 
 fn adb_platform_tools_version(output: &str) -> Option<String> {
-    static PATTERN: OnceLock<Regex> = OnceLock::new();
-    PATTERN
-        .get_or_init(|| Regex::new(r"(?m)^\s*Version\s+(\d+\.\d+\.\d+)(?:-\d+)?\s*$").unwrap())
-        .captures(output)?
-        .get(1)
-        .map(|value| value.as_str().to_string())
+    output.lines()
+        .map(str::trim)
+        .find(|line| line.starts_with("Version "))
+        .and_then(|line| {
+            let version_part = line.strip_prefix("Version ")?.trim();
+            let just_version = version_part.split('-').next()?;
+            Some(just_version.to_string())
+        })
 }
 
 fn java_major_version(path: &Path) -> i32 {
@@ -577,22 +577,29 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
         .text()
         .await
         .map_err(|error| error.to_string())?;
-    static PATTERN: OnceLock<Regex> = OnceLock::new();
-    let package = PATTERN
-    .get_or_init(|| {
-        Regex::new(
-            r#"(?s)<remotePackage path="platform-tools".*?<revision>\s*<major>(\d+)</major>(?:\s*<minor>(\d+)</minor>)?(?:\s*<micro>(\d+)</micro>)?"#,
-        )
-        .unwrap()
-    })
-    .captures(&repository)
-    .ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
-    Ok(format!(
-        "{}.{}.{}",
-        package.get(1).map_or("0", |value| value.as_str()),
-        package.get(2).map_or("0", |value| value.as_str()),
-        package.get(3).map_or("0", |value| value.as_str())
-    ))
+
+    let start_idx = repository.find("<remotePackage path=\"platform-tools\"")
+        .ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
+    
+    let block = &repository[start_idx..];
+    
+    let rev_start = block.find("<revision>").ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
+    let rev_end = block[rev_start..].find("</revision>").unwrap_or(block.len());
+    let revision_block = &block[rev_start..rev_start+rev_end];
+
+    let extract_tag = |tag: &str| -> Option<String> {
+        let open_tag = format!("<{}>", tag);
+        let close_tag = format!("</{}>", tag);
+        let start = revision_block.find(&open_tag)? + open_tag.len();
+        let end = revision_block[start..].find(&close_tag)?;
+        Some(revision_block[start..start+end].trim().to_string())
+    };
+
+    let major = extract_tag("major").unwrap_or_else(|| "0".to_string());
+    let minor = extract_tag("minor").unwrap_or_else(|| "0".to_string());
+    let micro = extract_tag("micro").unwrap_or_else(|| "0".to_string());
+
+    Ok(format!("{}.{}.{}", major, minor, micro))
 }
 
 async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, String> {
