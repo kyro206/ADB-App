@@ -70,7 +70,7 @@ import * as m from '../../paraglide/messages';
 </script>
 
 <AppModal {open} {title} onClose={handleCancel} width="compact" cancelText={finalCancelText} cancelDisabled={submitting}>
-  <p style="margin: 0; color: var(--on-surface-variant); line-height: 1.5;">
+  <p style="margin: 0; color: var(--on-surface-variant); line-height: 1.5;white-space: pre-wrap;">
     {#if messageSnippet}
       {@render messageSnippet()}
     {:else}

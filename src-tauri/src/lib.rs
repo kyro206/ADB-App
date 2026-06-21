@@ -113,6 +113,7 @@ pub fn run() {
             screenshot::capture_screenshot,
             screenshot::save_screenshot,
             operations::run_device_action,
+            operations::run_device_action_batch,
             operations::connect_wireless_device,
             operations::disconnect_wireless_device,
             operations::pair_wireless_device,

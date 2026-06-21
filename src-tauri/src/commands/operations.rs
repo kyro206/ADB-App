@@ -1016,6 +1016,31 @@ pub async fn run_device_action(serial: String, args: Vec<String>) -> Result<Stri
 }
 
 #[tauri::command]
+pub async fn run_device_action_batch(
+    serial: String,
+    prefix_args: Vec<String>,
+    paths: Vec<String>,
+) -> Result<String, String> {
+    if paths.is_empty() {
+        return Ok("No paths provided".to_string());
+    }
+
+    let mut output = String::new();
+    for path in paths {
+        let mut args = prefix_args.clone();
+        args.push(path);
+        let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        let result = adb::run_adb_for_serial(&serial, &arg_refs).await?;
+        if result.ok() {
+            output.push_str(&result.output);
+        } else {
+            return Err(result.output.trim().to_string());
+        }
+    }
+    Ok(output.trim().to_string())
+}
+
+#[tauri::command]
 pub async fn sideload_device(
     app: tauri::AppHandle,
     serial: String,

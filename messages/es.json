@@ -165,7 +165,7 @@
   "files_prompt_copySuffix": " - copia",
   "files_prompt_copyName": "Nombre de la copia",
   "files_confirm_deleteTitle": "Confirmar eliminación",
-  "files_confirm_deleteDesc": "Se eliminarán permanentemente {count} elemento(s) del dispositivo.\\n\\nEsta acción no se puede deshacer.",
+  "files_confirm_deleteDesc": "Se eliminarán permanentemente {count} elemento(s) del dispositivo.\nEsta acción no se puede deshacer.",
   "files_type_symlink": "Enlace simbólico",
   "files_type_folder": "Carpeta",
   "files_type_file": "Archivo",

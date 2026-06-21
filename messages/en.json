@@ -165,7 +165,7 @@
   "files_prompt_copySuffix": " - copy",
   "files_prompt_copyName": "Copy name",
   "files_confirm_deleteTitle": "Confirm deletion",
-  "files_confirm_deleteDesc": "{count} item(s) will be permanently deleted from the device.\\n\\nThis action cannot be undone.",
+  "files_confirm_deleteDesc": "{count} item(s) will be permanently deleted from the device.\nThis action cannot be undone.",
   "files_type_symlink": "Symlink",
   "files_type_folder": "Folder",
   "files_type_file": "File",

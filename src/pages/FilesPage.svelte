@@ -398,6 +398,19 @@
     }
   }
 
+  async function runFileActionBatch(prefixArgs: string[], paths: string[]) {
+    if (!serial) throw new Error(m.workbench_status_selectDevice());
+    busy = true;
+    try {
+      const output = await invoke<string>('run_device_action_batch', { serial, prefixArgs, paths });
+      status = output;
+    } catch (error) {
+      throw new Error(translateError(error));
+    } finally {
+      busy = false;
+    }
+  }
+
   async function createDeviceFolder() {
     const defaultName = m.files_prompt_defaultNewFolder();
     await asyncPrompt(m.files_prompt_newFolder(), defaultName, async name => {
@@ -436,9 +449,9 @@
       m.files_confirm_deleteDesc({ count: selectedFileEntries.length }),
       m.common_delete(),
       async () => {
-        for (const file of selectedFileEntries) {
-          await runFileAction(['shell', 'rm', '-rf', escapeAdbPath(filePath(file))]);
-        }
+        const paths = selectedFileEntries.map(f => escapeAdbPath(filePath(f)));
+        await runFileActionBatch(['shell', 'rm', '-rf'], paths);
+        selectedFiles = [];
         await refreshFiles();
       },
       true
@@ -470,9 +483,8 @@
     }
 
     await asyncPermissions(m.files_action_permissions(), initialMode, async mode => {
-      for (const file of selectedFileEntries) {
-        await runFileAction(['shell', 'chmod', mode, escapeAdbPath(filePath(file))]);
-      }
+      const paths = selectedFileEntries.map(f => escapeAdbPath(filePath(f)));
+      await runFileActionBatch(['shell', 'chmod', mode], paths);
       await refreshFiles();
     });
   }
@@ -589,6 +601,14 @@
   function handleKeyDown(e: KeyboardEvent) {
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+    if (e.key.toLowerCase() === 'a' && (e.ctrlKey || e.metaKey)) {
+      if (!promptConfig && !permissionsConfig && !confirmConfig) {
+        e.preventDefault();
+        selectedFiles = filteredFiles.map(f => f.name);
+      }
+      return;
+    }
 
     if (e.key === 'Delete') {
       if (selectedFileEntries.length > 0 && !promptConfig && !permissionsConfig && !confirmConfig) {
