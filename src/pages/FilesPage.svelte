@@ -321,23 +321,24 @@
     window.dispatchEvent(new CustomEvent('transfer-badge-update', { detail: { hasError, isTransferring } }));
   });
 
-  function handleRetryTransfer(id: string, parentId?: string) {
+  function handleRetryTransfer(id: string, parentId: string | undefined = undefined) {
     if (parentId) {
-      transferJobs = transferJobs.map(j => {
-        if (j.id !== parentId || !j.children) return j;
-        const child = j.children.find(c => c.id === id);
-        if (!child) return j;
-        const updatedParent = { ...j, children: j.children.filter(c => c.id !== id) };
-        const newJob = { ...child, status: 'idle' as TransferStatus, error: undefined };
-        // This is a bit tricky, we push the new job and return the updated parent
-        // Svelte reactivity handles the mutation differently so we just do it via setTimeout
-        setTimeout(() => {
-           transferJobs = [...transferJobs, newJob];
-        }, 0);
-        return updatedParent;
-      });
+      const parent = transferJobs.find(j => j.id === parentId);
+      if (!parent || !parent.children) return;
+      const childIndex = parent.children.findIndex(c => c.id === id);
+      if (childIndex === -1) return;
+      
+      const child = parent.children[childIndex];
+      parent.children.splice(childIndex, 1);
+      child.status = 'idle';
+      child.error = undefined;
+      transferJobs.push(child);
     } else {
-      transferJobs = transferJobs.map(j => j.id === id ? { ...j, status: 'idle', error: undefined } : j);
+      const job = transferJobs.find(j => j.id === id);
+      if (job) {
+        job.status = 'idle';
+        job.error = undefined;
+      }
     }
   }
 

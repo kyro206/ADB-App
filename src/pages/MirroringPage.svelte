@@ -94,7 +94,7 @@ import * as m from '../paraglide/messages';
 
 </script>
 
-{#snippet Field(label: string, value: string, onValue: (v: string) => void, type = 'text', placeholder = '', disabled = false, actionIcon?: string, onActionClick?: () => void)}
+{#snippet Field(label: string, value: string, onValue: (v: string) => void, type = 'text', placeholder = '', disabled = false, actionIcon: string | undefined = undefined, onActionClick: (() => void) | undefined = undefined)}
   <md-outlined-text-field 
     {label} 
     {type} 

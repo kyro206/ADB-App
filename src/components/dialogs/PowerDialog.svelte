@@ -22,7 +22,7 @@ import * as m from '../../paraglide/messages';
 
   let confirmStep = $state<{ label: string, icon: string, args: string[], exitHint?: string, danger?: boolean } | null>(null);
 
-  function requestAction(label: string, icon: string, args: string[], exitHint?: string, danger?: boolean) {
+  function requestAction(label: string, icon: string, args: string[], exitHint: string | undefined = undefined, danger: boolean | undefined = undefined) {
     if (label === m.power_btn_screenOff()) {
       onAction(label, args, exitHint);
     } else {

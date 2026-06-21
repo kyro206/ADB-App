@@ -23,10 +23,10 @@
     (customStyle ? `${customStyle}` : '')
   );
 
-  function applySlot(node: HTMLElement, slotName?: string) {
+  function applySlot(node: HTMLElement, slotName: string | undefined = undefined) {
     if (slotName) node.setAttribute('slot', slotName);
     return {
-      update(newSlotName?: string) {
+      update(newSlotName: string | undefined = undefined) {
         if (newSlotName) node.setAttribute('slot', newSlotName);
         else node.removeAttribute('slot');
       }
