@@ -70,7 +70,7 @@ import * as m from '../../paraglide/messages';
       onclick={() => onTabChange('settings')} 
       title={labels['settings']}
     >
-      <span class="sidebar__tab-icon" class:sidebar__tab-icon--update={adbAvailable && settingsUpdateAvailable}>
+      <span class="sidebar__tab-icon">
         <MaterialIcon name={TAB_ICONS['settings']} filled={activeTab === 'settings'} />
         {#if !adbAvailable}
           <div class="sidebar__badge error"></div>
@@ -88,5 +88,4 @@ import * as m from '../../paraglide/messages';
 .sidebar__badge { position: absolute; top: 4px; right: 14px; width: 10px; height: 10px; background-color: var(--md-sys-color-error); border-radius: 50%; border: 2px solid var(--surface-container-low); }
 .sidebar__badge.blue { background-color: var(--md-sys-color-primary); }
 .sidebar__badge.error { background-color: var(--md-sys-color-error); }
-.sidebar__tab .sidebar__tab-icon--update { color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent); }
 </style>

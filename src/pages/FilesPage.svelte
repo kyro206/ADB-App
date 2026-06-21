@@ -235,6 +235,8 @@
       selectedFiles = [];
       lastSelectedIndex = null;
       status = '';
+      fileThumbnails = {};
+      pendingThumbnails.clear();
       if (addHistory && normalized !== fileHistory[fileHistoryIndex]) {
         fileHistory = [...fileHistory.slice(0, fileHistoryIndex + 1), normalized];
         fileHistoryIndex++;
@@ -249,6 +251,21 @@
   async function openFileEntry(file: FileEntry) {
     if (file.is_directory) return refreshFiles(filePath(file), true);
     if (file.is_link) return refreshFiles(linkPath(file), true);
+    
+    if (file.size < 25 * 1024 * 1024) {
+      busy = true;
+      try {
+        await invoke('download_and_open_file', { 
+          serial, 
+          remotePath: filePath(file), 
+          fileName: file.name 
+        });
+      } catch (error) {
+        // ignorado
+      } finally {
+        busy = false;
+      }
+    }
   }
 
   async function goFileHistory(index: number) {
@@ -493,6 +510,13 @@
   $effect(() => {
     // only runs on serial change because serial is a prop
     refreshFiles();
+  });
+
+  $effect(() => {
+    if (tab !== 'files') {
+      fileThumbnails = {};
+      pendingThumbnails.clear();
+    }
   });
 
   $effect(() => {

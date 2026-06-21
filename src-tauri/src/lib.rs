@@ -24,6 +24,9 @@ pub fn run() {
                 None
             });
 
+            let temp_dir = crate::app_paths::cache_dir().join("temp_downloads");
+            let _ = std::fs::remove_dir_all(temp_dir);
+
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 crate::adb::start_device_tracker(app_handle).await;
@@ -99,6 +102,9 @@ pub fn run() {
     builder
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let temp_dir = crate::app_paths::cache_dir().join("temp_downloads");
+                let _ = std::fs::remove_dir_all(temp_dir);
+
                 let settings = crate::commands::operations::read_settings();
                 if settings.kill_adb_on_exit {
                     if let Some(path) = crate::tools::resolve_tool_path("adb") {
@@ -149,6 +155,7 @@ pub fn run() {
             operations::get_window_effect_info,
             operations::get_device_wallpaper,
             operations::sideload_device,
+            operations::download_and_open_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
