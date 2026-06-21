@@ -565,7 +565,7 @@ fn run_local_command(program: &Path, args: &[String]) -> Result<String, String> 
 }
 
 fn bundletool_jar() -> Result<PathBuf, String> {
-    crate::dependencies::ensure_bundletool()
+    tauri::async_runtime::block_on(crate::dependencies::ensure_bundletool())
 }
 
 fn modern_java_path() -> Result<PathBuf, String> {
@@ -2291,9 +2291,7 @@ pub async fn set_tool_path(tool: String, path: String) -> Result<ToolsStatus, St
 
 #[tauri::command]
 pub async fn install_or_update_tool(tool: String) -> Result<ToolsStatus, String> {
-    tauri::async_runtime::spawn_blocking(move || tools::install_or_update(&tool))
-        .await
-        .map_err(|error| error.to_string())?
+    tools::install_or_update(&tool).await
 }
 
 #[tauri::command]

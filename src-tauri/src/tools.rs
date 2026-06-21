@@ -355,12 +355,21 @@ fn version_for(tool: &str, path: &Path) -> String {
             if tool == "adb" {
                 return adb_platform_tools_version(&combined).unwrap_or_else(|| "-".to_string());
             }
-            combined
+            let first_line = combined
                 .lines()
                 .find(|line| !line.trim().is_empty())
                 .unwrap_or("-")
-                .trim()
-                .to_string()
+                .trim();
+            if tool == "scrcpy" {
+                return first_line
+                    .strip_prefix("scrcpy ")
+                    .unwrap_or(first_line)
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("-")
+                    .to_string();
+            }
+            first_line.to_string()
         })
         .unwrap_or_else(|| "-".to_string())
 }
@@ -641,8 +650,8 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
     status
 }
 
-pub fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
-    crate::dependencies::install_tool(tool)?;
+pub async fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
+    crate::dependencies::install_tool(tool).await?;
     let mut config = read_config();
     match tool {
         "adb" => config.adb_path.clear(),

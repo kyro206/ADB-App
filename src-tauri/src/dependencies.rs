@@ -14,29 +14,31 @@ enum ArchiveKind {
     TarGz,
 }
 
-fn client() -> Result<reqwest::blocking::Client, String> {
-    reqwest::blocking::Client::builder()
+fn client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()
         .map_err(|error| error.to_string())
 }
 
-fn download_bytes(client: &reqwest::blocking::Client, url: &str) -> Result<Vec<u8>, String> {
+async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
     client
         .get(url)
         .header(reqwest::header::USER_AGENT, "ADB-App")
         .send()
+        .await
         .map_err(|error| format!("Could not download the dependency: {error}"))?
         .error_for_status()
         .map_err(|error| format!("The dependency download failed: {error}"))?
         .bytes()
+        .await
         .map(|bytes| bytes.to_vec())
         .map_err(|error| format!("Could not read the download: {error}"))
 }
 
-fn tool_asset(
+async fn tool_asset(
     tool: &str,
-    client: &reqwest::blocking::Client,
+    client: &reqwest::Client,
 ) -> Result<(String, ArchiveKind), String> {
     if std::env::consts::OS == "linux" {
         return Err("Automatic installation is disabled on Linux. Use your distribution's package manager and Auto detect.".to_string());
@@ -76,10 +78,12 @@ fn tool_asset(
                 .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
                 .header(reqwest::header::USER_AGENT, "ADB-App")
                 .send()
+                .await
                 .map_err(|error| error.to_string())?
                 .error_for_status()
                 .map_err(|error| error.to_string())?
                 .json::<serde_json::Value>()
+                .await
                 .map_err(|error| error.to_string())?;
             let url = release
                 .get("assets")
@@ -165,16 +169,16 @@ fn remove_dir(path: &Path) -> Result<(), String> {
     }
 }
 
-pub fn install_tool(tool: &str) -> Result<(), String> {
+pub async fn install_tool(tool: &str) -> Result<(), String> {
     let client = client()?;
-    let (url, kind) = tool_asset(tool, &client)?;
+    let (url, kind) = tool_asset(tool, &client).await?;
     let target = managed_dir(tool);
     let staging = crate::app_paths::cache_dir()
         .join("dependency-install")
         .join(tool);
     remove_dir(&staging)?;
     {
-        let archive = download_bytes(&client, &url)?;
+        let archive = download_bytes(&client, &url).await?;
         extract(&archive, kind, &staging)?;
         drop(archive);
     }
@@ -206,7 +210,7 @@ pub fn install_tool(tool: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn ensure_bundletool() -> Result<PathBuf, String> {
+pub async fn ensure_bundletool() -> Result<PathBuf, String> {
     let directory = crate::app_paths::data_dir()
         .join("tools")
         .join("bundletool");
@@ -220,10 +224,12 @@ pub fn ensure_bundletool() -> Result<PathBuf, String> {
         .get("https://api.github.com/repos/google/bundletool/releases/latest")
         .header(reqwest::header::USER_AGENT, "ADB-App")
         .send()
+        .await
         .map_err(|error| error.to_string())?
         .error_for_status()
         .map_err(|error| error.to_string())?
         .json::<serde_json::Value>()
+        .await
         .map_err(|error| error.to_string())?;
     let url = release
         .get("assets")
@@ -243,7 +249,7 @@ pub fn ensure_bundletool() -> Result<PathBuf, String> {
         })
         .ok_or_else(|| "Could not find bundletool".to_string())?;
     {
-        let archive = download_bytes(&client, &url)?;
+        let archive = download_bytes(&client, &url).await?;
         fs::write(&jar, &archive).map_err(|error| error.to_string())?;
         drop(archive);
     }
