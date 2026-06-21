@@ -984,22 +984,6 @@ fn parse_permissions(
     permissions
 }
 
-async fn remote_size(serial: &str, path: &str) -> i64 {
-    if path.is_empty() || path == "-" {
-        return -1;
-    }
-    match adb::run_adb_for_serial(serial, &["shell", "du", "-sk", path]).await {
-        Ok(result) if result.ok() => result
-            .output
-            .split_whitespace()
-            .next()
-            .and_then(|value| value.parse::<i64>().ok())
-            .map(|value| value * 1024)
-            .unwrap_or(-1),
-        _ => -1,
-    }
-}
-
 #[tauri::command]
 pub async fn run_device_action(serial: String, args: Vec<String>) -> Result<String, String> {
     if args.is_empty() {
@@ -1894,33 +1878,35 @@ pub async fn get_app_details(
     serial: String,
     package_name: String,
 ) -> Result<AppDetailsInfo, String> {
-    let dump =
-        adb::run_adb_for_serial(&serial, &["shell", "dumpsys", "package", &package_name]).await?;
-    if !dump.ok() {
-        return Err(dump.output);
+    let script = format!(
+        "dumpsys package '{pkg}'; \
+         echo '---ADBAPPSEP---'; \
+         pm path '{pkg}'; \
+         echo '---ADBAPPSEP---'; \
+         pm list packages -s '{pkg}'; \
+         echo '---ADBAPPSEP---'; \
+         pm list packages -d '{pkg}'; \
+         echo '---ADBAPPSEP---'; \
+         cmd appops get '{pkg}'; \
+         echo '---ADBAPPSEP---'; \
+         pm list permissions -g -d",
+        pkg = package_name
+    );
+
+    let result = adb::run_adb_for_serial(&serial, &["shell", &script]).await?;
+    if !result.ok() {
+        return Err(result.output);
     }
-    let paths = adb::run_adb_for_serial(&serial, &["shell", "pm", "path", &package_name]).await?;
-    let system = adb::run_adb_for_serial(
-        &serial,
-        &["shell", "pm", "list", "packages", "-s", &package_name],
-    )
-    .await?;
-    let disabled = adb::run_adb_for_serial(
-        &serial,
-        &["shell", "pm", "list", "packages", "-d", &package_name],
-    )
-    .await?;
-    let appops =
-        adb::run_adb_for_serial(&serial, &["shell", "cmd", "appops", "get", &package_name]).await?;
-    let changeable_permissions =
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "permissions", "-g", "-d"])
-            .await
-            .ok()
-            .filter(|result| result.ok())
-            .map(|result| parse_changeable_permissions(&result.output))
-            .unwrap_or_default();
-    let apk_paths: Vec<String> = paths
-        .output
+
+    let mut parts = result.output.split("---ADBAPPSEP---");
+    let dump_out = parts.next().unwrap_or("").trim();
+    let paths_out = parts.next().unwrap_or("").trim();
+    let system_out = parts.next().unwrap_or("").trim();
+    let disabled_out = parts.next().unwrap_or("").trim();
+    let appops_out = parts.next().unwrap_or("").trim();
+    let changeable_permissions = parse_changeable_permissions(parts.next().unwrap_or(""));
+
+    let apk_paths: Vec<String> = paths_out
         .lines()
         .filter_map(|line| line.trim().strip_prefix("package:"))
         .map(|s| s.to_string())
@@ -1930,19 +1916,52 @@ pub async fn get_app_details(
         .first()
         .cloned()
         .unwrap_or_else(|| "-".to_string());
-    let data_dir = dump_value(&dump.output, "dataDir");
-    let code_size_bytes = remote_size(&serial, &apk_path).await;
-    let total_data_bytes = remote_size(&serial, &data_dir).await;
-    let cache_size_bytes = remote_size(&serial, &format!("{data_dir}/cache")).await;
+    
+    let data_dir = dump_value(&dump_out, "dataDir");
+
+    let safe_apk = if apk_path.is_empty() || apk_path == "-" { "/dev/null".to_string() } else { apk_path.clone() };
+    let safe_data = if data_dir.is_empty() || data_dir == "-" { "/dev/null".to_string() } else { data_dir.clone() };
+    let safe_cache = if data_dir.is_empty() || data_dir == "-" { "/dev/null".to_string() } else { format!("{}/cache", data_dir) };
+
+    let du_script = format!(
+        "du -sk '{}' '{}' '{}' 2>/dev/null", safe_apk, safe_data, safe_cache
+    );
+    let du_result = adb::run_adb_for_serial(&serial, &["shell", &du_script]).await?;
+    
+    let mut code_size_bytes: i64 = -1;
+    let mut total_data_bytes: i64 = -1;
+    let mut cache_size_bytes: i64 = -1;
+
+    if du_result.ok() {
+        for line in du_result.output.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let kb = parts[0].parse::<i64>().ok().unwrap_or(-1);
+                let bytes = if kb >= 0 { kb * 1024 } else { -1 };
+                let path = parts[1..].join(" ");
+                if path == safe_apk {
+                    code_size_bytes = bytes;
+                } else if path == safe_data {
+                    total_data_bytes = bytes;
+                } else if path == safe_cache {
+                    cache_size_bytes = bytes;
+                }
+            }
+        }
+    }
+    if safe_apk == "/dev/null" { code_size_bytes = -1; }
+    if safe_data == "/dev/null" { total_data_bytes = -1; }
+    if safe_cache == "/dev/null" { cache_size_bytes = -1; }
+
     let data_size_bytes = if total_data_bytes >= 0 {
         (total_data_bytes - cache_size_bytes.max(0)).max(0)
     } else {
         -1
     };
-    let background_mode = if appops.output.contains("RUN_ANY_IN_BACKGROUND: allow") {
+    let background_mode = if appops_out.contains("RUN_ANY_IN_BACKGROUND: allow") {
         "unrestricted"
-    } else if appops.output.contains("RUN_ANY_IN_BACKGROUND: ignore")
-        || appops.output.contains("RUN_IN_BACKGROUND: ignore")
+    } else if appops_out.contains("RUN_ANY_IN_BACKGROUND: ignore")
+        || appops_out.contains("RUN_IN_BACKGROUND: ignore")
     {
         "restricted"
     } else {
@@ -1951,25 +1970,25 @@ pub async fn get_app_details(
 
     Ok(AppDetailsInfo {
         package_name: package_name.clone(),
-        display_name: display_name_from_dump(&dump.output, &package_name),
+        display_name: display_name_from_dump(&dump_out, &package_name),
         apk_path,
         is_split,
-        system_app: package_set(&system.output).contains(&package_name),
-        disabled: package_set(&disabled.output).contains(&package_name),
-        version_name: dump_value(&dump.output, "versionName"),
-        version_code: dump_value(&dump.output, "versionCode"),
-        target_sdk: dump_value(&dump.output, "targetSdk"),
-        min_sdk: dump_value(&dump.output, "minSdk"),
-        installer: dump_value(&dump.output, "installerPackageName"),
+        system_app: package_set(&system_out).contains(&package_name),
+        disabled: package_set(&disabled_out).contains(&package_name),
+        version_name: dump_value(&dump_out, "versionName"),
+        version_code: dump_value(&dump_out, "versionCode"),
+        target_sdk: dump_value(&dump_out, "targetSdk"),
+        min_sdk: dump_value(&dump_out, "minSdk"),
+        installer: dump_value(&dump_out, "installerPackageName"),
         data_dir,
         code_size_bytes,
         data_size_bytes,
         cache_size_bytes,
         background_mode: background_mode.to_string(),
-        permissions: parse_permissions(&dump.output, &changeable_permissions),
+        permissions: parse_permissions(&dump_out, &changeable_permissions),
         icon_data_url: String::new(),
-        install_date: dump_date_value(&dump.output, "firstInstallTime"),
-        update_date: dump_date_value(&dump.output, "lastUpdateTime"),
+        install_date: dump_date_value(&dump_out, "firstInstallTime"),
+        update_date: dump_date_value(&dump_out, "lastUpdateTime"),
     })
 }
 
