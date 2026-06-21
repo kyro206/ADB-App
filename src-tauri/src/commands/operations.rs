@@ -744,16 +744,23 @@ fn resolve_install_files(
         }
         return Ok(apks);
     } else if matches!(extension.as_str(), "apks" | "apkm" | "xapk" | "zip") {
-        // Extracción manual nativa y filtrado inteligente sin Java
-        run_local_command(
-            Path::new("tar"),
-            &[
-                "-xf".into(),
-                package_file.to_string_lossy().into_owned(),
-                "-C".into(),
-                extraction_directory.to_string_lossy().into_owned(),
-            ],
-        )?;
+        // Extracción mediante el crate zip para no depender de comandos nativos
+        let file = std::fs::File::open(&package_file).map_err(|e| format!("Failed to open package: {e}"))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
+        for i in 0..archive.len() {
+            let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
+            let relative = entry.enclosed_name().ok_or_else(|| "Unsafe path in ZIP".to_string())?;
+            let output = extraction_directory.join(relative);
+            if entry.is_dir() {
+                std::fs::create_dir_all(&output).map_err(|e| e.to_string())?;
+            } else {
+                if let Some(parent) = output.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                let mut outfile = std::fs::File::create(&output).map_err(|e| e.to_string())?;
+                std::io::copy(&mut entry, &mut outfile).map_err(|e| e.to_string())?;
+            }
+        }
 
         let adb_path =
             tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;

@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, Cursor};
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "macos")]
 use flate2::read::GzDecoder;
 
 #[cfg(unix)]
@@ -138,6 +139,7 @@ fn extract(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Result<(), St
             }
         }
         ArchiveKind::TarGz => {
+            #[cfg(target_os = "macos")]
             tar::Archive::new(GzDecoder::new(Cursor::new(bytes)))
                 .unpack(destination)
                 .map_err(|error| format!("Could not extract TAR.GZ: {error}"))?;
