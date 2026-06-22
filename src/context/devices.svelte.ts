@@ -141,7 +141,15 @@ class DeviceState {
             });
             if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === targetDevice.serial) {
               this.deviceDetails = details;
-              this.#detailsCache.set(targetDevice.serial, details);
+              if (details.total_ram_mb !== -1 && details.uptime_seconds >= 0) {
+                this.#detailsCache.set(targetDevice.serial, details);
+              } else {
+                setTimeout(() => {
+                  if (this.selectedDevice?.serial === targetDevice.serial) {
+                    void this.refreshDeviceDetailsSilent();
+                  }
+                }, 2000);
+              }
             }
           } catch (detailsError) {
             this.error = detailsError instanceof Error ? detailsError.message : String(detailsError);
@@ -183,7 +191,9 @@ class DeviceState {
       const details: DeviceDetails = await invoke('get_device_details', { device: this.selectedDevice });
       if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
         this.deviceDetails = details;
-        this.#detailsCache.set(serial, details);
+        if (details.total_ram_mb !== -1 && details.uptime_seconds >= 0) {
+          this.#detailsCache.set(serial, details);
+        }
       }
     } catch {
       // Fallo silencioso, mantenemos los datos antiguos
@@ -210,7 +220,15 @@ class DeviceState {
       const details: DeviceDetails = await invoke('get_device_details', { device: this.selectedDevice });
       if (requestId === this.#detailsRequestId && this.selectedDevice?.serial === serial) {
         this.deviceDetails = details;
-        this.#detailsCache.set(serial, details);
+        if (details.total_ram_mb !== -1 && details.uptime_seconds >= 0) {
+          this.#detailsCache.set(serial, details);
+        } else {
+          setTimeout(() => {
+            if (this.selectedDevice?.serial === serial) {
+              void this.refreshDeviceDetailsSilent();
+            }
+          }, 2000);
+        }
       }
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
