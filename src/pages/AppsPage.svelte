@@ -128,13 +128,28 @@ import * as m from '../paraglide/messages';
     attemptedMetadata = false;
   });
 
-  async function refreshAppDetails(packageName = selectedPackage) {
+  async function refreshAppDetails(packageName = selectedPackage, showLoading = true) {
     if (!serial || !packageName) return;
-    detailsLoading = true;
+    if (showLoading) detailsLoading = true;
     try {
       const value = await invoke<AppDetailsInfo>('get_app_details', { serial, packageName });
       const summary = apps.find(app => app.package_name === packageName);
       
+      const hasRequestInstall = value.permissions.some(p => p.name === 'android.permission.REQUEST_INSTALL_PACKAGES');
+      if (hasRequestInstall) {
+        try {
+          const appOpsResult = await invoke<string>('run_device_action', { serial, args: ['shell', 'appops', 'get', packageName, 'REQUEST_INSTALL_PACKAGES'] });
+          const isGranted = appOpsResult ? appOpsResult.toLowerCase().includes('allow') : false;
+          value.permissions = value.permissions.map(p => 
+            p.name === 'android.permission.REQUEST_INSTALL_PACKAGES' ? { ...p, changeable: true, granted: isGranted } : p
+          );
+        } catch (e) {
+          value.permissions = value.permissions.map(p => 
+            p.name === 'android.permission.REQUEST_INSTALL_PACKAGES' ? { ...p, changeable: true } : p
+          );
+        }
+      }
+
       appDetails = appDetails?.package_name === packageName
         ? { 
             ...value, 
@@ -153,7 +168,7 @@ import * as m from '../paraglide/messages';
     } catch (error) { 
       status = String(error); 
     } finally { 
-      detailsLoading = false; 
+      if (showLoading) detailsLoading = false; 
     }
   }
 
@@ -319,13 +334,18 @@ import * as m from '../paraglide/messages';
       };
     }
     try {
-      await invoke<string>('set_app_permission', {
-        serial,
-        packageName: selectedPackage,
-        permissionName: permission.name,
-        grant: nextGranted,
-      });
-      await refreshAppDetails();
+      if (permission.name === 'android.permission.REQUEST_INSTALL_PACKAGES') {
+        const result = await run(['shell', 'appops', 'set', selectedPackage, 'REQUEST_INSTALL_PACKAGES', nextGranted ? 'allow' : 'deny']);
+        if (result === undefined) throw new Error('Command failed');
+      } else {
+        await invoke<string>('set_app_permission', {
+          serial,
+          packageName: selectedPackage,
+          permissionName: permission.name,
+          grant: nextGranted,
+        });
+      }
+      await refreshAppDetails(selectedPackage, false);
     } catch (error) {
       status = String(error);
       if (appDetails) {
