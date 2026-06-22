@@ -39,24 +39,23 @@ import * as m from '../paraglide/messages';
       controlVolumeMax = value.maximum;
     }).catch(() => {});
 
-    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'screen_brightness'] }).then(res => {
-      if (requestId !== loadRequestId) return;
-      if (res && !isNaN(Number(res))) controlBrightness = Number(res.trim());
-    }).catch(() => {});
+    invoke<string>('run_device_action', { 
+      serial, 
+      args: ['shell', "settings get system screen_brightness; echo '---ADBAPPSEP---'; settings get system accelerometer_rotation; echo '---ADBAPPSEP---'; settings get system user_rotation; echo '---ADBAPPSEP---'; settings get global mode_ringer"] 
+    }).then(res => {
+      if (requestId !== loadRequestId || !res) return;
+      const parts = res.split('---ADBAPPSEP---');
+      
+      const brightness = parts[0]?.trim().split('\n').pop()?.trim();
+      if (brightness && !isNaN(Number(brightness))) controlBrightness = Number(brightness);
 
-    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'accelerometer_rotation'] }).then(res => {
-      if (requestId !== loadRequestId) return;
-      if (res) rotationAuto = res.trim() === '1';
-    }).catch(() => {});
+      const rotationAutoVal = parts[1]?.trim().split('\n').pop()?.trim();
+      if (rotationAutoVal) rotationAuto = rotationAutoVal === '1';
 
-    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'system', 'user_rotation'] }).then(res => {
-      if (requestId !== loadRequestId) return;
-      if (res && !isNaN(Number(res))) rotation = Number(res.trim());
-    }).catch(() => {});
+      const rotationVal = parts[2]?.trim().split('\n').pop()?.trim();
+      if (rotationVal && !isNaN(Number(rotationVal))) rotation = Number(rotationVal);
 
-    invoke<string>('run_device_action', { serial, args: ['shell', 'settings', 'get', 'global', 'mode_ringer'] }).then(res => {
-      if (requestId !== loadRequestId) return;
-      const mode = res?.trim();
+      const mode = parts[3]?.trim().split('\n').pop()?.trim();
       if (mode === '0') soundMode = 'SILENT';
       else if (mode === '1') soundMode = 'VIBRATE';
       else if (mode === '2') soundMode = 'NORMAL';
