@@ -203,18 +203,25 @@ import * as m from '../paraglide/messages';
     let loaded = 0;
     let failed = 0;
     const currentFilter = filter;
+    const snapshot = [...appsNeedingMetadata];
     try {
-      for (let start = 0; start < appsNeedingMetadata.length; start += 3) {
+      for (let start = 0; start < snapshot.length; start += 200) {
         if (filter !== currentFilter || (!appSettings?.cache_enabled && tab !== 'apps')) {
           break;
         }
-        const batch = appsNeedingMetadata.slice(start, start + 3);
-        const results = await Promise.allSettled(batch.map(app => invoke<AppSummary>('enrich_app_summary', {
-          serial, packageName: app.package_name, apkPath: app.apk_path, systemApp: app.system_app, disabled: app.disabled,
-        })));
-        const summaries = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
+        const batch = snapshot.slice(start, start + 200);
+        const summaries = await invoke<AppSummary[]>('enrich_app_summaries', {
+          serial,
+          requests: batch.map(app => ({
+            package_name: app.package_name,
+            apk_path: app.apk_path,
+            system_app: app.system_app,
+            disabled: app.disabled
+          }))
+        }).catch(() => []);
+        
         loaded += summaries.length;
-        failed += results.length - summaries.length;
+        failed += batch.length - summaries.length;
         
         if (summaries.length > 0) {
           const summaryMap = new Map(summaries.map(s => [s.package_name, s]));
@@ -223,13 +230,13 @@ import * as m from '../paraglide/messages';
           if (appDetails) {
             const summary = summaryMap.get(appDetails.package_name);
             if (summary) {
-              appDetails = { ...appDetails, display_name: summary.display_name, icon_data_url: summary.icon_data_url };
+               appDetails = { ...appDetails, display_name: summary.display_name, icon_data_url: summary.icon_data_url };
             }
           }
         }
         
         if (tab === 'apps') {
-          status = m.workbench_status_metadataProgress({ processed: Math.min(start + batch.length, appsNeedingMetadata.length), total: appsNeedingMetadata.length });
+          status = m.workbench_status_metadataProgress({ processed: Math.min(start + batch.length, snapshot.length), total: snapshot.length });
         }
       }
       if (tab === 'apps') {

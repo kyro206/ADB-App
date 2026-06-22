@@ -16,7 +16,6 @@ public class Main {
     public static void main(String[] args) {
         try {
             if (args.length == 0) return;
-            String packageName = args[0];
 
             // Inicializar el hilo principal para el entorno shell
             if (Looper.myLooper() == null) Looper.prepare();
@@ -30,31 +29,44 @@ public class Main {
 
             // Consultar el PackageManager nativo
             PackageManager pm = context.getPackageManager();
-            ApplicationInfo appInfo = pm.getApplicationInfo(packageName, 0);
-            
-            // Obtener nombre e icono (Soporta App Bundles automáticamente)
-            String label = pm.getApplicationLabel(appInfo).toString();
-            Drawable icon = pm.getApplicationIcon(appInfo);
 
-            int width = Math.max(icon.getIntrinsicWidth(), 1);
-            int height = Math.max(icon.getIntrinsicHeight(), 1);
-            // Estandarizar tamaño para que el base64 no sea gigante
-            if (width > 192) width = 192;
-            if (height > 192) height = 192;
+            System.out.println("[");
 
-            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(bitmap);
-            icon.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-            icon.draw(canvas);
+            for (int i = 0; i < args.length; i++) {
+                String packageName = args[i];
+                try {
+                    ApplicationInfo appInfo = pm.getApplicationInfo(packageName, 0);
+                    
+                    // Obtener nombre e icono
+                    String label = pm.getApplicationLabel(appInfo).toString();
+                    Drawable icon = pm.getApplicationIcon(appInfo);
 
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-            String base64Icon = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP);
+                    int width = Math.max(icon.getIntrinsicWidth(), 1);
+                    int height = Math.max(icon.getIntrinsicHeight(), 1);
+                    if (width > 192) width = 192;
+                    if (height > 192) height = 192;
 
-            // Escapar y generar el JSON directamente a la salida estándar
-            String safeLabel = label.replace("\"", "\\\"").replace("\n", "");
-            System.out.println("{\"label\": \"" + safeLabel + "\", \"icon\": \"data:image/png;base64," + base64Icon + "\"}");
-            
+                    Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                    Canvas canvas = new Canvas(bitmap);
+                    icon.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+                    icon.draw(canvas);
+
+                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+                    String base64Icon = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP);
+
+                    String safeLabel = label.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "");
+                    
+                    if (i > 0) System.out.println(",");
+                    System.out.print("{\"package\": \"" + packageName + "\", \"label\": \"" + safeLabel + "\", \"icon\": \"data:image/png;base64," + base64Icon + "\"}");
+                } catch (Exception e) {
+                    if (i > 0) System.out.println(",");
+                    String safeError = e.getMessage() != null ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "") : "Unknown Error";
+                    System.out.print("{\"package\": \"" + packageName + "\", \"error\": \"" + safeError + "\"}");
+                }
+            }
+
+            System.out.println("\n]");
             System.exit(0);
         } catch (Exception e) {
             System.out.println("{\"error\": \"" + e.getMessage() + "\"}");

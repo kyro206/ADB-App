@@ -131,7 +131,7 @@ pub fn run() {
             operations::get_media_volume,
             operations::set_media_volume,
             operations::list_apps,
-            operations::enrich_app_summary,
+            operations::enrich_app_summaries,
             operations::install_application_packages,
             operations::get_app_details,
             operations::set_app_permission,

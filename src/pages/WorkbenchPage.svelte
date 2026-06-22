@@ -194,7 +194,7 @@ import * as m from '../paraglide/messages';
   async function clearApplicationCache() {
     busy = true;
     try {
-      await invoke('clear_cache');
+      await invoke('clear_application_cache');
       status = m.workbench_status_cacheCleared();
     } catch (error: any) { 
       status = translateError(error); 

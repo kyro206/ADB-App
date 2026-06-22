@@ -132,8 +132,11 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         &uptime,
     );
 
-    if let Ok(mut cache) = cache.lock() {
-        cache.insert(serial, (Instant::now(), details.clone()));
+    // Solo guardar en caché si realmente obtuvimos datos válidos
+    if details.total_ram_mb > 0 || details.uptime_seconds >= 0.0 {
+        if let Ok(mut cache) = cache.lock() {
+            cache.insert(serial, (Instant::now(), details.clone()));
+        }
     }
 
     Ok(details)
@@ -142,7 +145,17 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
 /// Helper to run an ADB command and return empty string on failure.
 async fn run_or_empty(serial: &str, args: &[&str]) -> String {
     match adb::run_adb_for_serial(serial, args).await {
-        Ok(result) if result.ok() => result.output,
-        _ => String::new(),
+        Ok(result) => {
+            if result.ok() || result.output.contains("---ADBAPPSEP---") {
+                result.output
+            } else {
+                eprintln!("ADB get_device_details failed: exit_code={}, output={}", result.exit_code, result.output);
+                String::new()
+            }
+        }
+        Err(e) => {
+            eprintln!("ADB execution error: {}", e);
+            String::new()
+        }
     }
 }

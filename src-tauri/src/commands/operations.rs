@@ -234,14 +234,15 @@ pub async fn save_app_settings(
 
         let new_data_dir = crate::app_paths::data_dir();
 
-        if old_data_dir != new_data_dir && old_data_dir.exists() {
-            fs::create_dir_all(&new_data_dir).map_err(|e| e.to_string())?;
-            if let Err(e) = move_directory_contents(&old_data_dir, &new_data_dir) {
-                eprintln!("Error moving directory: {}", e);
+        if old_data_dir != new_data_dir {
+            if old_data_dir.exists() {
+                fs::create_dir_all(&new_data_dir).map_err(|e| e.to_string())?;
+                if let Err(e) = move_directory_contents(&old_data_dir, &new_data_dir) {
+                    eprintln!("Error moving directory: {}", e);
+                }
             }
+            return Ok(Some(old_data_dir.to_string_lossy().into_owned()));
         }
-
-        return Ok(Some(old_data_dir.to_string_lossy().into_owned()));
     }
 
     Ok(None)
@@ -258,15 +259,17 @@ pub async fn get_device_wallpaper(serial: String) -> Result<String, String> {
         let _ = fs::create_dir_all(&java_tools_dir);
     }
 
-    let daemon_local_path = java_tools_dir.join("wallpaper_extractor.jar");
-    let daemon_device_path = "/data/local/tmp/wallpaper_extractor.jar";
+    let version = env!("CARGO_PKG_VERSION");
+    let jar_name = format!("wallpaper_extractor_{}.jar", version);
+    let daemon_local_path = java_tools_dir.join(&jar_name);
+    let daemon_device_path = format!("/data/local/tmp/{}", jar_name);
 
     // Escribimos temporalmente en el PC porque `adb shell cat` corrompe binarios en Windows
     fs::write(&daemon_local_path, WALLPAPER_DAEMON_BYTES).map_err(|e| e.to_string())?;
 
     // Comprobamos si el JAR ya está en el móvil y si el tamaño coincide para ahorrar escrituras
     let check_daemon =
-        adb::run_adb_for_serial(&serial, &["shell", "ls", "-l", daemon_device_path]).await?;
+        adb::run_adb_for_serial(&serial, &["shell", "ls", "-l", &daemon_device_path]).await?;
     let needs_push = if check_daemon.ok() && !check_daemon.output.contains("No such file") {
         let size_str = check_daemon.output.split_whitespace().nth(4).unwrap_or("");
         size_str.parse::<usize>().unwrap_or(0) != WALLPAPER_DAEMON_BYTES.len()
@@ -275,6 +278,8 @@ pub async fn get_device_wallpaper(serial: String) -> Result<String, String> {
     };
 
     if needs_push {
+        let _ = adb::run_adb_for_serial(&serial, &["shell", "rm", "-f", "/data/local/tmp/wallpaper_extractor*.jar"]).await;
+        
         adb::run_adb_for_serial(
             &serial,
             &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"],
@@ -285,11 +290,11 @@ pub async fn get_device_wallpaper(serial: String) -> Result<String, String> {
             &[
                 "push",
                 &daemon_local_path.to_string_lossy(),
-                daemon_device_path,
+                &daemon_device_path,
             ],
         )
         .await?;
-        adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path]).await?;
+        adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", &daemon_device_path]).await?;
     }
 
     // Ejecutar el jar
@@ -466,21 +471,20 @@ fn is_windows_11() -> bool {
 }
 
 #[tauri::command]
-pub async fn close_app(app: tauri::AppHandle, old_data_dir: String) -> Result<(), String> {
+pub async fn close_app(old_data_dir: String) -> Result<(), String> {
     let old_dir_path = std::path::PathBuf::from(old_data_dir);
-    use tauri::Manager;
-    for (_, window) in app.webview_windows() {
-        let _ = window.close();
-    }
-
-    for _ in 0..20 {
-        if !old_dir_path.exists() || std::fs::remove_dir_all(&old_dir_path).is_ok() {
-            break;
+    
+    // Spawn a thread to perform cleanup and forcefully exit
+    std::thread::spawn(move || {
+        for _ in 0..20 {
+            if !old_dir_path.exists() || std::fs::remove_dir_all(&old_dir_path).is_ok() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
+        std::process::exit(0);
+    });
 
-    app.exit(0);
     Ok(())
 }
 
@@ -1411,23 +1415,26 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
         .map(|app| (app.package_name.clone(), app.display_name.clone()))
         .collect::<HashMap<_, _>>();
 
-    for package in keyboard_packages {
+    let mut keyboard_requests = Vec::new();
+    for package in keyboard_packages.clone() {
         if keyboard_labels.contains_key(&package) {
             continue;
         }
-        let Some(app) = apps.iter().find(|app| app.package_name == package) else {
-            continue;
-        };
-        if let Ok(enriched) = enrich_app_summary(
-            serial.clone(),
-            app.package_name.clone(),
-            app.apk_path.clone(),
-            app.system_app,
-            app.disabled,
-        )
-        .await
-        {
-            keyboard_labels.insert(package, enriched.display_name);
+        if let Some(app) = apps.iter().find(|app| app.package_name == package) {
+            keyboard_requests.push(AppSummaryRequest {
+                package_name: app.package_name.clone(),
+                apk_path: app.apk_path.clone(),
+                system_app: app.system_app,
+                disabled: app.disabled,
+            });
+        }
+    }
+
+    if !keyboard_requests.is_empty() {
+        if let Ok(summaries) = enrich_app_summaries(serial.clone(), keyboard_requests).await {
+            for summary in summaries {
+                keyboard_labels.insert(summary.package_name, summary.display_name);
+            }
         }
     }
 
@@ -1635,8 +1642,17 @@ pub async fn list_apps(
     Ok(apps)
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct AppSummaryRequest {
+    pub package_name: String,
+    pub apk_path: String,
+    pub system_app: bool,
+    pub disabled: bool,
+}
+
 #[derive(Deserialize)]
 struct DaemonResponse {
+    package: Option<String>,
     label: Option<String>,
     icon: Option<String>,
     error: Option<String>,
@@ -1650,82 +1666,114 @@ static PUSHED_DAEMONS: std::sync::OnceLock<std::sync::Mutex<std::collections::Ha
     std::sync::OnceLock::new();
 
 #[tauri::command]
-pub async fn enrich_app_summary(
+pub async fn enrich_app_summaries(
     serial: String,
-    package_name: String,
-    apk_path: String,
-    system_app: bool,
-    disabled: bool,
-) -> Result<AppSummary, String> {
-    // Comprobar caché local (Se mantiene intacto)
-    let cache_path = app_summary_cache_path(&package_name, &apk_path);
-    if let Ok(cached) = fs::read_to_string(&cache_path) {
-        if let Ok(presentation) = serde_json::from_str::<CachedAppPresentation>(&cached) {
-            if !presentation.icon_data_url.is_empty() {
-                let summary = AppSummary {
-                    package_name,
-                    display_name: presentation.display_name,
-                    apk_path,
-                    system_app,
-                    disabled,
-                    icon_data_url: presentation.icon_data_url,
-                };
-                update_cached_app(&serial, &summary);
-                return Ok(summary);
+    requests: Vec<AppSummaryRequest>,
+) -> Result<Vec<AppSummary>, String> {
+    let mut results = Vec::new();
+    let mut needs_daemon = Vec::new();
+    let settings = read_settings();
+
+    // 1. Check local cache
+    for req in requests {
+        let cache_path = app_summary_cache_path(&req.package_name, &req.apk_path);
+        let mut cached_found = false;
+        
+        if let Ok(cached) = fs::read_to_string(&cache_path) {
+            if let Ok(presentation) = serde_json::from_str::<CachedAppPresentation>(&cached) {
+                if !presentation.icon_data_url.is_empty() {
+                    let summary = AppSummary {
+                        package_name: req.package_name.clone(),
+                        display_name: presentation.display_name,
+                        apk_path: req.apk_path.clone(),
+                        system_app: req.system_app,
+                        disabled: req.disabled,
+                        icon_data_url: presentation.icon_data_url,
+                    };
+                    update_cached_app(&serial, &summary);
+                    results.push(summary);
+                    cached_found = true;
+                }
             }
+        }
+        
+        if !cached_found {
+            needs_daemon.push(req);
         }
     }
 
+    if needs_daemon.is_empty() {
+        return Ok(results);
+    }
+
+    // 2. Prepare daemon
     let java_tools_dir = crate::app_paths::cache_dir().join("tools").join("java");
     if !java_tools_dir.exists() {
         let _ = fs::create_dir_all(&java_tools_dir);
     }
-    let daemon_local_path = java_tools_dir.join("info_apps.jar");
-    let daemon_device_path = "/data/local/tmp/tools/java/info_apps.jar";
+    let version = env!("CARGO_PKG_VERSION");
+    let jar_name = format!("info_apps_{}.jar", version);
+    let daemon_local_path = java_tools_dir.join(&jar_name);
+    let daemon_device_path = format!("/data/local/tmp/tools/java/{}", jar_name);
 
-    if !daemon_local_path.exists() {
-        fs::write(&daemon_local_path, DAEMON_BYTES).map_err(|e| e.to_string())?;
-    }
+    // Siempre sobrescribimos el local por si se ha actualizado el ejecutable de Rust
+    let _ = fs::write(&daemon_local_path, DAEMON_BYTES);
 
     let daemons_cache =
         PUSHED_DAEMONS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()));
-    let needs_push = {
+    let session_pushed = {
         let cache = daemons_cache.lock().unwrap();
-        !cache.contains(&serial)
+        cache.contains(&serial)
     };
 
-    if needs_push {
+    if !session_pushed {
         let check_daemon =
-            adb::run_adb_for_serial(&serial, &["shell", "ls", daemon_device_path]).await?;
-        if !check_daemon.ok() || check_daemon.output.contains("No such file") {
-            adb::run_adb_for_serial(
+            adb::run_adb_for_serial(&serial, &["shell", "ls", "-l", &daemon_device_path]).await;
+        
+        let needs_push = match check_daemon {
+            Ok(res) if res.ok() && !res.output.contains("No such file") => {
+                let size_str = res.output.split_whitespace().nth(4).unwrap_or("");
+                size_str.parse::<usize>().unwrap_or(0) != DAEMON_BYTES.len()
+            },
+            _ => true
+        };
+
+        if needs_push {
+            // Borrar las versiones antiguas
+            let _ = adb::run_adb_for_serial(&serial, &["shell", "rm", "-f", "/data/local/tmp/tools/java/info_apps*.jar"]).await;
+
+            let _ = adb::run_adb_for_serial(
                 &serial,
                 &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"],
             )
-            .await?;
-            adb::run_adb_for_serial(
+            .await;
+            let _ = adb::run_adb_for_serial(
                 &serial,
                 &[
                     "push",
                     &daemon_local_path.to_string_lossy(),
-                    daemon_device_path,
+                    &daemon_device_path,
                 ],
             )
-            .await?;
-            adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", daemon_device_path])
-                .await?;
+            .await;
+            let _ = adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", &daemon_device_path]).await;
         }
+        
         let mut cache = daemons_cache.lock().unwrap();
         cache.insert(serial.clone());
     }
 
+    // 3. Run daemon with all packages
+    let package_names: Vec<String> = needs_daemon.iter().map(|r| r.package_name.clone()).collect();
+    let joined_packages = package_names.join(" ");
+    
     let result = adb::run_adb_for_serial(
         &serial,
         &[
             "shell",
             &format!(
                 "CLASSPATH={} app_process / com.kyro.adbapp.extractapktool.Main {}",
-                daemon_device_path, package_name
+                daemon_device_path, joined_packages
             ),
         ],
     )
@@ -1735,47 +1783,64 @@ pub async fn enrich_app_summary(
         return Err(format!("Daemon execution failed: {}", result.output));
     }
 
-    let daemon_output = result.output.lines().last().unwrap_or("{}");
-    let parsed: DaemonResponse = serde_json::from_str(daemon_output).unwrap_or(DaemonResponse {
-        label: None,
-        icon: None,
-        error: Some("Failed to parse JSON from device".into()),
+    // JSON array could be on multiple lines or a single line.
+    let daemon_output = result.output.trim();
+    
+    // Find the exact boundaries of the JSON array to ignore any Android linker warnings or extra logs
+    let json_start = daemon_output.find('[').unwrap_or(0);
+    let json_end = daemon_output.rfind(']').unwrap_or_else(|| daemon_output.len().saturating_sub(1));
+    
+    let clean_json = if json_start <= json_end && json_end < daemon_output.len() {
+        &daemon_output[json_start..=json_end]
+    } else {
+        daemon_output
+    };
+
+    let parsed_responses: Vec<DaemonResponse> = serde_json::from_str(clean_json).unwrap_or_else(|e| {
+        eprintln!("Failed to parse JSON array: {}. Output was: {}", e, daemon_output);
+        Vec::new()
     });
 
-    if let Some(err) = parsed.error {
-        return Err(format!("Device Error: {}", err));
-    }
-
-    let display_name = parsed.label.unwrap_or_else(|| package_name.clone());
-    let icon_data_url = parsed.icon.unwrap_or_default();
-
-    // 4. Guardar en caché y devolver el AppSummary
-    let settings = read_settings();
-    if settings.cache_enabled {
-        if let Some(parent) = cache_path.parent() {
-            let _ = fs::create_dir_all(parent);
+    // 4. Map responses back to requests
+    for req in needs_daemon {
+        let mut display_name = req.package_name.clone();
+        let mut icon_data_url = String::new();
+        
+        // Find matching response
+        if let Some(resp) = parsed_responses.iter().find(|r| r.package.as_deref() == Some(&req.package_name)) {
+            if resp.error.is_none() {
+                display_name = resp.label.clone().unwrap_or_else(|| req.package_name.clone());
+                icon_data_url = resp.icon.clone().unwrap_or_default();
+            }
         }
-
-        let presentation = CachedAppPresentation {
-            display_name: display_name.clone(),
-            icon_data_url: icon_data_url.clone(),
+        
+        if settings.cache_enabled && !icon_data_url.is_empty() {
+            let cache_path = app_summary_cache_path(&req.package_name, &req.apk_path);
+            if let Some(parent) = cache_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let presentation = CachedAppPresentation {
+                display_name: display_name.clone(),
+                icon_data_url: icon_data_url.clone(),
+            };
+            if let Ok(serialized) = serde_json::to_string(&presentation) {
+                let _ = fs::write(cache_path, serialized);
+            }
+        }
+        
+        let summary = AppSummary {
+            package_name: req.package_name,
+            display_name,
+            apk_path: req.apk_path,
+            system_app: req.system_app,
+            disabled: req.disabled,
+            icon_data_url,
         };
-
-        if let Ok(serialized) = serde_json::to_string(&presentation) {
-            let _ = fs::write(cache_path, serialized);
-        }
+        update_cached_app(&serial, &summary);
+        results.push(summary);
     }
 
-    let summary = AppSummary {
-        package_name,
-        display_name,
-        apk_path,
-        system_app,
-        disabled,
-        icon_data_url,
-    };
-    update_cached_app(&serial, &summary);
-    Ok(summary)
+    Ok(results)
 }
 
 #[tauri::command]
