@@ -47,18 +47,18 @@ import * as m from '../paraglide/messages';
       const parts = res.split('---ADBAPPSEP---');
       
       const brightness = parts[0]?.trim().split('\n').pop()?.trim();
-      if (brightness && !isNaN(Number(brightness))) controlBrightness = Number(brightness);
+      if (brightness && brightness !== 'null' && !isNaN(Number(brightness))) controlBrightness = Number(brightness);
 
       const rotationAutoVal = parts[1]?.trim().split('\n').pop()?.trim();
-      if (rotationAutoVal) rotationAuto = rotationAutoVal === '1';
+      if (rotationAutoVal) rotationAuto = rotationAutoVal === '1' || rotationAutoVal === 'null';
 
       const rotationVal = parts[2]?.trim().split('\n').pop()?.trim();
-      if (rotationVal && !isNaN(Number(rotationVal))) rotation = Number(rotationVal);
+      if (rotationVal && rotationVal !== 'null' && !isNaN(Number(rotationVal))) rotation = Number(rotationVal);
 
       const mode = parts[3]?.trim().split('\n').pop()?.trim();
       if (mode === '0') soundMode = 'SILENT';
       else if (mode === '1') soundMode = 'VIBRATE';
-      else if (mode === '2') soundMode = 'NORMAL';
+      else if (mode === '2' || mode === 'null') soundMode = 'NORMAL';
     }).catch(() => {});
   }
 

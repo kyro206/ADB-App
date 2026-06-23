@@ -16,6 +16,7 @@
   import type { FileEntry, FileSortKey, FileView } from './workbench/types';
   import TransferMenu from '../components/layout/TransferMenu.svelte';
   import type { TransferJob, TransferStatus, TransferType } from '../components/layout/TransferMenu.svelte';
+  import VirtualGrid from '../components/VirtualGrid.svelte';
   import * as m from '../paraglide/messages';
 
   let {
@@ -804,9 +805,9 @@
     </div>
   </section>
 
-  <section class="file-browser {fileView}">
+  <section class="file-browser {fileView}" style="display: flex; flex-direction: column; overflow-y: hidden; overflow-x: auto;">
     {#if fileView === 'list'}
-      <div class="file-list-table">
+      <div class="file-list-table" style="display: flex; flex-direction: column; height: 100%;">
         <div class="file-list-header">
           {#each [['name', m.files_sort_name()], ['type', m.files_sort_type()], ['size', m.files_sort_size()], ['permissions', m.files_sort_permissions()], ['modified', m.files_sort_modified()]] as [key, label] (key)}
             <button class={fileSort.key === key ? 'active' : ''} onclick={() => changeFileSort(key as FileSortKey)}>
@@ -815,17 +816,36 @@
             </button>
           {/each}
         </div>
-        {#each filteredFiles as file, index (file.name)}
-          {@render fileRow(file, index)}
-        {/each}
+        <div style="flex: 1; min-height: 0; position: relative;">
+          <VirtualGrid
+            items={filteredFiles}
+            itemHeight={54}
+            minItemWidth="100%"
+            key={(file) => file.name}
+          >
+            {#snippet row(file, index)}
+              {@render fileRow(file, index)}
+            {/snippet}
+          </VirtualGrid>
+        </div>
       </div>
     {/if}
     
     {#if fileView === 'grid'}
-      <div class="file-grid-view">
-        {#each filteredFiles as file, index (file.name)}
-          {@render fileCard(file, index)}
-        {/each}
+      <div class="file-grid-view-container" style="flex: 1; min-height: 0; position: relative; padding: 14px; box-sizing: border-box;">
+        <VirtualGrid
+          items={filteredFiles}
+          itemHeight={210}
+          minItemWidth={170}
+          gap={12}
+          key={(file) => file.name}
+        >
+          {#snippet row(file, index)}
+            <div style="width: 100%; height: 100%;">
+              {@render fileCard(file, index)}
+            </div>
+          {/snippet}
+        </VirtualGrid>
       </div>
     {/if}
     
@@ -923,6 +943,7 @@
   {@const remotePath = filePath(file)}
   <button 
     class="file-grid-card {selectedFileSet.has(file.name) ? 'selected' : ''}" 
+    style="width: 100%; height: 100%; box-sizing: border-box;"
     use:lazyLoadThumbnail={remotePath}
     onclick={event => selectFileEntry(event, file, index)} 
     ondblclick={() => openFileEntry(file)}
@@ -937,7 +958,7 @@
     {:else}
       <span class="file-grid-preview">
         {#if fileThumbnails[remotePath]}
-          <img src={fileThumbnails[remotePath]} alt="" loading="lazy" />
+          <img src={fileThumbnails[remotePath]} alt="" loading="lazy" decoding="async" />
         {:else}
           <MaterialIcon name={fileIcon(file)} size={48} />
         {/if}

@@ -412,6 +412,8 @@
   "apps_action_disable": "Disable",
   "apps_action_uninstall": "Uninstall",
   "apps_action_saveApk": "Save APK",
+  "apps_action_viewApkMirror": "View on APKMirror",
+  "apps_action_searchWeb": "Web search",
   "apps_detail_energy": "Background usage",
   "apps_energy_unrestricted": "Unrestricted",
   "apps_energy_optimized": "Optimized",

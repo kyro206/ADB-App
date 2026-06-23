@@ -21,14 +21,14 @@ import * as m from '../../paraglide/messages';
     <p>{m.common_device_empty_desc()}</p>
   </div>
 {:else}
+  <div style="display: contents">
+    {@render children?.()}
+  </div>
   {#if loading}
-    <div class="device-state-screen loading">
+    <div class="device-state-screen loading overlay">
       <md-circular-progress indeterminate></md-circular-progress>
     </div>
   {/if}
-  <div style="display: {loading ? 'none' : 'contents'}">
-    {@render children?.()}
-  </div>
 {/if}
 
 <style>
@@ -65,8 +65,13 @@ import * as m from '../../paraglide/messages';
   max-width: 400px;
 }
 
-.device-state-screen.loading {
-  opacity: 0.8;
+.device-state-screen.loading.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  gap: 14px;
+  padding: 0;
 }
 }
 </style>

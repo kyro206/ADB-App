@@ -412,6 +412,8 @@
   "apps_action_disable": "Deshabilitar",
   "apps_action_uninstall": "Desinstalar",
   "apps_action_saveApk": "Guardar APK",
+  "apps_action_viewApkMirror": "Ver en APKMirror",
+  "apps_action_searchWeb": "Buscar en la web",
   "apps_detail_energy": "Uso en segundo plano",
   "apps_energy_unrestricted": "Sin restricciones",
   "apps_energy_optimized": "Optimizada",

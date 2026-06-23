@@ -7,7 +7,8 @@ import * as m from '../paraglide/messages';
 <script lang="ts">
 
   import { invoke } from '@tauri-apps/api/core';
-  import { open, save } from '@tauri-apps/plugin-dialog';
+  import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
+  import { openUrl } from '@tauri-apps/plugin-opener';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   
   import type { AppSummary, AppDetailsInfo, AppPermissionInfo } from './workbench/types';
@@ -17,6 +18,7 @@ import * as m from '../paraglide/messages';
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   import { appTone, formatBytes } from './workbench/utils';
+  import VirtualGrid from '../components/VirtualGrid.svelte';
   let {
     serial,
     status = $bindable(),
@@ -37,11 +39,22 @@ import * as m from '../paraglide/messages';
     javaAvailable: boolean;
   }>();
 
+  async function runQuiet(args: string[]) {
+    try {
+      return await invoke<string>('run_device_action', { serial, args });
+    } catch (error: any) {
+      status = translateError(error);
+      return undefined;
+    }
+  }
+
   let apps = $state.raw<AppSummary[]>([]);
   let appDetails = $state.raw<AppDetailsInfo | null>(null);
   let metadataLoading = $state(false);
   let attemptedMetadata = $state(false);
   let detailsLoading = $state(false);
+  let apkmirrorUrl = $state<string | null>(null);
+  let apkmirrorSearched = $state(false);
   let installingApps = $state(false);
   let installOpen = $state(false);
   let installFiles = $state<string[]>([]);
@@ -138,7 +151,7 @@ import * as m from '../paraglide/messages';
       const hasRequestInstall = value.permissions.some(p => p.name === 'android.permission.REQUEST_INSTALL_PACKAGES');
       if (hasRequestInstall) {
         try {
-          const appOpsResult = await invoke<string>('run_device_action', { serial, args: ['shell', 'appops', 'get', packageName, 'REQUEST_INSTALL_PACKAGES'] });
+          const appOpsResult = await runQuiet(['shell', 'appops', 'get', packageName, 'REQUEST_INSTALL_PACKAGES']);
           const isGranted = appOpsResult ? appOpsResult.toLowerCase().includes('allow') : false;
           value.permissions = value.permissions.map(p => 
             p.name === 'android.permission.REQUEST_INSTALL_PACKAGES' ? { ...p, changeable: true, granted: isGranted } : p
@@ -173,7 +186,27 @@ import * as m from '../paraglide/messages';
   }
 
   async function selectApplication(app: AppSummary) {
+    if (selectedPackage === app.package_name) {
+      selectedPackage = '';
+      appDetails = null;
+      return;
+    }
     selectedPackage = app.package_name;
+    apkmirrorSearched = false;
+    apkmirrorUrl = null;
+    invoke<string | null>('search_apkmirror', { packageName: selectedPackage })
+      .then(res => {
+        if (selectedPackage === app.package_name) {
+          apkmirrorUrl = res;
+          apkmirrorSearched = true;
+        }
+      })
+      .catch(() => {
+        if (selectedPackage === app.package_name) {
+          apkmirrorUrl = null;
+          apkmirrorSearched = true;
+        }
+      });
     appDetails = {
       ...app,
       is_split: false,
@@ -249,7 +282,7 @@ import * as m from '../paraglide/messages';
 
   async function chooseInstallFiles() {
     try {
-      const selected = await open({
+      const selected = await openDialog({
         title: m.apps_action_install(),
         multiple: true,
         directory: false,
@@ -313,7 +346,7 @@ import * as m from '../paraglide/messages';
     const command = willDisable
       ? ['shell', 'pm', 'disable-user', '--user', '0', selectedPackage]
       : ['shell', 'pm', 'enable', '--user', '0', selectedPackage];
-    const result = await run(command, willDisable ? m.workbench_status_appDisabled() : m.workbench_status_appEnabled());
+    const result = await runQuiet(command);
     if (result === undefined) return;
     
     appDetails = { ...appDetails, disabled: willDisable };
@@ -323,8 +356,8 @@ import * as m from '../paraglide/messages';
   async function setBackgroundMode(mode: 'unrestricted' | 'optimized' | 'restricted') {
     if (!selectedPackage) return;
     const values = mode === 'unrestricted' ? ['allow', 'allow'] : mode === 'restricted' ? ['ignore', 'ignore'] : ['default', 'default'];
-    await run(['shell', 'cmd', 'appops', 'set', selectedPackage, 'RUN_ANY_IN_BACKGROUND', values[0]]);
-    await run(['shell', 'cmd', 'appops', 'set', selectedPackage, 'RUN_IN_BACKGROUND', values[1]]);
+    await runQuiet(['shell', 'cmd', 'appops', 'set', selectedPackage, 'RUN_ANY_IN_BACKGROUND', values[0]]);
+    await runQuiet(['shell', 'cmd', 'appops', 'set', selectedPackage, 'RUN_IN_BACKGROUND', values[1]]);
     await refreshAppDetails();
   }
 
@@ -342,7 +375,7 @@ import * as m from '../paraglide/messages';
     }
     try {
       if (permission.name === 'android.permission.REQUEST_INSTALL_PACKAGES') {
-        const result = await run(['shell', 'appops', 'set', selectedPackage, 'REQUEST_INSTALL_PACKAGES', nextGranted ? 'allow' : 'deny']);
+        const result = await runQuiet(['shell', 'appops', 'set', selectedPackage, 'REQUEST_INSTALL_PACKAGES', nextGranted ? 'allow' : 'deny']);
         if (result === undefined) throw new Error('Command failed');
       } else {
         await invoke<string>('set_app_permission', {
@@ -386,9 +419,20 @@ import * as m from '../paraglide/messages';
     } catch (error) { status = String(error); }
   }
 
+  async function openApkMirror() {
+    if (apkmirrorUrl) {
+      await openUrl(apkmirrorUrl);
+    } else if (selectedPackage) {
+      const appName = appDetails?.display_name && appDetails.display_name !== selectedPackage 
+          ? `${appDetails.display_name} ` 
+          : '';
+      await openUrl(`https://www.google.com/search?q=${encodeURIComponent(appName + selectedPackage + ' apk')}`);
+    }
+  }
+
   async function clearApplicationCache() {
     if (!selectedPackage) return;
-    await run(['shell', 'run-as', selectedPackage, 'sh', '-c', 'rm -rf cache/* code_cache/* 2>/dev/null || true']); 
+    await runQuiet(['shell', 'run-as', selectedPackage, 'sh', '-c', 'rm -rf cache/* code_cache/* 2>/dev/null || true']); 
     await refreshAppDetails();
   }
 
@@ -397,12 +441,14 @@ import * as m from '../paraglide/messages';
     destructiveBusy = true;
     try {
       if (destructiveAction === 'uninstall') {
-        await run(['uninstall', selectedPackage], m.workbench_status_appUninstalled());
+        await runQuiet(['uninstall', selectedPackage]);
+        status = m.workbench_status_appUninstalled();
         selectedPackage = '';
         appDetails = null;
         await refreshApps(true);
       } else {
-        await run(['shell', 'pm', 'clear', selectedPackage], m.workbench_status_appDataCleared());
+        await runQuiet(['shell', 'pm', 'clear', selectedPackage]);
+        status = m.workbench_status_appDataCleared();
         await refreshAppDetails();
       }
       destructiveAction = null;
@@ -415,13 +461,13 @@ import * as m from '../paraglide/messages';
     status = m.workbench_status_launchingApp({ pkg });
     try {
       // Asegurarnos de que la pantalla está encendida; los virtual displays a veces no renderizan si el móvil está en reposo profundo.
-      await invoke<string>('run_device_action', { serial, args: ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP'] });
+      await runQuiet(['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
       
       // Android 10 (API 29) es la versión mínima segura para el modo flex / virtual displays.
       if (supportsFlex && mode === 'flex' && scrcpy) {
         await scrcpy(['--new-display', '--flex-display', `--start-app=${pkg}`]);
       } else {
-        await invoke<string>('run_device_action', { serial, args: ['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'] });
+        await runQuiet(['shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1']);
         if (scrcpy) await scrcpy([]);
       }
     } catch (e) {
@@ -519,26 +565,34 @@ import * as m from '../paraglide/messages';
         {/each}
       </nav>
       
-      <div class="apps-material-grid">
-        {#each filteredApps as app (app.package_name)}
-          <button class="apps-material-tile {selectedPackage === app.package_name ? 'selected' : ''}" onclick={() => selectApplication(app)} ondblclick={() => openAppInScrcpy(app.package_name)}>
-            <div class="apps-material-status-icon {app.disabled ? 'disabled' : ''}" title={app.disabled ? m.apps_status_disabled() : app.system_app ? m.apps_status_system() : m.apps_status_user()}>
-              <MaterialIcon name={app.disabled ? 'block' : app.system_app ? 'settings' : 'person'} />
-            </div>     
-            <span class="app-icon-frame">
-              {#if app.icon_data_url}
-                <img src={app.icon_data_url} alt="" />
-              {:else}
-                <span class="app-fallback {appTone(app.package_name)}">{app.display_name.slice(0, 2).toUpperCase()}</span>
-              {/if}
-            </span>
-            <span class="apps-material-tile__copy">
-              <strong>{app.display_name}</strong>
-              <small>{app.package_name}</small>
-            </span>
-            <md-ripple></md-ripple>
-          </button>
-        {/each}
+      <div class="apps-material-grid-container" style="flex: 1; min-height: 0; padding: 12px; box-sizing: border-box;">
+        <VirtualGrid 
+          items={filteredApps} 
+          itemHeight={190} 
+          minItemWidth={155} 
+          gap={10} 
+          key={(app) => app.package_name}
+        >
+          {#snippet row(app)}
+            <button class="apps-material-tile {selectedPackage === app.package_name ? 'selected' : ''}" style="width: 100%; height: 100%;" onclick={() => selectApplication(app)} ondblclick={() => openAppInScrcpy(app.package_name)}>
+              <div class="apps-material-status-icon {app.disabled ? 'disabled' : ''}" title={app.disabled ? m.apps_status_disabled() : app.system_app ? m.apps_status_system() : m.apps_status_user()}>
+                <MaterialIcon name={app.disabled ? 'block' : app.system_app ? 'settings' : 'person'} />
+              </div>     
+              <span class="app-icon-frame">
+                {#if app.icon_data_url}
+                  <img src={app.icon_data_url} alt="" decoding="async" />
+                {:else}
+                  <span class="app-fallback {appTone(app.package_name)}">{app.display_name.slice(0, 2).toUpperCase()}</span>
+                {/if}
+              </span>
+              <span class="apps-material-tile__copy">
+                <strong>{app.display_name}</strong>
+                <small>{app.package_name}</small>
+              </span>
+              <md-ripple></md-ripple>
+            </button>
+          {/snippet}
+        </VirtualGrid>
         {#if !filteredApps.length}
           <div class="apps-material-empty">
             <MaterialIcon name="search_off" />
@@ -616,17 +670,12 @@ import * as m from '../paraglide/messages';
           </header>
           <div class="apps-material-actions">
             <md-filled-button onclick={async () => {
-              try {
-                await invoke('run_device_action', { serial, args: ['shell', 'monkey', '-p', selectedPackage, '-c', 'android.intent.category.LAUNCHER', '1'] });
-                status = '';
-              } catch (e) {
-                status = String(e);
-              }
+              await runQuiet(['shell', 'monkey', '-p', selectedPackage, '-c', 'android.intent.category.LAUNCHER', '1']);
             }}>
               <MaterialIcon slot="icon" name="open_in_new" />
               {m.apps_action_open()}
             </md-filled-button>
-            <md-filled-tonal-button onclick={() => run(['shell', 'am', 'force-stop', selectedPackage])}>
+            <md-filled-tonal-button onclick={() => runQuiet(['shell', 'am', 'force-stop', selectedPackage])}>
               <MaterialIcon slot="icon" name="stop_circle" />
               {m.apps_action_stop()}
             </md-filled-tonal-button>
@@ -649,6 +698,13 @@ import * as m from '../paraglide/messages';
             <md-filled-tonal-button onclick={exportApk}>
               <MaterialIcon slot="icon" name="download" />
               {m.apps_action_saveApk()}
+            </md-filled-tonal-button>
+            <md-filled-tonal-button onclick={openApkMirror} disabled={!apkmirrorSearched || undefined}>
+              <MaterialIcon slot="icon" name={apkmirrorUrl ? "public" : "search"} />
+              {#if !apkmirrorSearched}
+                <md-circular-progress indeterminate style="--md-circular-progress-size: 18px; margin-right: 4px;"></md-circular-progress>
+              {/if}
+              {apkmirrorUrl ? m.apps_action_viewApkMirror() : m.apps_action_searchWeb()}
             </md-filled-tonal-button>
           </div>
         </section>

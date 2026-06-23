@@ -45,6 +45,13 @@
   let selectedSerial = $derived(selectedDevice?.serial ?? "");
   let selectedState = $derived(selectedDevice?.state ?? "");
   let mockHomeDetails = $derived(devicesState.mockHomeDetails);
+  let homeIdentity = $derived(devicesState.homeIdentity);
+
+  $effect(() => {
+    if (homeIdentity?.serial !== selectedSerial) return;
+    deviceName = homeIdentity.deviceName;
+    carrierName = homeIdentity.carrierName;
+  });
 
   function applyMockHomeDetails() {
     if (!mockHomeDetails) return false;
@@ -79,9 +86,14 @@
         } else if (selectedState === "device") {
           carrierName = "";
         }
+        devicesState.cacheHomeIdentity(serial, deviceName, carrierName);
       })
       .catch(() => {
-        if (serial === selectedSerial && selectedState === "device") {
+        const cached = devicesState.homeIdentity;
+        if (cached?.serial === serial) {
+          deviceName = cached.deviceName;
+          carrierName = cached.carrierName;
+        } else if (serial === selectedSerial && selectedState === "device") {
           deviceName = appName;
           carrierName = "";
         }

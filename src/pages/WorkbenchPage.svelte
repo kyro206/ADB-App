@@ -26,7 +26,10 @@ import * as m from '../paraglide/messages';
 
   let selectedDevice = $derived(devicesState.selectedDevice);
   let deviceDetails = $derived(devicesState.deviceDetails);
-  let loading = $derived(devicesState.loading);
+  let loading = $derived(devicesState.loading
+    || devicesState.operationalLoading
+    || (!!selectedDevice && selectedDevice.state !== 'device'));
+  let connectionRevision = $derived(devicesState.connectionRevision);
   
   let language = $derived(i18n.language);
   let theme = $derived(themeState.theme);
@@ -34,14 +37,6 @@ import * as m from '../paraglide/messages';
   let serial = $derived(selectedDevice?.serial ?? '');
   let status = $state('');
   let busy = $state(false);
-  let mountedTabs = $state<Set<WorkTab>>(new Set());
-
-  $effect(() => {
-    if (!mountedTabs.has(tab)) {
-      mountedTabs = new Set(mountedTabs).add(tab);
-    }
-  });
-
   let tools = $derived(toolsState.status);
   type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean };
   let appSettings = $state<AppSettings | null>(null);
@@ -326,10 +321,13 @@ import * as m from '../paraglide/messages';
 </script>
 
 <WorkbenchShell title={(m as any)[`nav_${tab}`]?.() ?? tab} {busy} {status}>
-  {#if mountedTabs.has('display')}
-    <div style="display: {tab === 'display' ? 'contents' : 'none'}">
-      <DeviceStateScreen {serial} loading={loading}>
-        {#if serial}
+  {#if tab === 'settings'}
+    <SettingsPage {theme} {language} {tools} checkingUpdates={toolUpdatesChecking} bind:adbPath bind:scrcpyPath bind:javaPath onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} {appSettings} onSaveAppSettings={saveAppSettings} {defaultCacheDir} />
+  {:else}
+    <DeviceStateScreen {serial} loading={loading || busy}>
+      {#if serial}
+        {#key `${serial}:${connectionRevision}`}
+          {#if tab === 'display'}
           <DisplayPage
             details={deviceDetails}
             bind:width={displayWidth} bind:height={displayHeight}
@@ -338,15 +336,7 @@ import * as m from '../paraglide/messages';
             darkMode={displayDarkMode} {darkModeLoading} suggestions={displaySuggestions}
             onToggleDarkMode={toggleDeviceDarkMode} onSetRefreshRate={setDisplayRefreshRate} onReset={resetDisplay} onApply={applyDisplay}
           />
-        {/if}
-      </DeviceStateScreen>
-    </div>
-  {/if}
-
-  {#if mountedTabs.has('mirroring')}
-    <div style="display: {tab === 'mirroring' ? 'contents' : 'none'}">
-      <DeviceStateScreen {serial} loading={loading}>
-        {#if serial}
+          {:else if tab === 'mirroring'}
           <MirroringPage
             {serial} {tools} bind:mode={mirrorMode}
             bind:fullscreen={mirrorFullscreen}
@@ -362,54 +352,17 @@ import * as m from '../paraglide/messages';
             bind:cameraHeight {cameras}
             onRefreshData={refreshMirrorData} onLaunch={launchMirror} onDirectLaunch={args => scrcpy(words(args))}
           />
-        {/if}
-      </DeviceStateScreen>
-    </div>
-  {/if}
-
-  {#if mountedTabs.has('control')}
-    <div style="display: {tab === 'control' ? 'contents' : 'none'}">
-      <DeviceStateScreen {serial} loading={loading}>
-        {#if serial}
+          {:else if tab === 'control'}
           <ControlPage {serial} {run} bind:status bind:busy />
-        {/if}
-      </DeviceStateScreen>
-    </div>
-  {/if}
-
-  {#if mountedTabs.has('apps')}
-    <div style="display: {tab === 'apps' ? 'contents' : 'none'}">
-      <DeviceStateScreen {serial} loading={tab === 'apps' && busy}>
-        {#if serial}
+          {:else if tab === 'apps'}
           <AppsPage {serial} bind:status bind:busy {run} {scrcpy} {tab} {appSettings} javaAvailable={tools?.java.available ?? false} />
-        {/if}
-      </DeviceStateScreen>
-    </div>
-  {/if}
-
-  {#if mountedTabs.has('files')}
-    <div style="display: {tab === 'files' ? 'contents' : 'none'}">
-      <DeviceStateScreen {serial} loading={loading}>
-        {#if serial}
+          {:else if tab === 'files'}
           <FilesPage {serial} bind:status bind:busy {tab} />
-        {/if}
-      </DeviceStateScreen>
-    </div>
-  {/if}
-
-  {#if mountedTabs.has('system')}
-    <div style="display: {tab === 'system' ? 'contents' : 'none'}">
-      <DeviceStateScreen {serial} loading={loading}>
-        {#if serial}
+          {:else if tab === 'system'}
           <SystemPage {serial} bind:status />
-        {/if}
-      </DeviceStateScreen>
-    </div>
-  {/if}
-
-  {#if mountedTabs.has('settings')}
-    <div style="display: {tab === 'settings' ? 'contents' : 'none'}">
-      <SettingsPage {theme} {language} {tools} checkingUpdates={toolUpdatesChecking} bind:adbPath bind:scrcpyPath bind:javaPath onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} {appSettings} onSaveAppSettings={saveAppSettings} {defaultCacheDir} />
-    </div>
+          {/if}
+        {/key}
+      {/if}
+    </DeviceStateScreen>
   {/if}
 </WorkbenchShell>

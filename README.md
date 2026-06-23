@@ -1,4 +1,4 @@
-# <img src="icon.webp" alt="ADB App Logo" height="27"> ADB App
+# <img src="icon.svg" alt="ADB App Logo" height="27"> ADB App
 
 **A modern, fast, and cross-platform desktop application to manage Android devices over ADB.**
 

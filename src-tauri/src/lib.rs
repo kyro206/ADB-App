@@ -156,6 +156,7 @@ pub fn run() {
             operations::get_device_wallpaper,
             operations::sideload_device,
             operations::download_and_open_file,
+            operations::search_apkmirror,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

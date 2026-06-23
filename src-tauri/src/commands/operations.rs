@@ -2568,3 +2568,52 @@ pub async fn download_and_open_file(
     
     Ok("Opened successfully".to_string())
 }
+
+#[derive(Deserialize)]
+struct ApkmirrorApp {
+    link: String,
+}
+
+#[derive(Deserialize)]
+struct ApkmirrorData {
+    exists: bool,
+    pname: String,
+    app: Option<ApkmirrorApp>,
+}
+
+#[derive(Deserialize)]
+struct ApkmirrorResponse {
+    data: Vec<ApkmirrorData>,
+}
+
+#[tauri::command]
+pub async fn search_apkmirror(package_name: String) -> Result<Option<String>, String> {
+    let client = reqwest::Client::new();
+    let url = "https://www.apkmirror.com/wp-json/apkm/v1/app_exists";
+    
+    let mut map = HashMap::new();
+    map.insert("pnames", package_name.clone());
+
+    let res = client.post(url)
+        .header("User-Agent", "ADB-App")
+        .header("Authorization", "Basic YXBpLWFwa3VwZGF0ZXI6cm01cmNmcnVVakt5MDRzTXB5TVBKWFc4")
+        .header("Content-Type", "application/json")
+        .json(&map)
+        .send()
+        .await;
+
+    if let Ok(response) = res {
+        if let Ok(json) = response.json::<ApkmirrorResponse>().await {
+            if let Some(data) = json.data.first() {
+                if data.exists && data.pname == package_name {
+                    if let Some(app) = &data.app {
+                        let link = format!("https://www.apkmirror.com{}", app.link);
+                        return Ok(Some(link));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(None)
+}

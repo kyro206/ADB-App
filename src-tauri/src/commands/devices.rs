@@ -1,12 +1,6 @@
 use crate::adb;
 use crate::models::{Device, DeviceDetails};
 use crate::parsers::device_parser;
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
-
-static DEVICE_DETAILS_CACHE: OnceLock<Mutex<HashMap<String, (Instant, DeviceDetails)>>> =
-    OnceLock::new();
 
 /// List all connected ADB devices.
 #[tauri::command]
@@ -72,15 +66,6 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         });
     }
 
-    let cache = DEVICE_DETAILS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Ok(cache) = cache.lock() {
-        if let Some((created_at, details)) = cache.get(&serial) {
-            if created_at.elapsed() < Duration::from_secs(6) {
-                return Ok(details.clone());
-            }
-        }
-    }
-
     let script = "\
         getprop; echo '---ADBAPPSEP---'; \
         cat /proc/meminfo; echo '---ADBAPPSEP---'; \
@@ -96,7 +81,7 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         cat /proc/uptime\
     ";
 
-    let result = run_or_empty(&serial, &["shell", script]).await;
+    let result = run_details_query(&serial, &["shell", script]).await?;
     let mut parts = result.split("---ADBAPPSEP---");
 
     let getprop = parts.next().unwrap_or("").trim();
@@ -131,31 +116,14 @@ pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String>
         &screen_timeout,
         &uptime,
     );
-
-    // Solo guardar en caché si realmente obtuvimos datos válidos
-    if details.total_ram_mb > 0 || details.uptime_seconds >= 0.0 {
-        if let Ok(mut cache) = cache.lock() {
-            cache.insert(serial, (Instant::now(), details.clone()));
-        }
-    }
-
     Ok(details)
 }
 
-/// Helper to run an ADB command and return empty string on failure.
-async fn run_or_empty(serial: &str, args: &[&str]) -> String {
-    match adb::run_adb_for_serial(serial, args).await {
-        Ok(result) => {
-            if result.ok() || result.output.contains("---ADBAPPSEP---") {
-                result.output
-            } else {
-                eprintln!("ADB get_device_details failed: exit_code={}, output={}", result.exit_code, result.output);
-                String::new()
-            }
-        }
-        Err(e) => {
-            eprintln!("ADB execution error: {}", e);
-            String::new()
-        }
+async fn run_details_query(serial: &str, args: &[&str]) -> Result<String, String> {
+    let result = adb::run_adb_for_serial(serial, args).await?;
+    if result.ok() || result.output.contains("---ADBAPPSEP---") {
+        Ok(result.output)
+    } else {
+        Err(result.output)
     }
 }
