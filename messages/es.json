@@ -441,5 +441,12 @@
   "error_device_not_found": "Dispositivo no encontrado.",
   "error_unauthorized": "El dispositivo no está autorizado. Acepta el aviso en la pantalla.",
   "error_timeout": "Se ha agotado el tiempo de espera.",
-  "error_connection_failed": "No se pudo establecer la conexión."
+  "error_connection_failed": "No se pudo establecer la conexión.",
+  "apps_filter_debloat": "Debloat",
+  "apps_debloat_info": "Acerca de",
+  "apps_debloat_removal": "Recomendación: {removal}",
+  "apps_debloat_removal_delete": "Eliminable",
+  "apps_debloat_removal_replace": "Remplazable",
+  "apps_debloat_removal_caution": "Precaución",
+  "apps_debloat_removal_unsafe": "Inseguro"
 }

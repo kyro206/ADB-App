@@ -29,8 +29,8 @@ ADB App is a modern graphical interface built with [Tauri v2](https://v2.tauri.a
 - **Display:** Adjust screen resolution, pixel density (DPI), and screen timeout on the fly without needing a reboot.
 - **Mirroring:** Stream your device's screen with full audio support, custom virtual displays, direct recording, and camera streaming. It's `scrcpy` with a graphical interface so you never have to touch the terminal.
 - **Control:** Simulate keystrokes, control device navigation, change screen orientation, and even use your PC as an Android TV remote.
-- **Apps Manager:** Install, uninstall, disable, and extract APKs. Reveal hidden permissions and double-click any app to launch it right from your PC.
-- **File Explorer:** A fully-featured file manager to transfer content between your PC and your Android device. It supports drag-and-drop, permission changes, renaming, folder creation, and image previews in grid mode.
+- **Apps Manager:** Install, uninstall, debloat, disable, and extract APKs. Reveal hidden permissions and double-click any app to launch it right from your PC.
+- **File Explorer:** A fully-featured file manager to transfer content between your PC and your Android device. It supports drag-and-drop, permission changes, renaming, folder creation, audio and image previews, double click to open files and search.
 - **System Settings:** Visually manage advanced options like installed keyboards (IME), secondary users, gesture navigation, and system-level permissions.
 - **Wireless Connection:** Built-in wizard for Wi-Fi pairing (Android 11+), QR code scanning, and seamless switching from USB to wireless debugging.
 

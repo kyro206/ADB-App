@@ -29,6 +29,7 @@
   import { materialTextFieldValue } from "../actions/materialTextFieldValue";
   import { appTone, formatBytes } from "./workbench/utils";
   import VirtualGrid from "../components/VirtualGrid.svelte";
+  import { getDebloatInfo } from "../utils/debloat";
   let {
     serial,
     status = $bindable(),
@@ -72,7 +73,7 @@
   let installGrant = $state(true);
   let installTest = $state(true);
   let installBypass = $state(false);
-  let filter = $state<"all" | "user" | "system" | "disabled">("user");
+  let filter = $state<"all" | "user" | "system" | "disabled" | "debloat">("user");
   let appFilter = $state("");
   let selectedPackage = $state("");
   let destructiveAction = $state<"uninstall" | "clear-data" | null>(null);
@@ -102,6 +103,13 @@
     if (filter === "user") result = result.filter((app) => !app.system_app);
     if (filter === "system") result = result.filter((app) => app.system_app);
     if (filter === "disabled") result = result.filter((app) => app.disabled);
+    if (filter === "debloat") {
+      result = result.filter((app) => {
+        if (app.disabled) return false;
+        const info = getDebloatInfo(app.package_name);
+        return info && (info.removal === "delete" || info.removal === "replace" || info.removal === "caution");
+      });
+    }
     if (appFilter) {
       const lower = appFilter.toLowerCase();
       result = result.filter(
@@ -619,6 +627,7 @@
     ["all", m.apps_filter_all(), "apps"],
     ["system", m.apps_filter_system(), "settings"],
     ["disabled", m.apps_filter_disabled(), "block"],
+    ["debloat", m.apps_filter_debloat(), "cleaning_services"],
   ]);
 
   let pending = $derived(
@@ -634,7 +643,13 @@
           ? app.disabled
           : value === "system"
             ? app.system_app && !app.disabled
-            : !app.system_app && !app.disabled,
+            : value === "debloat"
+              ? (() => {
+                  if (app.disabled) return false;
+                  const info = getDebloatInfo(app.package_name);
+                  return info && (info.removal === "delete" || info.removal === "replace" || info.removal === "caution");
+                })()
+              : !app.system_app && !app.disabled,
     ).length;
 
   $effect(() => {
@@ -748,67 +763,86 @@
         {/each}
       </nav>
 
+      {#snippet appTile(app)}
+        <button
+          class="apps-material-tile {selectedPackage === app.package_name ? 'selected' : ''}"
+          style="width: 100%; height: 100%; position: relative;"
+          onclick={() => selectApplication(app)}
+          ondblclick={() => openAppInScrcpy(app.package_name)}
+        >
+          <div
+            class="apps-material-status-icon {app.disabled ? 'disabled' : ''}"
+            title={app.disabled ? m.apps_status_disabled() : app.system_app ? m.apps_status_system() : m.apps_status_user()}
+          >
+            <MaterialIcon name={app.disabled ? "block" : app.system_app ? "settings" : "person"} />
+          </div>
+          <span class="app-icon-frame">
+            {#if app.icon_data_url}
+              <img src={app.icon_data_url} alt="" decoding="async" />
+            {:else}
+              <span class="app-fallback {appTone(app.package_name)}">{app.display_name.slice(0, 2).toUpperCase()}</span>
+            {/if}
+          </span>
+          <span class="apps-material-tile__copy">
+            <strong>{app.display_name}</strong>
+            <small>{app.package_name}</small>
+          </span>
+          <md-ripple></md-ripple>
+        </button>
+      {/snippet}
+
       <div
         class="apps-material-grid-container"
         style="flex: 1; min-height: 0; padding: 12px; box-sizing: border-box;"
       >
-        <VirtualGrid
-          items={filteredApps}
-          itemHeight={190}
-          minItemWidth={155}
-          gap={10}
-          key={(app) => app.package_name}
-        >
-          {#snippet row(app)}
-            <button
-              class="apps-material-tile {selectedPackage === app.package_name
-                ? 'selected'
-                : ''}"
-              style="width: 100%; height: 100%;"
-              onclick={() => selectApplication(app)}
-              ondblclick={() => openAppInScrcpy(app.package_name)}
-            >
-              <div
-                class="apps-material-status-icon {app.disabled
-                  ? 'disabled'
-                  : ''}"
-                title={app.disabled
-                  ? m.apps_status_disabled()
-                  : app.system_app
-                    ? m.apps_status_system()
-                    : m.apps_status_user()}
-              >
-                <MaterialIcon
-                  name={app.disabled
-                    ? "block"
-                    : app.system_app
-                      ? "settings"
-                      : "person"}
-                />
+        {#if filter === "debloat"}
+          <div class="debloat-grouped-view" style="display: flex; flex-direction: column; gap: 24px; padding-bottom: 24px; overflow-y: auto; height: 100%; padding-right: 4px;">
+            {#each ["delete", "replace", "caution", "unsafe"] as rType}
+              {@const groupApps = filteredApps.filter(a => getDebloatInfo(a.package_name)?.removal === rType)}
+              {#if groupApps.length > 0}
+                <div class="debloat-group">
+                  <header style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 0; color: var(--on-surface); position: sticky; top: 0; z-index: 10; background: var(--surface-container-low);">
+                    <MaterialIcon name={rType === 'delete' ? 'delete' : rType === 'replace' ? 'help_outline' : 'block'} />
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">{(m as any)[`apps_debloat_removal_${rType}`]()}</h3>
+                    <span style="margin-left: auto; background: var(--surface-container-highest); padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: bold;">{groupApps.length}</span>
+                  </header>
+                  <div class="apps-material-grid" style="overflow: visible; padding: 0;">
+                    {#each groupApps as app (app.package_name)}
+                      <div style="height: 190px;">
+                        {@render appTile(app)}
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+            {/each}
+            {#if !filteredApps.length}
+              <div class="apps-material-empty">
+                <MaterialIcon name="search_off" />
+                <strong>{m.apps_empty_title()}</strong>
+                <span>{m.apps_empty_subtitle()}</span>
               </div>
-              <span class="app-icon-frame">
-                {#if app.icon_data_url}
-                  <img src={app.icon_data_url} alt="" decoding="async" />
-                {:else}
-                  <span class="app-fallback {appTone(app.package_name)}"
-                    >{app.display_name.slice(0, 2).toUpperCase()}</span
-                  >
-                {/if}
-              </span>
-              <span class="apps-material-tile__copy">
-                <strong>{app.display_name}</strong>
-                <small>{app.package_name}</small>
-              </span>
-              <md-ripple></md-ripple>
-            </button>
-          {/snippet}
-        </VirtualGrid>
-        {#if !filteredApps.length}
-          <div class="apps-material-empty">
-            <MaterialIcon name="search_off" />
-            <strong>{m.apps_empty_title()}</strong>
-            <span>{m.apps_empty_subtitle()}</span>
+            {/if}
           </div>
+        {:else}
+          <VirtualGrid
+            items={filteredApps}
+            itemHeight={190}
+            minItemWidth={155}
+            gap={10}
+            key={(app) => app.package_name}
+          >
+            {#snippet row(app)}
+              {@render appTile(app)}
+            {/snippet}
+          </VirtualGrid>
+          {#if !filteredApps.length}
+            <div class="apps-material-empty">
+              <MaterialIcon name="search_off" />
+              <strong>{m.apps_empty_title()}</strong>
+              <span>{m.apps_empty_subtitle()}</span>
+            </div>
+          {/if}
         {/if}
       </div>
     </section>
@@ -911,6 +945,25 @@
             {/if}
           </div>
         </header>
+
+        {#if getDebloatInfo(appDetails.package_name)}
+          {@const info = getDebloatInfo(appDetails.package_name)!}
+          <section class="apps-material-section">
+            <header>
+              <span class="apps-material-section__title">
+                <MaterialIcon name="cleaning_services" />
+                <h3>{m.apps_debloat_info()}</h3>
+              </span>
+            </header>
+            <div class="apps-material-debloat {info.removal}">
+               <strong>{m.apps_debloat_removal({ removal: (m as any)[`apps_debloat_removal_${info.removal}`]() })}</strong>
+               <p>{info.description}</p>
+               {#if info.warning}
+                 <p class="warning"><strong>{m.apps_debloat_removal_caution()}</strong>: {info.warning}</p>
+               {/if}
+            </div>
+          </section>
+        {/if}
 
         <section class="apps-material-section">
           <header>
@@ -1337,6 +1390,14 @@
       background: color-mix(in srgb, currentColor 10%, transparent);
       border-radius: 999px;
       font-size: 9px;
+    }
+    .debloat-grouped-view::-webkit-scrollbar {
+      width: 14px;
+    }
+    .debloat-grouped-view::-webkit-scrollbar-thumb {
+      background-color: var(--outline-variant);
+      border: 4px solid var(--surface-container-low);
+      border-radius: 99px;
     }
     .apps-material-grid {
       display: grid;

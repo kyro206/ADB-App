@@ -441,5 +441,12 @@
   "error_device_not_found": "Device not found.",
   "error_unauthorized": "The device is unauthorized. Accept the prompt on the screen.",
   "error_timeout": "Connection timed out.",
-  "error_connection_failed": "Failed to establish connection."
+  "error_connection_failed": "Failed to establish connection.",
+  "apps_filter_debloat": "Debloat",
+  "apps_debloat_info": "About",
+  "apps_debloat_removal": "Recommendation: {removal}",
+  "apps_debloat_removal_delete": "Deletable",
+  "apps_debloat_removal_replace": "Replaceable",
+  "apps_debloat_removal_caution": "Caution",
+  "apps_debloat_removal_unsafe": "Unsafe"
 }
