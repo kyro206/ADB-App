@@ -1,44 +1,20 @@
-<script lang="ts" module>
-import * as m from '../../paraglide/messages';
-
-  export type TransferStatus = 'idle' | 'transferring' | 'success' | 'error';
-  export type TransferType = 'upload' | 'download';
-
-  export interface TransferJob {
-    id: string;
-    type: TransferType;
-    name: string;
-    source: string;
-    destination: string;
-    isDirectory: boolean;
-    status: TransferStatus;
-    error?: string;
-    children?: TransferJob[];
+<script lang="ts">
+  import * as m from '../../paraglide/messages';
+  import MaterialIcon from '../MaterialIcon.svelte';
+  import { operationsState, type OperationStatus } from '../../context/operations.svelte';
+  
+  function getIconForJob(job: any) {
+    if (job.type === 'install') return 'android';
+    if (job.isDirectory) return 'folder';
+    if (job.type === 'upload') return 'upload_file';
+    return 'download';
   }
 </script>
 
-<script lang="ts">
-  
-  import MaterialIcon from '../MaterialIcon.svelte';
-  let {
-    open = false,
-    jobs = [],
-    onClose,
-    onClear,
-    onRetry
-  } = $props<{
-    open: boolean;
-    jobs: TransferJob[];
-    onClose: () => void;
-    onClear: () => void;
-    onRetry: (id: string, parentId?: string) => void;
-  }>();
-</script>
-
-{#snippet statusIcon(status: TransferStatus)}
+{#snippet statusIcon(status: OperationStatus)}
   {#if status === 'idle'}
     <MaterialIcon name="schedule" class="transfer-status-icon idle" />
-  {:else if status === 'transferring'}
+  {:else if status === 'transferring' || status === 'installing'}
     <md-circular-progress indeterminate style="--md-circular-progress-size: 32px"></md-circular-progress>
   {:else if status === 'success'}
     <MaterialIcon name="check_circle" class="transfer-status-icon success" />
@@ -49,38 +25,39 @@ import * as m from '../../paraglide/messages';
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="transfer-menu-overlay {open ? 'open' : ''}" onclick={onClose}>
+<div class="transfer-menu-overlay {operationsState.isOpen ? 'open' : ''}" onclick={() => operationsState.isOpen = false}>
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <aside class="transfer-menu" onclick={e => e.stopPropagation()}>
+    <md-elevation></md-elevation>
     <header class="transfer-menu__header">
       <h3>
         <MaterialIcon name="swap_vert" />
-        {m.transfers_title()}
+        {m.operations_title()}
       </h3>
       <div class="transfer-menu__actions">
-        <md-icon-button title={m.transfers_clear()} onclick={onClear}>
+        <md-icon-button title={m.operations_clear()} onclick={() => operationsState.clearCompleted()}>
           <MaterialIcon name="clear_all" />
         </md-icon-button>
-        <md-icon-button onclick={onClose}>
+        <md-icon-button onclick={() => operationsState.isOpen = false}>
           <MaterialIcon name="close" />
         </md-icon-button>
       </div>
     </header>
     
     <div class="transfer-menu__content">
-      {#if jobs.length === 0}
+      {#if operationsState.jobs.length === 0}
         <div class="transfer-menu__empty">
           <MaterialIcon name="done_all" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5" />
-          <p>{m.transfers_empty()}</p>
+          <p>{m.operations_empty()}</p>
         </div>
       {:else}
         <ul class="transfer-list">
-          {#each jobs as job (job.id)}
+          {#each operationsState.jobs as job (job.id)}
             <li class="transfer-item-container">
               <div class="transfer-item {job.status}">
                 <div class="transfer-item__icon">
-                  <MaterialIcon name={job.isDirectory ? 'folder' : (job.type === 'upload' ? 'upload_file' : 'download')} />
+                  <MaterialIcon name={getIconForJob(job)} />
                 </div>
                 <div class="transfer-item__details">
                   <span class="transfer-item__name">{job.name}</span>
@@ -88,13 +65,13 @@ import * as m from '../../paraglide/messages';
                     {#if job.status === 'error' && job.error}
                       {job.error}
                     {:else}
-                      {(m as any)[`transfers_${job.status}`]?.() ?? job.status}
+                      {(m as any)[`operations_${job.status}`]?.() ?? job.status}
                     {/if}
                   </span>
                 </div>
                 <div class="transfer-item__trailing">
                   {#if job.status === 'error'}
-                    <md-icon-button onclick={() => onRetry(job.id)} title={m.transfers_retry()}>
+                    <md-icon-button onclick={() => operationsState.retry(job.id)} title={m.operations_retry()}>
                       <MaterialIcon name="refresh" />
                     </md-icon-button>
                   {/if}
@@ -117,7 +94,7 @@ import * as m from '../../paraglide/messages';
                       </div>
                       <div class="transfer-subitem__trailing">
                         {#if child.status === 'error'}
-                          <md-icon-button onclick={() => onRetry(child.id, job.id)} title={m.transfers_retry()}>
+                          <md-icon-button onclick={() => operationsState.retry(child.id, job.id)} title={m.operations_retry()}>
                             <MaterialIcon name="refresh" />
                           </md-icon-button>
                         {/if}
@@ -144,6 +121,7 @@ import * as m from '../../paraglide/messages';
   justify-content: flex-end;
   pointer-events: none;
   opacity: 0;
+  background: rgba(0, 0, 0, 0.32);
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -153,16 +131,20 @@ import * as m from '../../paraglide/messages';
 }
 
 .transfer-menu {
+  position: relative;
   width: 360px;
   max-width: 100%;
   height: 100%;
   background: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface);
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.transfer-menu > md-elevation {
+  --md-elevation-level: 5;
 }
 
 .transfer-menu-overlay.open .transfer-menu {

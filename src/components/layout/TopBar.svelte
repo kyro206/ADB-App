@@ -11,6 +11,8 @@ import * as m from '../../paraglide/messages';
   import MaterialIcon from '../MaterialIcon.svelte';
   import DeviceSelector from './DeviceSelector.svelte';
   import Logo from '../Logo.svelte';
+  import { operationsState } from '../../context/operations.svelte';
+  
   let { adbAvailable = true } = $props<{ adbAvailable?: boolean }>();
 
   type DesktopPlatform = 'windows' | 'macos' | 'linux';
@@ -94,7 +96,16 @@ import * as m from '../../paraglide/messages';
       onSelect={(serial) => devicesState.selectDevice(serial)} 
       onDisconnect={handleDisconnect} 
     />
-    
+    {#if operationsState.hasJobs}
+      <button 
+        class="topbar__action-btn topbar__operations {operationsState.isOpen ? 'active' : ''} {operationsState.hasError ? 'error' : ''} {operationsState.isProcessing ? 'processing' : ''}" 
+        onclick={() => operationsState.isOpen = !operationsState.isOpen} 
+        title={m.operations_title()}
+      >
+        <MaterialIcon name="swap_vert" />
+      </button>
+    {/if}
+
     <button 
       class="topbar__wireless {wirelessOpen ? 'active' : ''}" 
       onclick={() => wirelessOpen = true} 
@@ -143,8 +154,17 @@ import * as m from '../../paraglide/messages';
 
 .topbar__identity{display:flex;align-items:center;flex:0 0 160px;gap:8px;padding-left:12px;font-weight:700}.topbar__identity img{width:28px;height:28px;object-fit:contain}.topbar__identity h1{font-size:13px;font-weight:700;white-space:nowrap}.topbar__drag-zone{align-self:stretch;flex:1;min-width:55px}
 .topbar__tcpip,.topbar__wireless,.topbar__action-btn{display:flex;align-items:center;justify-content:center;height:30px;color:var(--on-surface-variant);background:var(--surface-container-high);border:0;border-radius:var(--radius-full)}
-.topbar__tcpip{gap:2px;width:82px;padding:0 8px;white-space:nowrap}.topbar__tcpip :global(.material-symbols-rounded){font-size:17px}.topbar__tcpip :global(.material-symbols-rounded):nth-of-type(2){font-size:13px}.topbar__tcpip:hover:not(:disabled),.topbar__wireless:hover,.topbar__wireless.active,.topbar__action-btn:hover:not(:disabled){color:var(--on-primary-container);background:var(--primary-container)}
+.topbar__tcpip{gap:2px;width:82px;padding:0 8px;white-space:nowrap}.topbar__tcpip :global(.material-symbols-rounded){font-size:17px}.topbar__tcpip :global(.material-symbols-rounded):nth-of-type(2){font-size:13px}.topbar__tcpip:hover:not(:disabled),.topbar__wireless:hover,.topbar__wireless.active,.topbar__action-btn:hover:not(:disabled),.topbar__operations.active{color:var(--on-primary-container);background:var(--primary-container)}
 .topbar__wireless,.topbar__action-btn{flex:0 0 30px;width:30px}
+.topbar__operations.error { color: var(--md-sys-color-error); background: var(--md-sys-color-error); }
+.topbar__operations.error:hover { background: color-mix(in srgb, var(--md-sys-color-error) 80%, black); }
+.topbar__operations.processing { animation: pulse-blue 2s infinite; }
+
+@keyframes pulse-blue {
+  0% { color: var(--on-surface-variant); }
+  50% { color: var(--primary); background: var(--primary-container); }
+  100% { color: var(--on-surface-variant); }
+}
 
 .topbar__device-section {
   position: absolute;

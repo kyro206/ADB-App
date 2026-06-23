@@ -19,17 +19,6 @@ import * as m from '../../paraglide/messages';
     adbAvailable?: boolean;
   }>();
 
-  let transferState = $state({ hasError: false, isTransferring: false });
-
-  onMount(() => {
-    const handleTransferBadge = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      transferState = detail;
-    };
-    window.addEventListener('transfer-badge-update', handleTransferBadge);
-    return () => window.removeEventListener('transfer-badge-update', handleTransferBadge);
-  });
-
   const TAB_ICONS: Record<TabId, string> = {
     home: 'home', display: 'display_settings', mirroring: 'cast', control: 'remote_gen',
     apps: 'apps', files: 'folder', system: 'android', settings: 'settings',
@@ -55,9 +44,6 @@ import * as m from '../../paraglide/messages';
       >
         <span class="sidebar__tab-icon">
           <MaterialIcon name={TAB_ICONS[tab]} filled={activeTab === tab} />
-          {#if tab === 'files' && (transferState.hasError || transferState.isTransferring)}
-            <div class="sidebar__badge {transferState.hasError ? 'error' : 'blue'}"></div>
-          {/if}
         </span>
         <span class="sidebar__tab-label">{labels[tab]}</span>
       </button>

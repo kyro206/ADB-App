@@ -13,6 +13,7 @@ import * as m from '../paraglide/messages';
   
   import type { AppSummary, AppDetailsInfo, AppPermissionInfo } from './workbench/types';
   import { devicesState } from '../context/devices.svelte';
+  import { operationsState } from '../context/operations.svelte';
   import DestructiveActionDialog from '../components/dialogs/DestructiveActionDialog.svelte';
   import InstallationDialog from '../components/dialogs/InstallationDialog.svelte';
   import MaterialIcon from '../components/MaterialIcon.svelte';
@@ -55,11 +56,8 @@ import * as m from '../paraglide/messages';
   let detailsLoading = $state(false);
   let apkmirrorUrl = $state<string | null>(null);
   let apkmirrorSearched = $state(false);
-  let installingApps = $state(false);
   let installOpen = $state(false);
   let installFiles = $state<string[]>([]);
-  let installStatuses = $state<Record<string, 'idle' | 'installing' | 'success' | 'error'>>({});
-  let installErrors = $state<Record<string, string>>({});
 
   let installReplace = $state(true);
   let installGrant = $state(true);
@@ -290,54 +288,29 @@ import * as m from '../paraglide/messages';
       });
       const selectedFiles = Array.isArray(selected) ? selected : selected ? [selected] : [];
       if (selectedFiles.length) {
-        const newFiles = [...new Set([...installFiles, ...selectedFiles])];
-        installFiles = newFiles;
-        
-        const nextStatuses = { ...installStatuses };
-        newFiles.forEach(f => { if (!nextStatuses[f]) nextStatuses[f] = 'idle'; });
-        installStatuses = nextStatuses;
+        installFiles = [...new Set([...installFiles, ...selectedFiles])];
       }
     } catch (error) { status = String(error); }
   }
 
-  async function installSelectedApps() {
-    if (!serial || !installFiles.length || installingApps) return;
-    installingApps = true;
-    installErrors = {};
+  function installSelectedApps() {
+    if (!installFiles.length) return;
 
-    await Promise.all(installFiles.map(async (file) => {
-      installStatuses = { ...installStatuses, [file]: 'installing' };
-      try {
-        const result = await invoke<string>('install_application_packages', {
-          serial,
-          files: [file],
-          options: {
-            replace_existing: installReplace,
-            grant_runtime_permissions: installGrant,
-            allow_test_packages: installTest,
-            bypass_low_target_sdk_block: installBypass,
-          },
-        });
-        
-        if (result.includes('ERROR ·') || (!result.includes('Success') && !result.includes('OK ·'))) {
-          const cleanResult = result
-            .split('\n')
-            .filter(line => !line.includes('Performing Streamed Install') && !line.toLowerCase().includes('preparing') && !line.startsWith('ERROR ·'))
-            .join('\n')
-            .trim();
-          installErrors = { ...installErrors, [file]: cleanResult || result };
-          installStatuses = { ...installStatuses, [file]: 'error' };
-        } else {
-          installStatuses = { ...installStatuses, [file]: 'success' };
-        }
-      } catch (error) {
-        installErrors = { ...installErrors, [file]: String(error) };
-        installStatuses = { ...installStatuses, [file]: 'error' };
-      }
-    }));
+    const options = {
+      replace: installReplace,
+      grant: installGrant,
+      test: installTest,
+      bypass: installBypass,
+    };
     
-    installingApps = false;
-    await refreshApps(true);
+    for (const file of installFiles) {
+      const name = file.split(/[\\/]/).pop() || file;
+      operationsState.enqueue('install', file, JSON.stringify(options), name, false);
+    }
+    
+    installOpen = false;
+    installFiles = [];
+    operationsState.isOpen = true;
   }
 
   async function toggleAppEnabled() {
@@ -501,9 +474,6 @@ import * as m from '../paraglide/messages';
           const apks = paths.filter((p: string) => /\.(apk|apks|xapk|apkm|aab|zip)$/i.test(p));
           if (apks.length > 0) {
             installFiles = [...new Set([...installFiles, ...apks])];
-            const nextStatuses = { ...installStatuses };
-            apks.forEach((f: string) => { if (!nextStatuses[f]) nextStatuses[f] = 'idle'; });
-            installStatuses = nextStatuses;
             installOpen = true;
           }
         }
@@ -812,21 +782,12 @@ import * as m from '../paraglide/messages';
   <InstallationDialog 
     open={installOpen} 
     files={installFiles} 
-    installing={installingApps} 
-    installStatuses={installStatuses} 
-    installErrors={installErrors} 
     options={{ replace: installReplace, grant: installGrant, test: installTest, bypass: installBypass }} 
     canInstall={Boolean(serial && installFiles.length)} 
     onClose={() => installOpen = false} 
     onChooseFiles={chooseInstallFiles} 
     onRemoveFile={file => { 
       installFiles = installFiles.filter(value => value !== file); 
-      const nextStatuses = {...installStatuses}; 
-      delete nextStatuses[file]; 
-      installStatuses = nextStatuses; 
-      const nextErrors = {...installErrors}; 
-      delete nextErrors[file]; 
-      installErrors = nextErrors; 
     }} 
     onOptionChange={(option, value) => {
       if (option === 'replace') installReplace = value;

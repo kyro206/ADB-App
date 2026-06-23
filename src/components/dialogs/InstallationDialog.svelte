@@ -16,9 +16,6 @@ import * as m from '../../paraglide/messages';
   let {
     open = false,
     files,
-    installing,
-    installStatuses,
-    installErrors,
     options,
     canInstall,
     onClose,
@@ -30,9 +27,6 @@ import * as m from '../../paraglide/messages';
   } = $props<{
     open: boolean;
     files: string[];
-    installing: boolean;
-    installStatuses: Record<string, 'idle' | 'installing' | 'success' | 'error'>;
-    installErrors: Record<string, string>;
     options: InstallOptions;
     canInstall: boolean;
     onClose: () => void;
@@ -73,11 +67,11 @@ import * as m from '../../paraglide/messages';
   }
 </script>
 
-<AppModal {open} {onClose} width="large" title={m.install_title()} subtitle={m.install_subtitle()} cancelDisabled={installing}>
+<AppModal {open} {onClose} width="large" title={m.install_title()} subtitle={m.install_subtitle()}>
   <section class="install-dialog-section">
     <header>
       <h3>{m.install_files_title()}</h3>
-      <md-filled-button disabled={installing ? true : undefined} onclick={onChooseFiles}>
+      <md-filled-button onclick={onChooseFiles}>
         {m.install_files_choose()}
       </md-filled-button>
     </header>
@@ -87,36 +81,17 @@ import * as m from '../../paraglide/messages';
     {:else}
       <div class="install-dialog-files">
         {#each files as file}
-          {@const status = installStatuses[file] || 'idle'}
           <div>
             <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;">
-              {#if status === 'installing'}
-                <md-circular-progress indeterminate style="--md-circular-progress-size: 20px"></md-circular-progress>
-              {:else if status === 'success'}
-                <MaterialIcon name="check_circle" style="color: var(--md-sys-color-primary);" />
-              {:else if status === 'error'}
-                <MaterialIcon name="cancel" style="color: var(--md-sys-color-error);" />
-              {:else}
-                <MaterialIcon name="android" />
-              {/if}
+              <MaterialIcon name="android" />
             </div>
             <p>
               <strong>{file.split(/[\\/]/).pop()}</strong>
               <small>{file}</small>
             </p>
-            <md-icon-button disabled={installing ? true : undefined} aria-label={m.install_files_remove()} onclick={() => onRemoveFile(file)}>
+            <md-icon-button aria-label={m.install_files_remove()} onclick={() => onRemoveFile(file)}>
               <MaterialIcon name="close" />
             </md-icon-button>
-          </div>
-        {/each}
-      </div>
-    {/if}
-    
-    {#if Object.values(installErrors).some(err => !!err)}
-      <div style="color: var(--md-sys-color-on-error-container); margin-top: 12px; font-size: 13px; white-space: pre-wrap; max-height: 120px; overflow: auto; background: var(--md-sys-color-error-container); padding: 12px; border-radius: 8px;">
-        {#each Object.entries(installErrors).filter(([, err]) => !!err) as [file, err]}
-          <div style="margin-bottom: 8px;">
-            <strong>{file.split(/[\\/]/).pop()}</strong>: {err}
           </div>
         {/each}
       </div>
@@ -141,8 +116,8 @@ import * as m from '../../paraglide/messages';
   </section>
 
   {#snippet actions()}
-    <md-filled-button disabled={!canInstall || installing ? true : undefined} onclick={handleInstallClick}>
-      {installing ? m.install_action_installing() : `${m.install_action_install()}${files.length ? ` (${files.length})` : ''}`}
+    <md-filled-button disabled={!canInstall ? true : undefined} onclick={handleInstallClick}>
+      {`${m.install_action_install()}${files.length ? ` (${files.length})` : ''}`}
     </md-filled-button>
   {/snippet}
 </AppModal>

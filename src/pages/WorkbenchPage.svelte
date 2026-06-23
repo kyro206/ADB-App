@@ -324,7 +324,7 @@ import * as m from '../paraglide/messages';
   {#if tab === 'settings'}
     <SettingsPage {theme} {language} {tools} checkingUpdates={toolUpdatesChecking} bind:adbPath bind:scrcpyPath bind:javaPath onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} {appSettings} onSaveAppSettings={saveAppSettings} {defaultCacheDir} />
   {:else}
-    <DeviceStateScreen {serial} loading={loading || busy}>
+    <DeviceStateScreen {serial} loading={loading || (tab !== 'files' && busy)}>
       {#if serial}
         {#key `${serial}:${connectionRevision}`}
           {#if tab === 'display'}

@@ -27,6 +27,7 @@ import * as m from '../../paraglide/messages';
   {#if loading}
     <div class="device-state-screen loading overlay">
       <md-circular-progress indeterminate></md-circular-progress>
+      <strong>{m.wireless_connect_pending()}</strong>
     </div>
   {/if}
 {/if}

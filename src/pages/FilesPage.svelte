@@ -14,8 +14,7 @@
   
   import { formatBytes, translateError } from './workbench/utils';
   import type { FileEntry, FileSortKey, FileView } from './workbench/types';
-  import TransferMenu from '../components/layout/TransferMenu.svelte';
-  import type { TransferJob, TransferStatus, TransferType } from '../components/layout/TransferMenu.svelte';
+  import { operationsState } from '../context/operations.svelte';
   import VirtualGrid from '../components/VirtualGrid.svelte';
   import * as m from '../paraglide/messages';
 
@@ -50,8 +49,6 @@
   let contextMenu = $state<{ x: number; y: number; file: FileEntry } | null>(null);
   
   let osDragHover = $state(false);
-  let transfersOpen = $state(false);
-  let transferJobs = $state<TransferJob[]>([]);
   let pendingThumbnails = new Set<string>();
   
   let audioPlayer: HTMLAudioElement | undefined = $state();
@@ -275,90 +272,11 @@
     fileHistoryIndex = index;
   }
 
-  function enqueueTransfer(type: TransferType, source: string, destination: string, name: string, isDirectory: boolean) {
-    const id = Date.now().toString() + Math.random().toString();
-    transferJobs = [...transferJobs, { id, type, name, source, destination, isDirectory, status: 'idle' }];
+  function enqueueTransfer(type: 'upload' | 'download', source: string, destination: string, name: string, isDirectory: boolean) {
+    operationsState.enqueue(type, source, destination, name, isDirectory);
   }
 
-  $effect(() => {
-    const activeJob = transferJobs.find(j => j.status === 'transferring');
-    if (activeJob) return;
 
-    const nextJob = transferJobs.find(j => j.status === 'idle');
-    if (!nextJob) return;
-
-    const processJob = async (job: TransferJob) => {
-      transferJobs = transferJobs.map(j => j.id === job.id ? { ...j, status: 'transferring', error: undefined, children: undefined } : j);
-      try {
-        if (job.type === 'upload') {
-          await invoke<string>('run_device_action', { serial: serial, args: ['push', '--sync', job.source, job.destination] });
-          if (path === job.destination) refreshFiles(path);
-        } else {
-          await invoke<string>('pull_file', { serial: serial, remotePath: job.source, localPath: job.destination });
-        }
-        transferJobs = transferJobs.map(j => j.id === job.id ? { ...j, status: 'success' } : j);
-      } catch (error: any) {
-        let errStr = String(error);
-        const children: TransferJob[] = [];
-        const regex = /adb: error: failed to copy '([^']+)' to '([^']+)': ([^\n]+)/g;
-        let match;
-        while ((match = regex.exec(errStr)) !== null) {
-          const src = match[1];
-          const dest = match[2];
-          const reason = match[3];
-          const name = src.split(/[\\/]/).pop() || src;
-          children.push({
-            id: Date.now().toString() + Math.random().toString(),
-            type: job.type,
-            name,
-            source: src,
-            destination: dest,
-            isDirectory: false,
-            status: 'error',
-            error: reason
-          });
-        }
-        if (children.length === 0) {
-           errStr = errStr.replace(/adb: error: /, '').trim();
-        }
-        transferJobs = transferJobs.map(j => j.id === job.id ? { 
-          ...j, 
-          status: 'error', 
-          error: children.length > 0 ? m.transfers_error() : errStr,
-          children: children.length > 0 ? children : undefined
-        } : j);
-      }
-    };
-    
-    processJob(nextJob);
-  });
-
-  $effect(() => {
-    const hasError = transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error'));
-    const isTransferring = transferJobs.some(j => j.status === 'transferring' || j.status === 'idle');
-    window.dispatchEvent(new CustomEvent('transfer-badge-update', { detail: { hasError, isTransferring } }));
-  });
-
-  function handleRetryTransfer(id: string, parentId: string | undefined = undefined) {
-    if (parentId) {
-      const parent = transferJobs.find(j => j.id === parentId);
-      if (!parent || !parent.children) return;
-      const childIndex = parent.children.findIndex(c => c.id === id);
-      if (childIndex === -1) return;
-      
-      const child = parent.children[childIndex];
-      parent.children.splice(childIndex, 1);
-      child.status = 'idle';
-      child.error = undefined;
-      transferJobs.push(child);
-    } else {
-      const job = transferJobs.find(j => j.id === id);
-      if (job) {
-        job.status = 'idle';
-        job.error = undefined;
-      }
-    }
-  }
 
   async function uploadLocalPaths(paths: string[]) {
     if (!paths.length) return;
@@ -374,12 +292,12 @@
       const name = localPath.split(/[\\/]/).pop() || localPath;
       
       if (statError) {
-        transferJobs = [...transferJobs, { id: Date.now().toString() + Math.random().toString(), type: 'upload', name, source: localPath, destination: path, isDirectory: false, status: 'error', error: statError }];
+        operationsState.jobs = [...operationsState.jobs, { id: Date.now().toString() + Math.random().toString(), type: 'upload', name, source: localPath, destination: path, isDirectory: false, status: 'error', error: statError }];
       } else {
         enqueueTransfer('upload', localPath, path, name, isDirectory);
       }
     }
-    if (!transfersOpen) transfersOpen = true;
+    operationsState.isOpen = true;
   }
 
   async function uploadFiles() {
@@ -397,7 +315,7 @@
       const localPath = `${destination}\\${file.name}`;
       enqueueTransfer('download', filePath(file), localPath, file.name, file.is_directory);
     }
-    if (!transfersOpen) transfersOpen = true;
+    operationsState.isOpen = true;
   }
 
   function escapeAdbPath(p: string) {
@@ -613,7 +531,6 @@
   };
   
   let pathParts = $derived(path.split('/').filter(Boolean));
-  let hasTransferJobs = $derived(transferJobs.length > 0);
   
   function changeFileSort(key: FileSortKey) {
     fileSort = fileSort.key === key
@@ -762,15 +679,6 @@
       <button class={fileView === 'grid' ? 'active' : ''} aria-label={m.files_view_grid()} title={m.files_view_grid()} onclick={() => fileView = 'grid'}>
         <MaterialIcon name="grid_view" />
       </button>
-      {#if hasTransferJobs}
-        <div style="width: 1px; background: var(--md-sys-color-outline-variant); margin: 4px 8px"></div>
-        <button class={transfersOpen ? 'active' : ''} onclick={() => transfersOpen = !transfersOpen} title={m.transfers_title()} style="position: relative">
-          <MaterialIcon name="swap_vert" />
-          {#if transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) || transferJobs.some(j => j.status === 'transferring' || j.status === 'idle')}
-            <span class="transfer-badge {transferJobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')) ? 'error' : ''}"></span>
-          {/if}
-        </button>
-      {/if}
     </div>
   </section>
   
@@ -893,13 +801,6 @@
     />
   {/if}
 
-  <TransferMenu
-    open={transfersOpen}
-    jobs={transferJobs}
-    onClose={() => transfersOpen = false}
-    onClear={() => transferJobs = transferJobs.filter(j => j.status !== 'success' && j.status !== 'error')}
-    onRetry={handleRetryTransfer}
-  />
 </div>
 
 {#snippet fileRow(file: FileEntry, index: number)}

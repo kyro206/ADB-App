@@ -11,6 +11,7 @@
 
   import HomePage from '../../pages/HomePage.svelte';
   import WorkbenchPage from '../../pages/WorkbenchPage.svelte';
+  import OperationsMenu from './OperationsMenu.svelte';
   import { layoutState } from '../../context/layout.svelte';
 
   let activeTab = $derived(layoutState.activeTab);
@@ -111,6 +112,8 @@
       </div>
     </main>
   </div>
+  
+  <OperationsMenu />
   
   <AppModal 
     open={showAdbModal} 
