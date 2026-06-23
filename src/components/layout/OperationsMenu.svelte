@@ -21,11 +21,7 @@
   {/if}
 {/snippet}
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="transfer-menu-overlay {operationsState.isOpen ? 'open' : ''}" onclick={() => operationsState.isOpen = false}>
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <aside class="transfer-menu" onclick={e => e.stopPropagation()}>
     <md-elevation></md-elevation>
     <header class="transfer-menu__header">

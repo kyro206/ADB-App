@@ -223,7 +223,7 @@ import * as m from '../paraglide/messages';
       {#if !cameraMode}
         <section class="mirror-material-card">
           <header><MaterialIcon name="rocket_launch" filled /><h3>{m.mirror_start_title()}</h3></header>
-          {@render Select(m.mirror_start_app(), app, [['', m.mirror_start_appPlaceholder()], ...apps.map((a: AppSummary) => [a.package_name, a.display_name || a.package_name] as [string, string])], v => app = v)}
+          {@render Select(m.mirror_start_app(), app, [['', m.mirror_start_appPlaceholder()], ...apps.map((a: AppSummary) => [a.package_name, a.display_name !== a.package_name ? `${a.display_name} (${a.package_name})` : a.package_name] as [string, string])], v => app = v)}
         </section>
       {/if}
 
