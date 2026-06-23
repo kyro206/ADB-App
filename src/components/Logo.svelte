@@ -17,9 +17,10 @@
   class="logo-svg"
   width={size}
   height={size}
-  viewBox="0 0 100 100"
+  viewBox="12 11.5 76 78"
   role="img"
   aria-label="Cute ghost app logo"
+  preserveAspectRatio="xMidYMid meet"
   data-tauri-drag-region
   xmlns="http://www.w3.org/2000/svg"
   style:color={logoColor}
@@ -82,6 +83,8 @@
 <style>
   .logo-svg {
     display: inline-block;
+    vertical-align: middle;
+    padding-bottom: 3px;
     user-select: none;
     -webkit-user-drag: none;
     flex-shrink: 0;

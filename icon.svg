@@ -1,9 +1,12 @@
 <svg
   xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 100 100"
+  viewBox="12 11.5 76 76"
+  width="100%"
+  height="100%"
+  preserveAspectRatio="xMidYMid meet"
   role="img"
   aria-label="ADB App Logo"
-  style="color: #34a853;"
+  style="color: #34a853; display: block;"
 >
   <defs>
     <mask id="face-cutouts">

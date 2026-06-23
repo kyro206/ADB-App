@@ -63,10 +63,10 @@ import * as m from '../../paraglide/messages';
   }
 </script>
 
-<header class="topbar topbar--{platform}" data-tauri-drag-region ondblclick={() => appWindow.toggleMaximize()}>
+<header class="topbar topbar--{platform}" data-tauri-drag-region>
   {#if platform !== 'macos'}
     <div class="topbar__identity" data-tauri-drag-region>
-      <Logo size={28} />
+      <Logo size={26} />
       <h1 data-tauri-drag-region>{appName}</h1>
     </div>
   {/if}
