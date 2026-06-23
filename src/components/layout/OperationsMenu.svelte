@@ -2,12 +2,22 @@
   import * as m from '../../paraglide/messages';
   import MaterialIcon from '../MaterialIcon.svelte';
   import { operationsState, type OperationStatus } from '../../context/operations.svelte';
+  import { openPath } from '@tauri-apps/plugin-opener';
+  import ContextMenu from './ContextMenu.svelte';
   
   function getIconForJob(job: any) {
     if (job.type === 'install') return 'android';
     if (job.isDirectory) return 'folder';
     if (job.type === 'upload') return 'upload_file';
     return 'download';
+  }
+
+  let contextMenu = $state<{ x: number; y: number; job: any } | null>(null);
+
+  function handleContextMenu(e: MouseEvent, job: any) {
+    e.preventDefault();
+    e.stopPropagation();
+    contextMenu = { x: e.clientX, y: e.clientY, job };
   }
 </script>
 
@@ -48,7 +58,7 @@
       {:else}
         <ul class="transfer-list">
           {#each operationsState.jobs as job (job.id)}
-            <li class="transfer-item-container">
+            <li class="transfer-item-container" oncontextmenu={(e) => handleContextMenu(e, job)}>
               <div class="transfer-item {job.status}">
                 <div class="transfer-item__icon">
                   <MaterialIcon name={getIconForJob(job)} />
@@ -81,7 +91,7 @@
               {#if job.children && job.children.length > 0}
                 <ul class="transfer-sublist">
                   {#each job.children as child (child.id)}
-                    <li class="transfer-subitem {child.status}">
+                    <li class="transfer-subitem {child.status}" oncontextmenu={(e) => { e.stopPropagation(); handleContextMenu(e, child); }}>
                       <MaterialIcon name={child.isDirectory ? 'folder' : 'draft'} />
                       <div class="transfer-subitem__details">
                         <span class="transfer-subitem__name">{child.name}</span>
@@ -115,6 +125,25 @@
     </div>
   </aside>
 </div>
+
+{#if contextMenu}
+  <ContextMenu
+    x={contextMenu.x}
+    y={contextMenu.y}
+    onClose={() => contextMenu = null}
+    items={[
+      { 
+        icon: 'open_in_new', 
+        label: m.files_action_open(), 
+        onClick: () => {
+          const path = contextMenu!.job.type === 'download' ? contextMenu!.job.destination : contextMenu!.job.source;
+          if (path) openPath(path).catch(console.error);
+        },
+        disabled: contextMenu.job.type === 'download' && contextMenu.job.status !== 'success'
+      }
+    ]}
+  />
+{/if}
 
 <style>
 .transfer-menu-overlay {

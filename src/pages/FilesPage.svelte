@@ -791,8 +791,8 @@
       y={contextMenu.y}
       onClose={() => contextMenu = null}
       items={[
-        { icon: 'open_in_new', label: m.files_action_open(), onClick: () => openFileEntry(contextMenu!.file), disabled: !contextMenu.file.is_directory && !contextMenu.file.is_link },
-        { icon: 'download', label: m.files_action_download(), onClick: () => setTimeout(downloadSelectedFiles, 10), disabled: contextMenu.file.is_directory },
+        { icon: 'open_in_new', label: m.files_action_open(), onClick: () => openFileEntry(contextMenu!.file), disabled: !contextMenu.file.is_directory && !contextMenu.file.is_link && contextMenu.file.size >= 25 * 1024 * 1024 },
+        { icon: 'download', label: m.files_action_download(), onClick: () => setTimeout(downloadSelectedFiles, 10) },
         { icon: 'edit', label: m.files_action_rename(), onClick: () => setTimeout(renameSelectedFile, 10) },
         { icon: 'content_copy', label: m.files_action_duplicate(), onClick: () => setTimeout(duplicateSelectedFile, 10) },
         { icon: 'admin_panel_settings', label: m.files_action_permissions(), onClick: () => setTimeout(changeSelectedPermissions, 10) },
