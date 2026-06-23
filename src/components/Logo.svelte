@@ -7,7 +7,7 @@
   }>();
 
   let useDynamicColors = $derived(themeState.materialYouEnabled && themeState.hasActiveDynamicPalette);
-  let logoColor = $derived(color ?? (useDynamicColors ? 'var(--md-sys-color-primary)' : '#34a853'));
+  let logoColor = $derived(color ?? (useDynamicColors ? 'var(--md-sys-color-primary)' : '#00ADEF'));
 
   // ID único para evitar conflictos si hay varios logos en la misma página
   const maskId = `logo-mask-${Math.random().toString(36).slice(2, 11)}`;

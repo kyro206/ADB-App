@@ -18,8 +18,6 @@
     <md-circular-progress indeterminate style="--md-circular-progress-size: 32px"></md-circular-progress>
   {:else if status === 'success'}
     <MaterialIcon name="check_circle" class="transfer-status-icon success" />
-  {:else if status === 'error'}
-    <MaterialIcon name="error" class="transfer-status-icon error" />
   {/if}
 {/snippet}
 
@@ -70,6 +68,11 @@
                   </span>
                 </div>
                 <div class="transfer-item__trailing">
+                  {#if job.status === 'error' || job.status === 'success'}
+                    <md-icon-button onclick={() => operationsState.remove(job.id)} title={m.common_delete()}>
+                      <MaterialIcon name="close" />
+                    </md-icon-button>
+                  {/if}
                   {#if job.status === 'error'}
                     <md-icon-button onclick={() => operationsState.retry(job.id)} title={m.operations_retry()}>
                       <MaterialIcon name="refresh" />
@@ -93,6 +96,11 @@
                         {/if}
                       </div>
                       <div class="transfer-subitem__trailing">
+                        {#if child.status === 'error' || child.status === 'success'}
+                          <md-icon-button onclick={() => operationsState.remove(child.id, job.id)} title={m.common_delete()}>
+                            <MaterialIcon name="close" />
+                          </md-icon-button>
+                        {/if}
                         {#if child.status === 'error'}
                           <md-icon-button onclick={() => operationsState.retry(child.id, job.id)} title={m.operations_retry()}>
                             <MaterialIcon name="refresh" />

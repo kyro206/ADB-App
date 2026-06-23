@@ -64,6 +64,17 @@ class OperationsState {
     }
   }
 
+  remove(id: string, parentId?: string) {
+    if (parentId) {
+      const parent = this.jobs.find(j => j.id === parentId);
+      if (parent && parent.children) {
+        parent.children = parent.children.filter(c => c.id !== id);
+      }
+    } else {
+      this.jobs = this.jobs.filter(j => j.id !== id);
+    }
+  }
+
   async #processNextJob() {
     const activeJob = this.jobs.find(j => j.status === 'transferring' || j.status === 'installing');
     if (activeJob) return;
