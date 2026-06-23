@@ -526,10 +526,9 @@ pub fn get_default_cache_dir() -> String {
         .to_string()
 }
 
-fn app_summary_cache_path(package_name: &str, apk_path: &str) -> PathBuf {
+fn app_summary_cache_path(package_name: &str, _apk_path: &str) -> PathBuf {
     let mut hasher = DefaultHasher::new();
     package_name.hash(&mut hasher);
-    apk_path.hash(&mut hasher);
     application_cache_dir().join(format!("{:x}.json", hasher.finish()))
 }
 
