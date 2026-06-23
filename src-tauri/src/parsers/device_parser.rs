@@ -32,14 +32,54 @@ pub fn parse_devices(output: &str) -> Vec<Device> {
             continue;
         }
 
-        let serial = parts[0].to_string();
-        let state = parts[1].to_string();
+        let mut state_idx = 0;
+        let valid_states = ["device", "offline", "unauthorized", "recovery", "bootloader", "sideload", "host", "connecting"];
+        
+        for (i, part) in parts.iter().enumerate().skip(1) {
+            if valid_states.contains(part) {
+                state_idx = i;
+                break;
+            }
+        }
 
-        if state == "device" && parts.len() >= 6 {
-            let product = extract_field(parts[2]);
-            let model = extract_field(parts[3]);
-            let device_name = extract_field(parts[4]);
-            let transport_id = extract_field(parts[5]);
+        if state_idx == 0 {
+            if let Some(idx) = trimmed.find(" no permissions") {
+                let serial = trimmed[..idx].trim().to_string();
+                devices.push(Device {
+                    serial,
+                    state: "no permissions".to_string(),
+                    product: String::new(),
+                    model: String::new(),
+                    device: String::new(),
+                    transport_id: String::new(),
+                });
+                continue;
+            }
+            // Fallback
+            state_idx = 1;
+        }
+
+        let serial = parts[0..state_idx].join(" ");
+        let state = parts[state_idx].to_string();
+
+        if state == "device" {
+            let mut product = String::new();
+            let mut model = String::new();
+            let mut device_name = String::new();
+            let mut transport_id = String::new();
+
+            for part in &parts[state_idx + 1..] {
+                if part.starts_with("product:") {
+                    product = extract_field(part);
+                } else if part.starts_with("model:") {
+                    model = extract_field(part);
+                } else if part.starts_with("device:") {
+                    device_name = extract_field(part);
+                } else if part.starts_with("transport_id:") {
+                    transport_id = extract_field(part);
+                }
+            }
+
             devices.push(Device {
                 serial,
                 state,
