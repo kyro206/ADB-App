@@ -45,6 +45,11 @@ name: Release ADB App
         required: true
         default: true
         type: boolean
+      build_microsoft_store:
+        description: "Compilar Microsoft Store MSIX bundle x64 + ARM64. No compatible con pre-release"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -66,6 +71,7 @@ jobs:
       pages_base_url: ${{ steps.prepare.outputs.pages_base_url }}
       prerelease: ${{ steps.prepare.outputs.prerelease }}
       build_microsoft_store: ${{ steps.prepare.outputs.build_microsoft_store }}
+      has_standard_builds: ${{ steps.prepare.outputs.has_standard_builds }}
 
     steps:
       - name: Checkout
@@ -86,6 +92,7 @@ jobs:
           BUILD_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
           BUILD_WINDOWS_X64: ${{ inputs.build_windows_x64 }}
           BUILD_WINDOWS_ARM64: ${{ inputs.build_windows_arm64 }}
+          BUILD_MICROSOFT_STORE: ${{ inputs.build_microsoft_store }}
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -99,7 +106,12 @@ jobs:
 
             const tagName = `v${version}`;
             const prerelease = process.env.INPUT_PRERELEASE === 'true';
-            const buildMicrosoftStore = !prerelease && (process.env.BUILD_WINDOWS_X64 === 'true' || process.env.BUILD_WINDOWS_ARM64 === 'true');
+            const buildMicrosoftStore = process.env.BUILD_MICROSOFT_STORE === 'true';
+
+            if (prerelease && buildMicrosoftStore) {
+              throw new Error('Microsoft Store no se puede compilar en pre-release. Desmarca "Compilar Microsoft Store MSIX bundle x64 + ARM64" o desactiva pre-release.');
+            }
+
             const releaseName = (process.env.INPUT_RELEASE_NAME || '').trim() || `ADB App ${tagName}`;
             const releaseNotes = (process.env.INPUT_RELEASE_NOTES || '').trim();
 
@@ -153,8 +165,8 @@ jobs:
               kind: 'windows',
             });
 
-            if (selected.length === 0) {
-              throw new Error('Selecciona al menos una plataforma para compilar.');
+            if (selected.length === 0 && !buildMicrosoftStore) {
+              throw new Error('Selecciona al menos una plataforma estándar o la build Microsoft Store.');
             }
 
             const pagesBaseUrl = repo.toLowerCase() === `${owner.toLowerCase()}.github.io`
@@ -243,6 +255,7 @@ jobs:
             core.info(`Release listo: ${release.html_url}`);
             core.info(`Endpoint updater en GitHub Pages: ${pagesBaseUrl}/latest.json`);
             core.info(`Microsoft Store MSIX bundle: ${buildMicrosoftStore ? 'sí, x64 + ARM64' : 'no'}`);
+            core.info(`Builds estándar seleccionadas: ${selected.length}`);
             core.info(`Matriz seleccionada:\n${JSON.stringify(selected, null, 2)}`);
 
             core.setOutput('version', version);
@@ -253,10 +266,12 @@ jobs:
             core.setOutput('pages_base_url', pagesBaseUrl);
             core.setOutput('prerelease', prerelease ? 'true' : 'false');
             core.setOutput('build_microsoft_store', buildMicrosoftStore ? 'true' : 'false');
+            core.setOutput('has_standard_builds', selected.length > 0 ? 'true' : 'false');
 
   build:
     name: Compilar ${{ matrix.name }}
     needs: prepare-release
+    if: needs.prepare-release.outputs.has_standard_builds == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -556,55 +571,57 @@ jobs:
           ASSETS_DIR="$WINDOWS_GEN/Assets"
           CONFIG_FILE="$WINDOWS_GEN/bundle.config.json"
           MANIFEST_TEMPLATE="$WINDOWS_GEN/AppxManifest.xml.template"
+          WIDE_LOGO="$ASSETS_DIR/Wide310x150Logo.png"
 
           if [ ! -f "$CONFIG_FILE" ] || [ ! -f "$MANIFEST_TEMPLATE" ]; then
             echo "::error::Falta la configuración base de @choochmeque/tauri-windows-bundle. Ejecuta localmente: npx @choochmeque/tauri-windows-bundle@latest init --all-variants y commitea bundle.config.json y AppxManifest.xml.template."
             exit 1
           fi
 
-          needs_assets="false"
-          if [ ! -d "$ASSETS_DIR" ]; then
-            needs_assets="true"
-          elif [ -z "$(find "$ASSETS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
-            needs_assets="true"
-          fi
+          tmp_backup="$(mktemp -d)"
 
-          if [ "$needs_assets" = "true" ]; then
-            echo "src-tauri/gen/windows/Assets no está versionado o está vacío. Generando Assets para que AppxManifest.xml sea válido."
-
-            tmp_backup="$(mktemp -d)"
-            restore_files() {
-              cp -f "$tmp_backup/bundle.config.json" "$CONFIG_FILE"
-              cp -f "$tmp_backup/AppxManifest.xml.template" "$MANIFEST_TEMPLATE"
-
-              for file in package.json bun.lock bun.lockb package-lock.json pnpm-lock.yaml yarn.lock; do
-                if [ -f "$tmp_backup/$file" ]; then
-                  cp -f "$tmp_backup/$file" "$file"
-                elif [ -f "$file" ] && [ -f "$tmp_backup/.missing-$file" ]; then
-                  rm -f "$file"
-                fi
-              done
-            }
-            trap restore_files EXIT
-
-            cp -f "$CONFIG_FILE" "$tmp_backup/bundle.config.json"
-            cp -f "$MANIFEST_TEMPLATE" "$tmp_backup/AppxManifest.xml.template"
+          restore_files() {
+            cp -f "$tmp_backup/bundle.config.json" "$CONFIG_FILE"
+            cp -f "$tmp_backup/AppxManifest.xml.template" "$MANIFEST_TEMPLATE"
 
             for file in package.json bun.lock bun.lockb package-lock.json pnpm-lock.yaml yarn.lock; do
-              if [ -f "$file" ]; then
-                cp -f "$file" "$tmp_backup/$file"
-              else
-                touch "$tmp_backup/.missing-$file"
+              if [ -f "$tmp_backup/$file" ]; then
+                cp -f "$tmp_backup/$file" "$file"
+              elif [ -f "$file" ] && [ -f "$tmp_backup/.missing-$file" ]; then
+                rm -f "$file"
               fi
             done
+          }
 
-            rm -rf "$ASSETS_DIR"
-            CI=1 npx --yes @choochmeque/tauri-windows-bundle@latest init --all-variants
+          trap restore_files EXIT
 
-            restore_files
-            trap - EXIT
-          else
-            echo "Assets MSIX ya presentes. No se regeneran."
+          cp -f "$CONFIG_FILE" "$tmp_backup/bundle.config.json"
+          cp -f "$MANIFEST_TEMPLATE" "$tmp_backup/AppxManifest.xml.template"
+
+          for file in package.json bun.lock bun.lockb package-lock.json pnpm-lock.yaml yarn.lock; do
+            if [ -f "$file" ]; then
+              cp -f "$file" "$tmp_backup/$file"
+            else
+              touch "$tmp_backup/.missing-$file"
+            fi
+          done
+
+          if [ -f "$WIDE_LOGO" ]; then
+            cp -f "$WIDE_LOGO" "$tmp_backup/Wide310x150Logo.png"
+            echo "Wide310x150Logo.png personalizado detectado. Se restaurará después de regenerar Assets."
+          fi
+
+          echo "Regenerando src-tauri/gen/windows/Assets para que AppxManifest.xml sea válido."
+          rm -rf "$ASSETS_DIR"
+          CI=1 npx --yes @choochmeque/tauri-windows-bundle@latest init --all-variants
+
+          restore_files
+          trap - EXIT
+
+          if [ -f "$tmp_backup/Wide310x150Logo.png" ]; then
+            mkdir -p "$ASSETS_DIR"
+            cp -f "$tmp_backup/Wide310x150Logo.png" "$WIDE_LOGO"
+            echo "Wide310x150Logo.png personalizado restaurado sobre los Assets generados."
           fi
 
           if [ ! -d "$ASSETS_DIR" ] || [ -z "$(find "$ASSETS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
@@ -653,7 +670,7 @@ jobs:
       - prepare-release
       - build
     runs-on: ubuntu-latest
-    if: needs.prepare-release.outputs.prerelease == 'false'
+    if: needs.prepare-release.outputs.prerelease == 'false' && needs.prepare-release.outputs.has_standard_builds == 'true' && needs.build.result == 'success'
 
     steps:
       - name: Checkout
