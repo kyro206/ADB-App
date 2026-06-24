@@ -22,6 +22,12 @@ const REMOVAL_MAP = {
 };
 
 async function main() {
+  const outPath = path.resolve(__dirname, '../src/assets/debloat-data.json');
+  if (fs.existsSync(outPath)) {
+    console.log("debloat-data.json already exists. Skipping download.");
+    return;
+  }
+
   console.log("Downloading debloat lists...");
   const map = {};
 
@@ -42,7 +48,6 @@ async function main() {
     }
   }
 
-  const outPath = path.resolve(__dirname, '../src/assets/debloat-data.json');
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(map));
   console.log(`Successfully compiled debloat list to src/assets/debloat-data.json`);

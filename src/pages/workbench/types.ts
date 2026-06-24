@@ -13,4 +13,4 @@ export type MirrorMode = 'display' | 'virtual' | 'camera';
 export type SoundMode = 'NORMAL' | 'VIBRATE' | 'SILENT';
 export type AndroidUser = { id: number; name: string; is_running: boolean };
 export type KeyboardInputMethod = { id: string; label: string; enabled: boolean; is_default: boolean };
-export type SystemState = { users: AndroidUser[]; current_user_id: number; gestural_navigation: boolean; app_languages_enabled: boolean; keyboards: KeyboardInputMethod[]; current_keyboard_id: string };
+export type SystemState = { users: AndroidUser[]; current_user_id: number; gestural_navigation: boolean; app_languages_enabled: boolean; captive_portal_mode: string | null; keyboards: KeyboardInputMethod[]; current_keyboard_id: string };

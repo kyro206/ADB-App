@@ -450,5 +450,10 @@
   "apps_debloat_removal_delete": "Eliminable",
   "apps_debloat_removal_replace": "Remplazable",
   "apps_debloat_removal_caution": "Precaución",
-  "apps_debloat_removal_unsafe": "Inseguro"
+  "apps_debloat_removal_unsafe": "Inseguro",
+  "system_advanced_title": "Opciones avanzadas",
+  "system_advanced_captivePortal": "Permitir portal cautivo",
+  "system_advanced_captivePortalDesc": "Permite conectarse a redes wifi con portal cautivo en Wear OS",
+  "system_advanced_recommended": "Recomendado para tu dispositivo",
+  "system_status_captivePortalUpdated": "Configuración de portal cautivo actualizada"
 }

@@ -450,5 +450,10 @@
   "apps_debloat_removal_delete": "Deletable",
   "apps_debloat_removal_replace": "Replaceable",
   "apps_debloat_removal_caution": "Caution",
-  "apps_debloat_removal_unsafe": "Unsafe"
+  "apps_debloat_removal_unsafe": "Unsafe",
+  "system_advanced_title": "Advanced options",
+  "system_advanced_captivePortal": "Captive portal check",
+  "system_advanced_captivePortalDesc": "Required for connecting to Wi-Fi networks with captive portals on Wear OS",
+  "system_advanced_recommended": "Recommended for your device",
+  "system_status_captivePortalUpdated": "Captive portal setting updated"
 }

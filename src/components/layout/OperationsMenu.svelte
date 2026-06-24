@@ -136,8 +136,12 @@
         icon: 'open_in_new', 
         label: m.files_action_open(), 
         onClick: () => {
-          const path = contextMenu!.job.type === 'download' ? contextMenu!.job.destination : contextMenu!.job.source;
-          if (path) openPath(path).catch(console.error);
+          const job = contextMenu!.job;
+          const path = job.type === 'download' ? job.destination : job.source;
+          if (path) openPath(path).catch((err) => {
+            job.status = 'error';
+            job.error = String(err);
+          });
         },
         disabled: contextMenu.job.type === 'download' && contextMenu.job.status !== 'success'
       }

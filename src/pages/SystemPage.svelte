@@ -4,10 +4,10 @@ import * as m from '../paraglide/messages';
 
   import { invoke } from '@tauri-apps/api/core';
   import type { SystemState } from './workbench/types';
-  
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import ConfirmDialog from '../components/dialogs/ConfirmDialog.svelte';
   import { materialTextFieldValue } from '../actions/materialTextFieldValue';
+  import { devicesState } from '../context/devices.svelte';
   let {
     serial,
     status = $bindable()
@@ -22,6 +22,16 @@ import * as m from '../paraglide/messages';
   
   let userToDelete = $state<string | null>(null);
   let selectedKeyboard = $state('');
+
+  type AdvancedOption = {
+    id: string;
+    title: string;
+    description: string;
+    isRecommended: (deviceType?: string) => boolean;
+    value: boolean;
+    onToggle: () => void;
+    onReset?: () => void;
+  };
 
   async function refreshSystemState() {
     if (!serial) return;
@@ -77,6 +87,33 @@ import * as m from '../paraglide/messages';
 
   let userToDeleteObj = $derived(systemState?.users.find(u => String(u.id) === userToDelete));
   let selectedKeyboardInfo = $derived(systemState?.keyboards.find(k => k.id === selectedKeyboard));
+
+  let advancedOptions = $derived<AdvancedOption[]>([
+    {
+      id: 'captive_portal',
+      title: m.system_advanced_captivePortal(),
+      description: m.system_advanced_captivePortalDesc(),
+      isRecommended: (type) => type === 'watch',
+      value: systemState?.captive_portal_mode !== '0',
+      onToggle: () => {
+        const isCurrentlyDisabled = systemState?.captive_portal_mode === '0';
+        const actionArgs = isCurrentlyDisabled 
+          ? ['shell', 'settings', 'put', 'global', 'captive_portal_mode', '1'] 
+          : ['shell', 'settings', 'put', 'global', 'captive_portal_mode', '0'];
+        applySystemAction(actionArgs, m.system_status_captivePortalUpdated());
+      },
+      onReset: () => {
+        applySystemAction(['shell', 'settings', 'delete', 'global', 'captive_portal_mode'], m.system_status_captivePortalUpdated());
+      }
+    }
+  ].sort((a, b) => {
+    const deviceType = devicesState.deviceDetails?.device_type;
+    const aRec = a.isRecommended(deviceType);
+    const bRec = b.isRecommended(deviceType);
+    if (aRec && !bRec) return -1;
+    if (!aRec && bRec) return 1;
+    return 0;
+  }));
 
 </script>
 
@@ -178,6 +215,7 @@ import * as m from '../paraglide/messages';
     </div>
   </section>
 
+
   <section class="md-system-card md-full-width">
     <header class="md-system-header">
       <MaterialIcon name="keyboard" filled size={24} />
@@ -243,6 +281,42 @@ import * as m from '../paraglide/messages';
         {m.system_action_setDefault()}
       </md-filled-button>
     </footer>
+  </section>
+
+  <section class="md-system-card md-full-width">
+    <header class="md-system-header">
+      <MaterialIcon name="build" filled size={24} />
+      <div>
+        <h3>{m.system_advanced_title()}</h3>
+      </div>
+    </header>
+
+    <div class="md-system-settings-list">
+      {#each advancedOptions as option (option.id)}
+        <div class="md-setting-row" style="align-items: flex-start;">
+          <div class="md-item-content">
+            <strong style="display: flex; align-items: center; gap: 8px;">
+              {option.title}
+              {#if option.isRecommended(devicesState.deviceDetails?.device_type)}
+                <span class="md-badge md-badge-primary">{m.system_advanced_recommended()}</span>
+              {/if}
+            </strong>
+            <p>{option.description}</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            {#if option.onReset}
+              <md-icon-button title={m.common_reset()} onclick={option.onReset}>
+                <MaterialIcon name="restart_alt" />
+              </md-icon-button>
+            {/if}
+            <md-switch 
+              selected={option.value}
+              onclick={option.onToggle}
+            ></md-switch>
+          </div>
+        </div>
+      {/each}
+    </div>
   </section>
 </div>
 

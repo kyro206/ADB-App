@@ -3,7 +3,6 @@ import * as m from '../../paraglide/messages';
 </script>
 
 <script lang="ts">
-  import { onMount } from 'svelte';
   import type { TabId } from '../../context/layout.svelte';
   import { toolsState } from '../../context/tools.svelte';
   import { updateState } from '../../context/update.svelte';

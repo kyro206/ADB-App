@@ -1352,6 +1352,7 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
         all_keyboards_output,
         enabled_keyboards_output,
         current_keyboard_id,
+        captive_portal_mode_output,
     ) = tokio::join!(
         run_system_query(&serial, &["shell", "pm", "list", "users"]),
         run_system_query(&serial, &["shell", "am", "get-current-user"]),
@@ -1372,6 +1373,10 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
             &serial,
             &["shell", "settings", "get", "secure", "default_input_method"],
         ),
+        run_system_query(
+            &serial,
+            &["shell", "settings", "get", "global", "captive_portal_mode"],
+        ),
     );
     let users_output = users_output?;
     let current_user_output = current_user_output?;
@@ -1380,6 +1385,7 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
     let all_keyboards_output = all_keyboards_output?;
     let enabled_keyboards_output = enabled_keyboards_output?;
     let current_keyboard_id = current_keyboard_id?;
+    let captive_portal_mode_output = captive_portal_mode_output?;
 
     let current_user_id = last_integer(&current_user_output).unwrap_or(-1);
     let mut all_keyboard_ids = parse_keyboard_ids(&all_keyboards_output);
@@ -1450,6 +1456,10 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
             app_languages_output.trim().to_ascii_lowercase().as_str(),
             "false" | "0"
         ),
+        captive_portal_mode: match captive_portal_mode_output.trim() {
+            "null" | "" => None,
+            mode => Some(mode.to_string()),
+        },
         keyboards: all_keyboard_ids
             .into_iter()
             .map(|id| KeyboardInputMethod {

@@ -79,6 +79,7 @@ pub struct SystemState {
     pub current_user_id: i32,
     pub gestural_navigation: bool,
     pub app_languages_enabled: bool,
+    pub captive_portal_mode: Option<String>,
     pub keyboards: Vec<KeyboardInputMethod>,
     pub current_keyboard_id: String,
 }
