@@ -47,5 +47,6 @@ public/mock*
 # Microsoft Store
 src-tauri/gen/windows/Assets
 
-
+# DB Files
 src/assets/debloat-data.json
+src/assets/device-db.json

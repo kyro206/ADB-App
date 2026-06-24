@@ -4,10 +4,10 @@
   "version": "2.1.0",
   "type": "module",
   "scripts": {
-    "dev": "bun run scripts/update-debloat.mjs && paraglide-js compile --project ./project.inlang && vite",
-    "dev:mock": "bun run scripts/update-debloat.mjs && paraglide-js compile --project ./project.inlang && vite --mode mock",
+    "dev": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && vite",
+    "dev:mock": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && vite --mode mock",
     "tauri:mock": "tauri dev --config src-tauri/tauri.mock.conf.json",
-    "build": "bun run scripts/update-debloat.mjs && paraglide-js compile --project ./project.inlang && tsc && vite build",
+    "build": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && tsc && vite build",
     "preview": "vite preview",
     "tauri": "node scripts/tauri.mjs",
     "tauri:windows:build": "tauri-windows-bundle build --runner bun"

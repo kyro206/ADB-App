@@ -12,6 +12,8 @@
 
   import MaterialIcon from "../components/MaterialIcon.svelte";
   import PowerDialog from "../components/dialogs/PowerDialog.svelte";
+  import deviceDb from "../assets/device-db.json";
+
   const formatMemory = (mb: number) =>
     mb <= 0 ? "-" : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
   const formatStorage = (mb: number) =>
@@ -22,10 +24,27 @@
         : mb >= 1024
           ? `${(mb / 1024).toFixed(1)} GB`
           : `${mb} MB`;
-  const secondaryTitle = (details: DeviceDetails) =>
-    [details.model, details.soc]
+          
+  const secondaryTitle = (details: DeviceDetails) => {
+    let marketingName = "";
+    if (details.brand && (deviceDb as any)[details.brand]) {
+      const name = (deviceDb as any)[details.brand][details.model];
+      if (name) marketingName = `${details.brand} ${name}`;
+    }
+    if (!marketingName) {
+      for (const [brand, models] of Object.entries(deviceDb)) {
+        const name = (models as any)[details.model];
+        if (name) {
+          marketingName = `${brand} ${name}`;
+          break;
+        }
+      }
+    }
+
+    return [marketingName || details.model, details.soc]
       .filter((value) => value && value !== "-")
       .join(" · ");
+  };
 
 
   let timeNow = $state(new Date());
