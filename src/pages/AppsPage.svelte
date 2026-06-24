@@ -102,10 +102,11 @@
     let result = apps;
     if (filter === "user") result = result.filter((app) => !app.system_app);
     if (filter === "system") result = result.filter((app) => app.system_app);
-    if (filter === "disabled") result = result.filter((app) => app.disabled);
+    if (filter === "disabled") result = result.filter((app) => app.disabled && !app.uninstalled);
+    if (filter === "uninstalled") result = result.filter((app) => app.uninstalled);
     if (filter === "debloat") {
       result = result.filter((app) => {
-        if (app.disabled) return false;
+        if (!app.system_app || app.disabled || app.uninstalled) return false;
         const info = getDebloatInfo(app.package_name);
         return info && (info.removal === "delete" || info.removal === "replace" || info.removal === "caution");
       });
@@ -417,17 +418,38 @@
     if (!appDetails) return;
     const willDisable = !appDetails.disabled;
     const command = willDisable
-      ? ["shell", "pm", "disable-user", "--user", "0", selectedPackage]
-      : ["shell", "pm", "enable", "--user", "0", selectedPackage];
-    const result = await runQuiet(command);
-    if (result === undefined) return;
+    try {
+      const willDisable = !appDetails.disabled;
+      const command = willDisable
+        ? ["shell", "pm", "disable-user", "--user", "0", selectedPackage]
+        : ["shell", "pm", "enable", "--user", "0", selectedPackage];
+      const result = await runQuiet(command);
+      if (result === undefined) return;
 
-    appDetails = { ...appDetails, disabled: willDisable };
-    apps = apps.map((app) =>
-      app.package_name === selectedPackage
-        ? { ...app, disabled: willDisable }
-        : app,
-    );
+      appDetails = { ...appDetails, disabled: willDisable };
+      apps = apps.map((app) =>
+        app.package_name === selectedPackage
+          ? { ...app, disabled: willDisable }
+          : app,
+      );
+    } catch (e) {
+      status = String(e);
+    }
+  }
+
+  async function reinstallApplication() {
+    try {
+      await invoke("reinstall_app", {
+        serial,
+        packageName: selectedPackage,
+      });
+      status = m.workbench_status_appUninstalled(); // Or generic success
+      appDetails = null;
+      selectedPackage = "";
+      refreshAppsList(false, true);
+    } catch (e) {
+      status = String(e);
+    }
   }
 
   async function setBackgroundMode(
@@ -575,7 +597,19 @@
     destructiveBusy = true;
     try {
       if (destructiveAction === "uninstall") {
-        await runQuiet(["uninstall", selectedPackage]);
+        if (appDetails?.system_app) {
+          await runQuiet([
+            "shell",
+            "pm",
+            "uninstall",
+            "-k",
+            "--user",
+            "0",
+            selectedPackage,
+          ]);
+        } else {
+          await runQuiet(["uninstall", selectedPackage]);
+        }
         status = m.workbench_status_appUninstalled();
         selectedPackage = "";
         appDetails = null;
@@ -627,6 +661,7 @@
     ["all", m.apps_filter_all(), "apps"],
     ["system", m.apps_filter_system(), "settings"],
     ["disabled", m.apps_filter_disabled(), "block"],
+    ["uninstalled", m.apps_filter_uninstalled(), "delete"],
     ["debloat", m.apps_filter_debloat(), "cleaning_services"],
   ]);
 
@@ -640,16 +675,18 @@
       value === "all"
         ? true
         : value === "disabled"
-          ? app.disabled
-          : value === "system"
-            ? app.system_app && !app.disabled
-            : value === "debloat"
-              ? (() => {
-                  if (app.disabled) return false;
+          ? app.disabled && !app.uninstalled
+          : value === "uninstalled"
+            ? app.uninstalled
+            : value === "system"
+              ? app.system_app && !app.disabled && !app.uninstalled
+              : value === "debloat"
+                ? (() => {
+                    if (!app.system_app || app.disabled || app.uninstalled) return false;
                   const info = getDebloatInfo(app.package_name);
                   return info && (info.removal === "delete" || info.removal === "replace" || info.removal === "caution");
                 })()
-              : !app.system_app && !app.disabled,
+              : !app.system_app && !app.disabled && !app.uninstalled,
     ).length;
 
   $effect(() => {
@@ -771,10 +808,10 @@
           ondblclick={() => openAppInScrcpy(app.package_name)}
         >
           <div
-            class="apps-material-status-icon {app.disabled ? 'disabled' : ''}"
-            title={app.disabled ? m.apps_status_disabled() : app.system_app ? m.apps_status_system() : m.apps_status_user()}
+            class="apps-material-status-icon {app.uninstalled ? 'uninstalled' : app.disabled ? 'disabled' : ''}"
+            title={app.uninstalled ? m.apps_filter_uninstalled() : app.disabled ? m.apps_status_disabled() : app.system_app ? m.apps_status_system() : m.apps_status_user()}
           >
-            <MaterialIcon name={app.disabled ? "block" : app.system_app ? "settings" : "person"} />
+            <MaterialIcon name={app.uninstalled ? "delete" : app.disabled ? "block" : app.system_app ? "settings" : "person"} />
           </div>
           <span class="app-icon-frame">
             {#if app.icon_data_url}
@@ -880,17 +917,17 @@
             <h2>{appDetails.display_name}</h2>
             <p>{appDetails.package_name}</p>
             <div
-              class="apps-material-status-icon {appDetails.disabled
+              class="apps-material-status-icon {appDetails.uninstalled ? 'uninstalled' : appDetails.disabled
                 ? 'disabled'
                 : ''}"
-              title={appDetails.disabled
+              title={appDetails.uninstalled ? m.apps_filter_uninstalled() : appDetails.disabled
                 ? m.apps_status_disabled()
                 : appDetails.system_app
                   ? m.apps_detail_type_system()
                   : m.apps_detail_type_user()}
             >
               <MaterialIcon
-                name={appDetails.disabled
+                name={appDetails.uninstalled ? "delete" : appDetails.disabled
                   ? "block"
                   : appDetails.system_app
                     ? "settings"
@@ -952,7 +989,7 @@
             <header>
               <span class="apps-material-section__title">
                 <MaterialIcon name="cleaning_services" />
-                <h3>{m.apps_debloat_info()}</h3>
+                <h3>{m.apps_filter_debloat()}</h3>
               </span>
             </header>
             <div class="apps-material-debloat {info.removal}">
@@ -973,55 +1010,62 @@
             </span>
           </header>
           <div class="apps-material-actions">
-            <md-filled-button
-              onclick={async () => {
-                await runQuiet([
-                  "shell",
-                  "monkey",
-                  "-p",
-                  selectedPackage,
-                  "-c",
-                  "android.intent.category.LAUNCHER",
-                  "1",
-                ]);
-              }}
-            >
-              <MaterialIcon slot="icon" name="open_in_new" />
-              {m.apps_action_open()}
-            </md-filled-button>
-            <md-filled-tonal-button
-              onclick={() =>
-                runQuiet(["shell", "am", "force-stop", selectedPackage])}
-            >
-              <MaterialIcon slot="icon" name="stop_circle" />
-              {m.apps_action_stop()}
-            </md-filled-tonal-button>
-            <md-filled-tonal-button onclick={toggleAppEnabled}>
-              <MaterialIcon
-                slot="icon"
-                name={appDetails.disabled ? "check_circle" : "block"}
-              />
-              {appDetails.disabled
-                ? m.apps_action_enable()
-                : m.apps_action_disable()}
-            </md-filled-tonal-button>
-            <md-filled-tonal-button onclick={clearApplicationCache}>
-              <MaterialIcon slot="icon" name="cleaning_services" />
-              {m.common_clearCache()}
-            </md-filled-tonal-button>
-            <md-outlined-button
-              onclick={() => (destructiveAction = "clear-data")}
-            >
-              <MaterialIcon slot="icon" name="delete_sweep" />
-              {m.common_clearData()}
-            </md-outlined-button>
-            <md-outlined-button
-              class="apps-material-danger"
-              onclick={() => (destructiveAction = "uninstall")}
-            >
-              <MaterialIcon slot="icon" name="delete_forever" />
-              {m.apps_action_uninstall()}
-            </md-outlined-button>
+            {#if appDetails.uninstalled}
+              <md-filled-button onclick={reinstallApplication}>
+                <MaterialIcon slot="icon" name="system_update_alt" />
+                {m.apps_action_reinstall()}
+              </md-filled-button>
+            {:else}
+              <md-filled-button
+                onclick={async () => {
+                  await runQuiet([
+                    "shell",
+                    "monkey",
+                    "-p",
+                    selectedPackage,
+                    "-c",
+                    "android.intent.category.LAUNCHER",
+                    "1",
+                  ]);
+                }}
+              >
+                <MaterialIcon slot="icon" name="open_in_new" />
+                {m.apps_action_open()}
+              </md-filled-button>
+              <md-filled-tonal-button
+                onclick={() =>
+                  runQuiet(["shell", "am", "force-stop", selectedPackage])}
+              >
+                <MaterialIcon slot="icon" name="stop_circle" />
+                {m.apps_action_stop()}
+              </md-filled-tonal-button>
+              <md-filled-tonal-button onclick={toggleAppEnabled}>
+                <MaterialIcon
+                  slot="icon"
+                  name={appDetails.disabled ? "check_circle" : "block"}
+                />
+                {appDetails.disabled
+                  ? m.apps_action_enable()
+                  : m.apps_action_disable()}
+              </md-filled-tonal-button>
+              <md-filled-tonal-button onclick={clearApplicationCache}>
+                <MaterialIcon slot="icon" name="cleaning_services" />
+                {m.common_clearCache()}
+              </md-filled-tonal-button>
+              <md-outlined-button
+                onclick={() => (destructiveAction = "clear-data")}
+              >
+                <MaterialIcon slot="icon" name="delete_sweep" />
+                {m.common_clearData()}
+              </md-outlined-button>
+              <md-outlined-button
+                class="apps-material-danger"
+                onclick={() => (destructiveAction = "uninstall")}
+              >
+                <MaterialIcon slot="icon" name="delete_forever" />
+                {m.apps_action_uninstall()}
+              </md-outlined-button>
+            {/if}
             <md-filled-tonal-button onclick={exportApk}>
               <MaterialIcon slot="icon" name="download" />
               {m.apps_action_saveApk()}
@@ -1481,6 +1525,11 @@
     .apps-material-status-icon.disabled {
       color: var(--error);
       background: color-mix(in srgb, var(--error) 12%, transparent);
+    }
+    .apps-material-status-icon.uninstalled {
+      color: var(--on-surface-variant);
+      background: var(--surface-container-high);
+      border: 1px dashed var(--outline-variant);
     }
     .apps-material-tile .apps-material-status-icon {
       position: absolute;

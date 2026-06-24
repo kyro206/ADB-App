@@ -21,6 +21,7 @@ pub struct AppSummary {
     pub apk_path: String,
     pub system_app: bool,
     pub disabled: bool,
+    pub uninstalled: bool,
     pub icon_data_url: String,
 }
 
@@ -1425,6 +1426,7 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
                 apk_path: app.apk_path.clone(),
                 system_app: app.system_app,
                 disabled: app.disabled,
+                uninstalled: app.uninstalled,
             });
         }
     }
@@ -1580,10 +1582,12 @@ pub async fn list_apps(
         let _ = fs::remove_dir_all(legacy_details);
     }
     let (result, system, disabled) = tokio::join!(
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-f"]),
+        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-f", "-u"]),
         adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-s"]),
         adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-d"])
     );
+
+    let installed_result = adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-f"]).await?;
 
     let result = result?;
     let system = system?;
@@ -1594,6 +1598,18 @@ pub async fn list_apps(
     }
     let system_packages = package_set(&system.output);
     let disabled_packages = package_set(&disabled.output);
+    
+    // Parse installed packages to figure out which ones are uninstalled
+    let mut installed_packages = HashSet::new();
+    if installed_result.ok() {
+        for line in installed_result.output.lines() {
+            if let Some(value) = line.trim().strip_prefix("package:") {
+                if let Some((_, package_name)) = value.rsplit_once('=') {
+                    installed_packages.insert(package_name.to_string());
+                }
+            }
+        }
+    }
 
     let mut apps = result
         .output
@@ -1607,6 +1623,7 @@ pub async fn list_apps(
                 apk_path: apk_path.to_string(),
                 system_app: system_packages.contains(package_name),
                 disabled: disabled_packages.contains(package_name),
+                uninstalled: !installed_packages.contains(package_name),
                 icon_data_url: String::new(),
             })
         })
@@ -1647,6 +1664,7 @@ pub struct AppSummaryRequest {
     pub apk_path: String,
     pub system_app: bool,
     pub disabled: bool,
+    pub uninstalled: bool,
 }
 
 #[derive(Deserialize)]
@@ -1687,6 +1705,7 @@ pub async fn enrich_app_summaries(
                         apk_path: req.apk_path.clone(),
                         system_app: req.system_app,
                         disabled: req.disabled,
+                        uninstalled: req.uninstalled,
                         icon_data_url: presentation.icon_data_url,
                     };
                     update_cached_app(&serial, &summary);
@@ -1833,6 +1852,7 @@ pub async fn enrich_app_summaries(
             apk_path: req.apk_path,
             system_app: req.system_app,
             disabled: req.disabled,
+            uninstalled: req.uninstalled,
             icon_data_url,
         };
         update_cached_app(&serial, &summary);
@@ -1935,6 +1955,17 @@ pub async fn install_application_packages(
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn reinstall_app(serial: String, package_name: String) -> Result<String, String> {
+    let result = adb::run_adb_for_serial(&serial, &["shell", "cmd", "package", "install-existing", &package_name]).await?;
+    if result.ok() && result.output.contains("installed for user") {
+        invalidate_apps_cache(&serial);
+        Ok(format!("{} reinstalled successfully", package_name))
+    } else {
+        Err(result.output)
+    }
 }
 
 #[tauri::command]

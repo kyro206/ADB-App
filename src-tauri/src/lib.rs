@@ -138,6 +138,7 @@ pub fn run() {
             operations::export_apk,
             operations::get_home_details,
             operations::clear_application_cache,
+            operations::reinstall_app,
             operations::get_app_settings,
             operations::save_app_settings,
             operations::close_app,

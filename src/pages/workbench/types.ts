@@ -1,10 +1,10 @@
 export type TabId = 'home' | 'display' | 'mirroring' | 'control' | 'apps' | 'files' | 'system' | 'settings';
 export type { ToolStatus, ToolsStatus } from '../../context/tools.svelte';
 export type WorkTab = Exclude<TabId, 'home'>;
-export type AppSummary = { package_name: string; display_name: string; apk_path: string; system_app: boolean; disabled: boolean; icon_data_url: string };
+export type AppSummary = { package_name: string; display_name: string; apk_path: string; system_app: boolean; disabled: boolean; uninstalled: boolean; icon_data_url: string };
 export type AppPermissionInfo = { name: string; granted: boolean; runtime: boolean; changeable: boolean };
 export type AppDetailsInfo = AppSummary & { is_split: boolean; version_name: string; version_code: string; target_sdk: string; min_sdk: string; installer: string; data_dir: string; code_size_bytes: number; data_size_bytes: number; cache_size_bytes: number; background_mode: string; permissions: AppPermissionInfo[]; install_date: string; update_date: string };
-export type AppFilter = 'user' | 'all' | 'system' | 'disabled';
+export type AppFilter = 'user' | 'all' | 'system' | 'disabled' | 'uninstalled' | 'debloat';
 export type FileEntry = { name: string; permissions: string; size: number; modified: string; is_directory: boolean; is_link: boolean; link_target: string };
 export type FileView = 'list' | 'grid';
 export type FileSortKey = 'name' | 'type' | 'size' | 'permissions' | 'modified';
