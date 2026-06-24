@@ -355,7 +355,7 @@ import * as m from '../paraglide/messages';
           {:else if tab === 'control'}
           <ControlPage {serial} {run} bind:status bind:busy />
           {:else if tab === 'apps'}
-          <AppsPage {serial} bind:status bind:busy {run} {scrcpy} {tab} {appSettings} javaAvailable={tools?.java.available ?? false} />
+          <AppsPage {serial} bind:status bind:busy {scrcpy} {tab} {appSettings} javaAvailable={tools?.java.available ?? false} />
           {:else if tab === 'files'}
           <FilesPage {serial} bind:status bind:busy {tab} />
           {:else if tab === 'system'}

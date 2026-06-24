@@ -27,14 +27,13 @@
   import InstallationDialog from "../components/dialogs/InstallationDialog.svelte";
   import MaterialIcon from "../components/MaterialIcon.svelte";
   import { materialTextFieldValue } from "../actions/materialTextFieldValue";
-  import { appTone, formatBytes } from "./workbench/utils";
+  import { appTone, formatBytes, translateError } from "./workbench/utils";
   import VirtualGrid from "../components/VirtualGrid.svelte";
   import { getDebloatInfo } from "../utils/debloat";
   let {
     serial,
     status = $bindable(),
     busy = $bindable(),
-    run,
     scrcpy,
     tab,
     appSettings,
@@ -43,7 +42,6 @@
     serial: string;
     status: string;
     busy: boolean;
-    run: (args: string[], success?: string) => Promise<string | undefined>;
     scrcpy?: (args: string[]) => Promise<void>;
     tab: string;
     appSettings: AppSettings | null;
@@ -73,7 +71,7 @@
   let installGrant = $state(true);
   let installTest = $state(true);
   let installBypass = $state(false);
-  let filter = $state<"all" | "user" | "system" | "disabled" | "debloat">("user");
+  let filter = $state<"all" | "user" | "system" | "disabled" | "uninstalled" | "debloat">("user");
   let appFilter = $state("");
   let selectedPackage = $state("");
   let destructiveAction = $state<"uninstall" | "clear-data" | null>(null);
@@ -226,6 +224,7 @@
         appDetails?.package_name === packageName
           ? {
               ...value,
+              uninstalled: summary?.uninstalled || false,
               display_name:
                 summary && summary.display_name !== summary.package_name
                   ? summary.display_name
@@ -416,8 +415,6 @@
 
   async function toggleAppEnabled() {
     if (!appDetails) return;
-    const willDisable = !appDetails.disabled;
-    const command = willDisable
     try {
       const willDisable = !appDetails.disabled;
       const command = willDisable
@@ -443,10 +440,10 @@
         serial,
         packageName: selectedPackage,
       });
-      status = m.workbench_status_appUninstalled(); // Or generic success
+      status = m.workbench_status_appEnabled();
       appDetails = null;
       selectedPackage = "";
-      refreshAppsList(false, true);
+      await refreshApps(true);
     } catch (e) {
       status = String(e);
     }
@@ -655,7 +652,7 @@
   }
 
   let filters = $derived<
-    Array<["user" | "all" | "system" | "disabled", string, string]>
+    Array<["user" | "all" | "system" | "disabled" | "uninstalled" | "debloat", string, string]>
   >([
     ["user", m.apps_filter_user(), "person"],
     ["all", m.apps_filter_all(), "apps"],
@@ -800,7 +797,7 @@
         {/each}
       </nav>
 
-      {#snippet appTile(app)}
+      {#snippet appTile(app: import("./workbench/types").AppSummary)}
         <button
           class="apps-material-tile {selectedPackage === app.package_name ? 'selected' : ''}"
           style="width: 100%; height: 100%; position: relative;"
