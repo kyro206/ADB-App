@@ -5,6 +5,10 @@ use crate::adb;
 /// Capture a screenshot from the device and return it as base64 PNG.
 #[tauri::command]
 pub async fn capture_screenshot(serial: String) -> Result<String, String> {
+    if crate::mock::enabled() {
+        return crate::mock::wallpaper_base64();
+    }
+
     let (exit_code, bytes) =
         adb::run_adb_binary_for_serial(&serial, &["exec-out", "screencap", "-p"]).await?;
 

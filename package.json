@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && vite",
     "dev:mock": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && vite --mode mock",
-    "tauri:mock": "tauri dev --config src-tauri/tauri.mock.conf.json",
+    "tauri:mock": "bun scripts/tauri-mock.mjs",
     "build": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && tsc && vite build",
     "preview": "vite preview",
     "tauri": "node scripts/tauri.mjs",

@@ -2,6 +2,7 @@ mod adb;
 mod app_paths;
 mod commands;
 mod dependencies;
+mod mock;
 mod models;
 mod parsers;
 mod process;
@@ -48,6 +49,12 @@ pub fn run() {
                 serde_json::to_string(&settings_value).unwrap_or_else(|_| "{}".to_string());
             let init_script = format!("window.__APP_SETTINGS__ = {};", settings_json);
 
+            let (window_width, window_height) = if std::env::var_os("ADB_APP_MOCK").is_some() {
+                (1720.0, 968.0)
+            } else {
+                (1180.0, 760.0)
+            };
+
             #[allow(unused_mut)]
             let mut builder = tauri::WebviewWindowBuilder::new(
                 app,
@@ -55,7 +62,7 @@ pub fn run() {
                 tauri::WebviewUrl::App("index.html".into()),
             )
             .title("ADB App")
-            .inner_size(1180.0, 760.0)
+            .inner_size(window_width, window_height)
             .min_inner_size(920.0, 620.0)
             .data_directory(crate::app_paths::webview_data_dir())
             .initialization_script(&init_script);

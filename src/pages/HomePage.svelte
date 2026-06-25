@@ -125,7 +125,7 @@
   }
 
   onMount(() => {
-    if (import.meta.env.DEV && import.meta.env.VITE_ADB_APP_MOCK_DEVICE === "pixel10") {
+    if (import.meta.env.DEV && import.meta.env.MODE === "mock") {
       import("../dev/deviceMock").then(({ mockHomeDetails: details }) => {
         mockHomeDetails = details;
         applyMockHomeDetails();

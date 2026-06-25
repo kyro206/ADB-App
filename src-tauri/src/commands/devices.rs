@@ -5,6 +5,10 @@ use crate::parsers::device_parser;
 /// List all connected ADB devices.
 #[tauri::command]
 pub async fn list_devices() -> Result<Vec<Device>, String> {
+    if crate::mock::enabled() {
+        return Ok(vec![crate::mock::device()]);
+    }
+
     let result = adb::run_adb(&["devices", "-l"]).await?;
     if !result.ok() {
         return Err(format!("adb devices -l failed: {}", result.output));
@@ -15,6 +19,10 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
 /// Get detailed information about a specific device.
 #[tauri::command]
 pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String> {
+    if crate::mock::enabled() {
+        return Ok(crate::mock::device_details());
+    }
+
     let serial = device.serial.clone();
 
     if device.state != "device" {

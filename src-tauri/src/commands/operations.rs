@@ -251,6 +251,10 @@ pub async fn save_app_settings(
 
 #[tauri::command]
 pub async fn get_device_wallpaper(serial: String) -> Result<String, String> {
+    if crate::mock::enabled() {
+        return crate::mock::wallpaper_base64();
+    }
+
     if WALLPAPER_DAEMON_BYTES.is_empty() {
         return Err("Wallpaper Extractor JAR is not compiled yet.".to_string());
     }
@@ -1111,8 +1115,26 @@ fn parse_permissions(
     permissions
 }
 
+fn mock_run_device_action(args: &[String]) -> String {
+    let command = args.join(" ");
+    if command.contains("settings get system screen_brightness") {
+        return [
+            "180",
+            "1",
+            "0",
+            "2",
+        ]
+        .join("\n---ADBAPPSEP---\n");
+    }
+    "OK".to_string()
+}
+
 #[tauri::command]
 pub async fn run_device_action(serial: String, args: Vec<String>) -> Result<String, String> {
+    if crate::mock::enabled() {
+        return Ok(mock_run_device_action(&args));
+    }
+
     if args.is_empty() {
         return Err("No ADB arguments supplied".to_string());
     }
@@ -1461,6 +1483,10 @@ fn keyboard_package_name(id: &str) -> &str {
 
 #[tauri::command]
 pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
+    if crate::mock::enabled() {
+        return Ok(crate::mock::system_state());
+    }
+
     let all_keyboards_query = async {
         match run_system_query(&serial, &["shell", "ime", "list", "-a", "-s"]).await {
             Ok(output) => Ok(output),
@@ -1601,6 +1627,13 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
 
 #[tauri::command]
 pub async fn set_device_dark_mode(serial: String, enabled: bool) -> Result<String, String> {
+    if crate::mock::enabled() {
+        return Ok(format!(
+            "Dark mode {}",
+            if enabled { "enabled" } else { "disabled" }
+        ));
+    }
+
     let mode = if enabled { "yes" } else { "no" };
     let command =
         adb::run_adb_for_serial(&serial, &["shell", "cmd", "uimode", "night", mode]).await?;
@@ -1631,6 +1664,10 @@ pub async fn set_device_dark_mode(serial: String, enabled: bool) -> Result<Strin
 
 #[tauri::command]
 pub async fn get_media_volume(serial: String) -> Result<MediaVolumeState, String> {
+    if crate::mock::enabled() {
+        return Ok(crate::mock::media_volume());
+    }
+
     let current = adb::run_adb_for_serial(
         &serial,
         &["shell", "cmd", "audio", "get-stream-volume", "3"],
@@ -1647,6 +1684,10 @@ pub async fn get_media_volume(serial: String) -> Result<MediaVolumeState, String
 
 #[tauri::command]
 pub async fn set_media_volume(serial: String, volume: i32) -> Result<String, String> {
+    if crate::mock::enabled() {
+        return Ok(format!("Media volume: {}", volume.clamp(0, 25)));
+    }
+
     let maximum =
         adb::run_adb_for_serial(&serial, &["shell", "cmd", "audio", "get-max-volume", "3"]).await?;
     let safe_volume = volume.clamp(0, last_integer(&maximum.output).unwrap_or(30).max(1));
@@ -1699,6 +1740,10 @@ pub async fn list_apps(
     serial: String,
     force_refresh: Option<bool>,
 ) -> Result<Vec<AppSummary>, String> {
+    if crate::mock::enabled() {
+        return Ok(Vec::new());
+    }
+
     if !force_refresh.unwrap_or(false) {
         if let Ok(cache) = apps_list_cache().lock() {
             if let Some(entry) = cache.get(&serial) {
@@ -2492,6 +2537,10 @@ mod wireless_tests {
 
 #[tauri::command]
 pub fn launch_scrcpy(serial: String, extra_args: Vec<String>) -> Result<String, String> {
+    if crate::mock::enabled() {
+        return Ok(format!("scrcpy launched for {serial}"));
+    }
+
     let executable = tools::resolve_tool_path("scrcpy").ok_or_else(|| {
         "scrcpy is not installed. Configure or install it in Settings.".to_string()
     })?;
@@ -2520,6 +2569,10 @@ pub fn launch_scrcpy(serial: String, extra_args: Vec<String>) -> Result<String, 
 
 #[tauri::command]
 pub async fn list_scrcpy_cameras(serial: String) -> Result<Vec<String>, String> {
+    if crate::mock::enabled() {
+        return Ok(vec!["0 (Back)".to_string(), "1 (Front)".to_string()]);
+    }
+
     tauri::async_runtime::spawn_blocking(move || {
         let executable = tools::resolve_tool_path("scrcpy").ok_or_else(|| {
             "scrcpy is not installed. Configure or install it in Settings.".to_string()
@@ -2551,6 +2604,10 @@ pub async fn list_scrcpy_cameras(serial: String) -> Result<Vec<String>, String> 
 
 #[tauri::command]
 pub async fn get_tools_snapshot() -> tools::ToolsSnapshot {
+    if crate::mock::enabled() {
+        return crate::mock::tools_snapshot();
+    }
+
     tools::tools_snapshot().await
 }
 
@@ -2655,6 +2712,10 @@ pub struct HomeDetails {
 
 #[tauri::command]
 pub async fn get_home_details(serial: String) -> Result<HomeDetails, String> {
+    if crate::mock::enabled() {
+        return Ok(crate::mock::home_details());
+    }
+
     let (name_res, airplane_res, carrier_res) = tokio::join!(
         adb::run_adb_for_serial(
             &serial,
