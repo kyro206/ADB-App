@@ -58,12 +58,6 @@
   let carrierName = $state("");
   let actionError = $state<string | null>(null);
   let shizukuError = $state<string | null>(null);
-  let mockHomeDetails = $state<{
-    deviceName: string;
-    carrier: string;
-    lockscreenDate: string;
-    lockscreenTime: Date;
-  } | null>(null);
 
   let dd = $derived(devicesState.deviceDetails);
   let selectedDevice = $derived(devicesState.selectedDevice);
@@ -77,16 +71,7 @@
     carrierName = homeIdentity.carrierName;
   });
 
-  function applyMockHomeDetails() {
-    if (!mockHomeDetails) return false;
-    deviceName = mockHomeDetails.deviceName;
-    carrierName = mockHomeDetails.carrier;
-    timeNow = new Date(mockHomeDetails.lockscreenTime);
-    return true;
-  }
-
   function fetchDeviceNameAndCarrier(serial: string) {
-    if (applyMockHomeDetails()) return;
     if (!serial) return;
     invoke<{ device_name: string; airplane_mode: boolean; carrier: string }>(
       "get_home_details",
@@ -125,12 +110,6 @@
   }
 
   onMount(() => {
-    if (import.meta.env.DEV && import.meta.env.MODE === "mock") {
-      import("../dev/deviceMock").then(({ mockHomeDetails: details }) => {
-        mockHomeDetails = details;
-        applyMockHomeDetails();
-      });
-    }
 
     getName()
       .then((name) => {
@@ -139,15 +118,12 @@
       })
       .catch(() => {});
 
-    if (applyMockHomeDetails()) return;
-
     if (selectedSerial && selectedState === "device") {
       devicesState.refreshDeviceDetailsSilent();
       fetchDeviceNameAndCarrier(selectedSerial);
     }
 
     const interval = window.setInterval(() => {
-      if (applyMockHomeDetails()) return;
       if (selectedSerial && selectedState === "device") {
         devicesState.refreshDeviceDetailsSilent();
         fetchDeviceNameAndCarrier(selectedSerial);
@@ -158,14 +134,12 @@
   });
 
   $effect(() => {
-    if (applyMockHomeDetails()) return;
     if (selectedSerial && selectedState === "device") {
       fetchDeviceNameAndCarrier(selectedSerial);
     }
   });
 
   $effect(() => {
-    if (applyMockHomeDetails()) return;
     if (!devicesState.wallpaperImage || devicesState.screenshot) return;
 
     const clockInterval = window.setInterval(() => {
@@ -279,12 +253,11 @@
   });
 
   let lockscreenDate = $derived(
-    mockHomeDetails?.lockscreenDate ??
-      timeNow.toLocaleDateString(i18n.language, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      }),
+    timeNow.toLocaleDateString(i18n.language, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
   );
 
   async function captureScreenshot() {
