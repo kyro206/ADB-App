@@ -446,6 +446,12 @@ import * as m from '../paraglide/messages';
           </div>
         </div>
         <div style="display: flex; gap: 8px">
+          {#if appSettings?.packaged}
+            <md-outlined-button onclick={() => invoke('open_store_review')}>
+              <MaterialIcon name="star" slot="icon" />
+              {m.settings_aboutReview()}
+            </md-outlined-button>
+          {/if}
           <md-filled-button href="https://github.com/kyro206/ADB-App" target="_blank" rel="noreferrer">
             <MaterialIcon name="code" slot="icon" />
             GitHub

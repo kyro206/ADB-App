@@ -158,6 +158,8 @@ pub fn run() {
             operations::sideload_device,
             operations::download_and_open_file,
             operations::search_apkmirror,
+            #[cfg(target_os = "windows")]
+            operations::open_store_review,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

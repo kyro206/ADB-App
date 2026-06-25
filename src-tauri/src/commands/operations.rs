@@ -805,6 +805,55 @@ fn resolve_install_files(
             }
         }
 
+        // 2. Obtener el idioma del dispositivo conectado
+        let locale_output = run_local_command(
+            &adb_path,
+            &[
+                "-s".into(),
+                serial.to_string(),
+                "shell".into(),
+                "getprop".into(),
+                "persist.sys.locale".into(),
+            ],
+        )
+        .unwrap_or_default();
+        
+        let mut device_lang = locale_output.trim().split('-').next().unwrap_or("").to_lowercase();
+        if device_lang.is_empty() {
+            let fallback_locale = run_local_command(
+                &adb_path,
+                &[
+                    "-s".into(),
+                    serial.to_string(),
+                    "shell".into(),
+                    "getprop".into(),
+                    "ro.product.locale".into(),
+                ],
+            ).unwrap_or_default();
+            device_lang = fallback_locale.trim().split('-').next().unwrap_or("").to_lowercase();
+        }
+
+        // 3. Obtener la densidad de pantalla
+        let density_output = run_local_command(
+            &adb_path,
+            &[
+                "-s".into(),
+                serial.to_string(),
+                "shell".into(),
+                "wm".into(),
+                "density".into(),
+            ],
+        )
+        .unwrap_or_default();
+
+        let mut device_density = 0;
+        for part in density_output.split_whitespace() {
+            if let Ok(num) = part.parse::<i32>() {
+                device_density = num;
+                break;
+            }
+        }
+
         let known_abi_markers = [
             "arm64_v8a",
             "armeabi_v7a",
@@ -813,24 +862,60 @@ fn resolve_install_files(
             "x86",
             "mips",
         ];
+        
+        let known_density_markers = ["ldpi", "mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"];
+        let density_values = [120, 160, 240, 320, 480, 640];
+        
+        let known_language_codes = [
+            "af", "sq", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "zh", "hr", "cs",
+            "da", "nl", "en", "et", "fi", "fr", "gl", "ka", "de", "el", "gu", "ht", "he", "hi",
+            "hu", "is", "id", "it", "ja", "kn", "kk", "km", "ko", "lo", "lv", "lt", "mk", "ms",
+            "ml", "mr", "mn", "ne", "no", "fa", "pl", "pt", "pa", "ro", "ru", "sr", "sk", "sl",
+            "es", "sw", "sv", "ta", "te", "th", "tr", "uk", "ur", "vi", "zu"
+        ];
+
         let all_apks = collect_apks(&extraction_directory)?;
+        
+        // Buscar la densidad más cercana disponible en el ZIP
+        let mut available_densities = Vec::new();
+        for apk in &all_apks {
+            let filename = apk.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+            for (i, marker) in known_density_markers.iter().enumerate() {
+                if filename.contains(marker) && !available_densities.contains(&i) {
+                    available_densities.push(i);
+                }
+            }
+        }
+        let mut target_density_marker = "";
+        if device_density > 0 && !available_densities.is_empty() {
+            let mut closest_idx = available_densities[0];
+            let mut min_diff = (device_density - density_values[closest_idx]).abs();
+            for &idx in &available_densities {
+                let diff = (device_density - density_values[idx]).abs();
+                if diff < min_diff {
+                    min_diff = diff;
+                    closest_idx = idx;
+                }
+            }
+            target_density_marker = known_density_markers[closest_idx];
+        }
+
         let mut filtered_apks = Vec::new();
 
-        // 2. Filtrar los APKs extraídos
+        // 4. Filtrar los APKs extraídos
         for apk in all_apks {
             let filename = apk
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_lowercase();
+            
+            // --- Filtro de Arquitectura (ABI) ---
             let mut is_abi_split = false;
             let mut matches_device_abi = false;
-
             for marker in &known_abi_markers {
-                // Buscamos tanto con guion bajo como medio (ej: arm64_v8a y arm64-v8a)
                 if filename.contains(marker) || filename.contains(&marker.replace('_', "-")) {
                     is_abi_split = true;
-                    // Comprobamos si este APK pertenece a las arquitecturas soportadas
                     for supported_abi in &supported_abis {
                         let normalized_supported = supported_abi.replace('-', "_");
                         if filename.contains(&normalized_supported)
@@ -844,8 +929,46 @@ fn resolve_install_files(
                 }
             }
 
-            // Mantenemos el APK si es un archivo base, idiomas/densidades, o una arquitectura compatible
-            if !is_abi_split || matches_device_abi {
+            // --- Filtro de Densidad ---
+            let mut is_density_split = false;
+            let mut matches_device_density = false;
+            for marker in &known_density_markers {
+                if filename.contains(marker) {
+                    is_density_split = true;
+                    if target_density_marker.is_empty() || marker == &target_density_marker {
+                        matches_device_density = true;
+                    }
+                    break;
+                }
+            }
+
+            // --- Filtro de Idioma ---
+            let mut is_lang_split = false;
+            let mut matches_device_lang = false;
+            for lang in &known_language_codes {
+                let dot_lang = format!(".{}.", lang);
+                let dash_lang = format!("-{}.", lang);
+                let dash_lang_dash = format!("-{}-", lang);
+                let dot_lang_dash = format!(".{}-", lang);
+                let config_lang = format!("config.{}.apk", lang);
+                
+                if filename.contains(&dot_lang) || filename.contains(&dash_lang) 
+                   || filename.contains(&dash_lang_dash) || filename.contains(&dot_lang_dash)
+                   || filename.ends_with(&config_lang) {
+                    is_lang_split = true;
+                    if *lang == device_lang || *lang == "en" { // Se permite inglés como fallback
+                        matches_device_lang = true;
+                    }
+                    break;
+                }
+            }
+
+            // Mantenemos el APK si no es un split de esa categoría, o si lo es y coincide con el dispositivo
+            let abi_ok = !is_abi_split || matches_device_abi;
+            let density_ok = !is_density_split || matches_device_density;
+            let lang_ok = !is_lang_split || matches_device_lang;
+
+            if abi_ok && density_ok && lang_ok {
                 filtered_apks.push(apk);
             }
         }
@@ -2656,4 +2779,14 @@ pub async fn search_apkmirror(package_name: String) -> Result<Option<String>, St
     }
 
     Ok(None)
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+pub async fn open_store_review(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let url = "ms-windows-store://review/?ProductId=9N4VV2153B05";
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| e.to_string())
 }

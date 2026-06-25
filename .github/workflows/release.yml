@@ -48,7 +48,7 @@ name: Release ADB App
       build_microsoft_store:
         description: "Compilar Microsoft Store MSIX bundle x64 + ARM64. No compatible con pre-release"
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:
