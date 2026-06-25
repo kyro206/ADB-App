@@ -24,11 +24,15 @@ class OperationsState {
   hasJobs = $derived(this.jobs.length > 0);
   hasError = $derived(this.jobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')));
   isProcessing = $derived(this.jobs.some(j => j.status === 'transferring' || j.status === 'installing' || j.status === 'idle'));
+  #lastCloseGuard: boolean | null = null;
   
   constructor() {
     $effect.root(() => {
       $effect(() => {
         this.#processNextJob();
+      });
+      $effect(() => {
+        this.#syncCloseGuard(this.isProcessing);
       });
       return () => {};
     });
@@ -169,6 +173,16 @@ class OperationsState {
     const jobIndex = this.jobs.findIndex(j => j.id === id);
     if (jobIndex !== -1) {
         this.jobs[jobIndex] = { ...this.jobs[jobIndex], status: 'error', error };
+    }
+  }
+
+  async #syncCloseGuard(active: boolean) {
+    if (this.#lastCloseGuard === active) return;
+    this.#lastCloseGuard = active;
+    try {
+      await invoke('set_operations_active', { active });
+    } catch {
+      this.#lastCloseGuard = null;
     }
   }
 }

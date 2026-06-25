@@ -2,6 +2,8 @@
 import * as m from './paraglide/messages';
 
   import { onMount } from 'svelte';
+  import { invoke } from '@tauri-apps/api/core';
+  import { listen } from '@tauri-apps/api/event';
   
   import MaterialWebEnhancer from './components/MaterialWebEnhancer.svelte';
   import AppLayout from './components/layout/AppLayout.svelte';
@@ -13,6 +15,9 @@ import * as m from './paraglide/messages';
   import { updateState } from './context/update.svelte';
   import { openUrl } from '@tauri-apps/plugin-opener';
 
+  let showOperationsCloseDialog = $state(false);
+  let closingWithOperations = $state(false);
+
   function updaterStatusLabel() {
     if (updateState.status === 'downloading') {
       return updateState.totalBytes ? `${m.updater_status_downloading()} (${updateState.progress}%)` : m.updater_status_downloading();
@@ -22,9 +27,25 @@ import * as m from './paraglide/messages';
     return '';
   }
 
+  async function confirmCloseWithOperations() {
+    if (closingWithOperations) return;
+    closingWithOperations = true;
+    try {
+      await invoke('confirm_close_with_operations');
+    } finally {
+      closingWithOperations = false;
+    }
+  }
+
   onMount(() => {
     // Initialize global singletons
     const cleanupTheme = initThemeEffects();
+    let cleanupCloseRequest: (() => void) | undefined;
+    listen('operations-close-requested', () => {
+      showOperationsCloseDialog = true;
+    }).then(unlisten => {
+      cleanupCloseRequest = unlisten;
+    });
     devicesState.init();
     toolsState.init();
     if (!import.meta.env.VITE_STORE_BUILD && !(window as any).__APP_SETTINGS__?.packaged) {
@@ -33,6 +54,7 @@ import * as m from './paraglide/messages';
 
     return () => {
       cleanupTheme();
+      cleanupCloseRequest?.();
       devicesState.destroy();
       toolsState.destroy();
     };
@@ -81,4 +103,21 @@ import * as m from './paraglide/messages';
       {/snippet}
     </AppModal>
   {/if}
+
+  <AppModal
+    open={showOperationsCloseDialog}
+    title={m.operations_close_title()}
+    onClose={() => showOperationsCloseDialog = false}
+    width="compact"
+    cancelDisabled={closingWithOperations}
+  >
+    <p style="margin: 0; color: var(--on-surface-variant); line-height: 1.5;">
+      {m.operations_close_message()}
+    </p>
+    {#snippet actions()}
+      <md-filled-button disabled={closingWithOperations ? true : undefined} onclick={confirmCloseWithOperations}>
+        {m.operations_close_confirm()}
+      </md-filled-button>
+    {/snippet}
+  </AppModal>
 {/if}

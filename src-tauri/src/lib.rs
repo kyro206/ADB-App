@@ -107,8 +107,14 @@ pub fn run() {
         .plugin(tauri_plugin_process::init());
 
     builder
-        .on_window_event(|_window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if operations::operations_active() {
+                    api.prevent_close();
+                    let _ = window.emit("operations-close-requested", ());
+                    return;
+                }
+
                 let temp_dir = crate::app_paths::cache_dir().join("temp_downloads");
                 let _ = std::fs::remove_dir_all(temp_dir);
 
@@ -159,6 +165,8 @@ pub fn run() {
             operations::get_tools_snapshot,
             operations::set_tool_path,
             operations::install_or_update_tool,
+            operations::confirm_close_with_operations,
+            operations::set_operations_active,
             operations::set_window_theme,
             operations::get_window_effect_info,
             operations::get_device_wallpaper,

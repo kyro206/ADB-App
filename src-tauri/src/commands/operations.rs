@@ -3,6 +3,7 @@ use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -352,6 +353,7 @@ struct AppsCacheEntry {
 }
 
 static APPS_LIST_CACHE: OnceLock<Mutex<HashMap<String, AppsCacheEntry>>> = OnceLock::new();
+static OPERATIONS_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 fn apps_list_cache() -> &'static Mutex<HashMap<String, AppsCacheEntry>> {
     APPS_LIST_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
@@ -369,6 +371,21 @@ fn cached_apps(serial: &str) -> Vec<AppSummary> {
         .ok()
         .and_then(|cache| cache.get(serial).map(|entry| entry.apps.clone()))
         .unwrap_or_default()
+}
+
+pub fn operations_active() -> bool {
+    OPERATIONS_ACTIVE.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub fn set_operations_active(active: bool) {
+    OPERATIONS_ACTIVE.store(active, Ordering::Relaxed);
+}
+
+#[tauri::command]
+pub fn confirm_close_with_operations(window: tauri::WebviewWindow) -> Result<(), String> {
+    OPERATIONS_ACTIVE.store(false, Ordering::Relaxed);
+    window.close().map_err(|error| error.to_string())
 }
 
 fn update_cached_app(serial: &str, updated: &AppSummary) {
