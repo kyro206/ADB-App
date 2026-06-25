@@ -1,5 +1,4 @@
 import { mount } from 'svelte';
-import App from './App.svelte';
 import './styles/fonts.css';
 import './styles/global.css';
 // Import Material Web Components
@@ -30,6 +29,13 @@ import '@material/web/menu/menu-item.js';
 import '@material/web/slider/slider.js';
 import '@material/web/chips/chip-set.js';
 import '@material/web/chips/suggestion-chip.js';
+
+if (import.meta.env.DEV && import.meta.env.VITE_ADB_APP_MOCK_DEVICE === 'pixel10') {
+  const { installTauriMock } = await import('./dev/tauriMock');
+  installTauriMock();
+}
+
+const { default: App } = await import('./App.svelte');
 
 const target = document.getElementById('root');
 if (!target) throw new Error('Root element not found');

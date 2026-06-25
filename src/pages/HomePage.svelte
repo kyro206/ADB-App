@@ -58,12 +58,17 @@
   let carrierName = $state("");
   let actionError = $state<string | null>(null);
   let shizukuError = $state<string | null>(null);
+  let mockHomeDetails = $state<{
+    deviceName: string;
+    carrier: string;
+    lockscreenDate: string;
+    lockscreenTime: Date;
+  } | null>(null);
 
   let dd = $derived(devicesState.deviceDetails);
   let selectedDevice = $derived(devicesState.selectedDevice);
   let selectedSerial = $derived(selectedDevice?.serial ?? "");
   let selectedState = $derived(selectedDevice?.state ?? "");
-  let mockHomeDetails = $derived(devicesState.mockHomeDetails);
   let homeIdentity = $derived(devicesState.homeIdentity);
 
   $effect(() => {
@@ -120,6 +125,13 @@
   }
 
   onMount(() => {
+    if (import.meta.env.DEV && import.meta.env.VITE_ADB_APP_MOCK_DEVICE === "pixel10") {
+      import("../dev/deviceMock").then(({ mockHomeDetails: details }) => {
+        mockHomeDetails = details;
+        applyMockHomeDetails();
+      });
+    }
+
     getName()
       .then((name) => {
         appName = name;
