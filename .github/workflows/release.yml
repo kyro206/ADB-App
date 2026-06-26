@@ -633,10 +633,17 @@ jobs:
           find "$ASSETS_DIR" -type f | sort
           echo "::endgroup::"
 
+      - name: Descargar herramientas de la Store
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun run scripts/download-store-deps.mjs
+
       - name: Compilar MSIX bundle Microsoft Store x64 + ARM64
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          ADB_APP_STORE_BUILD: '1'
         run: |
           set -euo pipefail
           npx @choochmeque/tauri-windows-bundle@latest build --arch x64,arm64 --runner bun --verbose
