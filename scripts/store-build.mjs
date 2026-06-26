@@ -11,6 +11,8 @@ const CONFIG_FILE = path.join(WINDOWS_GEN_DIR, 'bundle.config.json');
 const MANIFEST_TEMPLATE = path.join(WINDOWS_GEN_DIR, 'AppxManifest.xml.template');
 const WIDE_LOGO = path.join(ASSETS_DIR, 'Wide310x150Logo.png');
 
+const TAURI_CONF_PATH = path.resolve('src-tauri', 'tauri.conf.json');
+
 const USER_AGENT = 'ADB-App-Builder';
 
 function ensureDir(dir) {
@@ -402,7 +404,25 @@ async function main() {
 
     prepareMsixAssets();
     await downloadStoreDependencies();
-    buildMicrosoftStoreBundle();
+
+    const originalTauriConf = fs.readFileSync(TAURI_CONF_PATH, 'utf8');
+    try {
+      console.log('--- Modifying tauri.conf.json ---');
+      const tauriConf = JSON.parse(originalTauriConf);
+      if (!tauriConf.bundle) tauriConf.bundle = {};
+      if (!tauriConf.bundle.resources) tauriConf.bundle.resources = [];
+      tauriConf.bundle.resources.push('store_tools/**/*');
+      
+      if (!tauriConf.plugins) tauriConf.plugins = {};
+      tauriConf.plugins.updater = null;
+
+      fs.writeFileSync(TAURI_CONF_PATH, JSON.stringify(tauriConf, null, 2));
+
+      buildMicrosoftStoreBundle();
+    } finally {
+      console.log('--- Restoring tauri.conf.json ---');
+      fs.writeFileSync(TAURI_CONF_PATH, originalTauriConf);
+    }
   } finally {
     removeIfExists(TEMP_DIR);
 
