@@ -66,9 +66,6 @@
           "android-tools"
         ]
       }
-    },
-    "resources": [
-      "store_tools/**/*"
-    ]
+    }
   }
 }

@@ -8,5 +8,10 @@
   },
   "plugins": {
     "updater": null
+  },
+  "bundle": {
+    "resources": [
+      "store_tools/**/*"
+    ]
   }
 }

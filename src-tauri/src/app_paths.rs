@@ -12,6 +12,7 @@ struct AppPaths {
     packaged: bool,
     current_data: PathBuf,
     current_cache: PathBuf,
+    #[cfg(store_build)]
     resource_dir: PathBuf,
 }
 
@@ -64,6 +65,7 @@ pub fn initialize(app: &AppHandle) -> Result<(), String> {
         webview_data,
         identifier,
         packaged,
+        #[cfg(store_build)]
         resource_dir: app.path().resource_dir().unwrap_or_default(),
     };
 
@@ -150,6 +152,7 @@ pub fn cache_dir() -> PathBuf {
         .clone()
 }
 
+#[cfg(store_build)]
 pub fn resource_dir() -> PathBuf {
     PATHS
         .get()
