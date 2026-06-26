@@ -267,7 +267,7 @@ import * as m from '../paraglide/messages';
   {#snippet toolPanel(title: string, toolName: InstallableTool, tool: ToolStatus | undefined, path: string, placeholder: string, onChange: (p: string) => void)}
     <section class="settings-card">
       <h3 class="settings-title">{title}</h3>
-      {#if tool}
+      {#if tool && !appSettings?.store_build}
         <div class="tool-status">
           <div class="tool-status-header">
             <MaterialIcon 
