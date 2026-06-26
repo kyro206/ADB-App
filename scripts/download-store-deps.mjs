@@ -26,7 +26,9 @@ async function downloadFile(url, dest) {
 function extractZip(zipPath, destDir) {
   console.log(`Extracting ${zipPath} to ${destDir}...`);
   fs.mkdirSync(destDir, { recursive: true });
-  execSync(`tar -xf "${zipPath}" -C "${destDir}"`, { stdio: 'inherit' });
+  const relZip = path.relative(process.cwd(), zipPath);
+  const relDest = path.relative(process.cwd(), destDir);
+  execSync(`tar -xf "${relZip}" -C "${relDest}"`, { stdio: 'inherit' });
 }
 
 async function main() {
