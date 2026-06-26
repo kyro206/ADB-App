@@ -183,6 +183,7 @@ pub struct AppSettingsView {
     #[serde(flatten)]
     settings: AppSettings,
     packaged: bool,
+    store_build: bool,
 }
 
 #[tauri::command]
@@ -190,6 +191,7 @@ pub fn get_app_settings() -> AppSettingsView {
     AppSettingsView {
         settings: read_settings(),
         packaged: crate::app_paths::is_packaged(),
+        store_build: cfg!(store_build),
     }
 }
 
