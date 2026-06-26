@@ -412,8 +412,12 @@ async function main() {
       console.log('--- Modifying tauri.conf.json ---');
       const tauriConf = JSON.parse(originalTauriConf);
       if (!tauriConf.bundle) tauriConf.bundle = {};
-      if (!tauriConf.bundle.resources) tauriConf.bundle.resources = [];
-      tauriConf.bundle.resources.push('store_tools/**/*');
+      if (!tauriConf.bundle.resources) tauriConf.bundle.resources = {};
+      if (Array.isArray(tauriConf.bundle.resources)) {
+        tauriConf.bundle.resources.push('store_tools/**/*');
+      } else {
+        tauriConf.bundle.resources['store_tools/**/*'] = 'store_tools';
+      }
       
       if (!tauriConf.plugins) tauriConf.plugins = {};
       tauriConf.plugins.updater = null;
