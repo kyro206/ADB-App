@@ -414,9 +414,9 @@ async function main() {
       if (!tauriConf.bundle) tauriConf.bundle = {};
       if (!tauriConf.bundle.resources) tauriConf.bundle.resources = {};
       if (Array.isArray(tauriConf.bundle.resources)) {
-        tauriConf.bundle.resources.push('store_tools/**/*');
+        tauriConf.bundle.resources.push('store_tools');
       } else {
-        tauriConf.bundle.resources['store_tools/**/*'] = 'store_tools';
+        tauriConf.bundle.resources['store_tools'] = 'store_tools';
       }
       
       if (!tauriConf.plugins) tauriConf.plugins = {};
