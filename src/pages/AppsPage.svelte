@@ -324,6 +324,7 @@
             apk_path: app.apk_path,
             system_app: app.system_app,
             disabled: app.disabled,
+            uninstalled: app.uninstalled,
           })),
         }).catch(() => []);
 
