@@ -405,6 +405,8 @@ async function main() {
     prepareMsixAssets();
     await downloadStoreDependencies();
 
+    removeIfExists(TEMP_DIR);
+
     const originalTauriConf = fs.readFileSync(TAURI_CONF_PATH, 'utf8');
     try {
       console.log('--- Modifying tauri.conf.json ---');
@@ -424,8 +426,6 @@ async function main() {
       fs.writeFileSync(TAURI_CONF_PATH, originalTauriConf);
     }
   } finally {
-    removeIfExists(TEMP_DIR);
-
     if (fs.existsSync(STORE_TOOLS_DIR)) {
       console.log('--- Cleaning up store_tools ---');
       fs.rmSync(STORE_TOOLS_DIR, { recursive: true, force: true });
