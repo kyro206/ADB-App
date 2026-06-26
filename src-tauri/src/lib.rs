@@ -44,6 +44,10 @@ pub fn run() {
                     "packaged".to_string(),
                     serde_json::Value::Bool(crate::app_paths::is_packaged()),
                 );
+                settings_object.insert(
+                    "store_build".to_string(),
+                    serde_json::Value::Bool(cfg!(store_build)),
+                );
             }
             let settings_json =
                 serde_json::to_string(&settings_value).unwrap_or_else(|_| "{}".to_string());

@@ -50,8 +50,8 @@ import * as m from '../paraglide/messages';
     onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
     onInstallTool: (tool: InstallableTool) => void;
     onClearCache: () => void;
-    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean } | null;
-    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean }) => void;
+    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean } | null;
+    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean }) => void;
     defaultCacheDir: string;
   }>();
 
@@ -307,13 +307,13 @@ import * as m from '../paraglide/messages';
             {m.settings_autoDetect()}
           </md-outlined-button>
           
-          {#if tool?.install_supported && !tool.available}
+          {#if tool?.install_supported && !tool.available && !appSettings?.store_build}
             <md-filled-button onclick={() => onInstallTool(toolName)}>
               <MaterialIcon name="download" slot="icon" />
               {m.settings_install()} {title.split(' ')[0]}
             </md-filled-button>
           {/if}
-          {#if tool?.install_supported && tool.update_available}
+          {#if tool?.install_supported && tool.update_available && !appSettings?.store_build}
             <md-filled-button onclick={() => onInstallTool(toolName)}>
               <MaterialIcon name="update" slot="icon" />
               {m.settings_update()} {title.split(' ')[0]}
@@ -325,43 +325,47 @@ import * as m from '../paraglide/messages';
   {/snippet}
 
   {@render toolPanel("ADB", "adb", tools?.adb, adbPath, m.settings_adbPlaceholder(), p => adbPath = p)}
-  {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_scrcpyPlaceholder(), p => scrcpyPath = p)}
+  {#if !appSettings?.store_build}
+    {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_scrcpyPlaceholder(), p => scrcpyPath = p)}
+  {/if}
   
-  <section class="settings-card">
-    <h3 class="settings-title">{m.settings_javaTitle()}</h3>
-    <div class="tool-status">
-      <div class="tool-status-header">
-        <MaterialIcon 
-          name={tools?.java.available ? 'check_circle' : 'warning'} 
-          size={20} 
-        />
-        <strong>{tools?.java.available ? m.settings_javaCompatible() : tools?.java.path ? m.settings_javaNotCompatible() : m.settings_javaNotDetected()}</strong>
+  {#if !appSettings?.store_build}
+    <section class="settings-card">
+      <h3 class="settings-title">{m.settings_javaTitle()}</h3>
+      <div class="tool-status">
+        <div class="tool-status-header">
+          <MaterialIcon 
+            name={tools?.java.available ? 'check_circle' : 'warning'} 
+            size={20} 
+          />
+          <strong>{tools?.java.available ? m.settings_javaCompatible() : tools?.java.path ? m.settings_javaNotCompatible() : m.settings_javaNotDetected()}</strong>
+        </div>
+        <div class="tool-status-details">
+          <span>{m.settings_installedVersion()}: {tools?.java.version || '-'}</span>
+        </div>
       </div>
-      <div class="tool-status-details">
-        <span>{m.settings_installedVersion()}: {tools?.java.version || '-'}</span>
+      <div class="form-stack">
+        <md-outlined-text-field 
+          use:materialTextFieldValue={javaPath}
+          oninput={(e: any) => javaPath = e.target.value} 
+          label={m.settings_javaPlaceholder()}
+          style="width: 100%"
+        >
+          <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => javaPath = p)}>
+            <MaterialIcon name="folder_open" />
+          </md-icon-button>
+        </md-outlined-text-field>
+        <div class="button-row">
+          <md-filled-button onclick={() => onSaveToolPath('java', javaPath)}>{m.settings_savePath()}</md-filled-button>
+          <md-outlined-button onclick={() => onSaveToolPath('java', '')}>{m.settings_autoDetect()}</md-outlined-button>
+          <md-text-button href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">
+            <MaterialIcon name="open_in_new" slot="icon" />
+            {m.settings_downloadTemurin()}
+          </md-text-button>
+        </div>
       </div>
-    </div>
-    <div class="form-stack">
-      <md-outlined-text-field 
-        use:materialTextFieldValue={javaPath}
-        oninput={(e: any) => javaPath = e.target.value} 
-        label={m.settings_javaPlaceholder()}
-        style="width: 100%"
-      >
-        <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => javaPath = p)}>
-          <MaterialIcon name="folder_open" />
-        </md-icon-button>
-      </md-outlined-text-field>
-      <div class="button-row">
-        <md-filled-button onclick={() => onSaveToolPath('java', javaPath)}>{m.settings_savePath()}</md-filled-button>
-        <md-outlined-button onclick={() => onSaveToolPath('java', '')}>{m.settings_autoDetect()}</md-outlined-button>
-        <md-text-button href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">
-          <MaterialIcon name="open_in_new" slot="icon" />
-          {m.settings_downloadTemurin()}
-        </md-text-button>
-      </div>
-    </div>
-  </section>
+    </section>
+  {/if}
   
   <section class="settings-card">
     <h3 class="settings-title">{m.settings_cacheTitle()}</h3>
@@ -446,7 +450,7 @@ import * as m from '../paraglide/messages';
           </div>
         </div>
         <div style="display: flex; gap: 8px">
-          {#if appSettings?.packaged}
+          {#if appSettings?.store_build}
             <md-outlined-button onclick={() => invoke('open_store_review')}>
               <MaterialIcon name="star" slot="icon" />
               {m.settings_aboutReview()}

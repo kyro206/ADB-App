@@ -308,6 +308,25 @@ fn resolve_tool_path_with_config(
     tool: &str,
     config: &crate::commands::operations::AppSettings,
 ) -> Option<PathBuf> {
+    #[cfg(store_build)]
+    {
+        let store_dir = crate::app_paths::resource_dir().join("store_tools");
+        if tool == "java" {
+            let jre_bin = store_dir.join("bundletool").join("java").join("bin").join(executable_name(tool));
+            return jre_bin.is_file().then_some(jre_bin);
+        } else if tool == "scrcpy" {
+            let scrcpy_bin = store_dir.join("scrcpy").join(executable_name(tool));
+            return scrcpy_bin.is_file().then_some(scrcpy_bin);
+        } else if tool == "adb" {
+            let configured = configured_path(config, tool);
+            let custom = normalize_candidate(tool, configured);
+            if let Some(path) = custom {
+                return Some(path);
+            }
+            let adb_bin = store_dir.join("adb").join("platform-tools").join(executable_name(tool));
+            return adb_bin.is_file().then_some(adb_bin);
+        }
+    }
     let configured = configured_path(config, tool);
     let custom = normalize_candidate(tool, configured);
     if tool == "java" {
@@ -566,6 +585,7 @@ fn is_newer_version(latest: &str, installed: &str) -> bool {
     !latest_parts.is_empty() && latest_parts > installed_parts
 }
 
+#[cfg(not(store_build))]
 async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> {
     let repository = client
         .get("https://dl.google.com/android/repository/repository2-1.xml")
@@ -602,6 +622,7 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
     Ok(format!("{}.{}.{}", major, minor, micro))
 }
 
+#[cfg(not(store_build))]
 async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, String> {
     let release = client
         .get("https://api.github.com/repos/Genymobile/scrcpy/releases/latest")
@@ -617,6 +638,7 @@ async fn latest_scrcpy_version(client: &reqwest::Client) -> Result<String, Strin
     Ok(release.tag_name.trim_start_matches('v').to_string())
 }
 
+#[cfg(not(store_build))]
 fn update_available(_tool: &str, latest: &str, installed: &str) -> bool {
     is_newer_version(latest, installed)
 }
@@ -631,30 +653,39 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
         return tools_status_cached().await;
     }
 
-    let mut status = tools_status_cached().await;
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(12))
-        .build()
-        .unwrap_or_default();
-    let (adb_latest, scrcpy_latest) =
-        tokio::join!(latest_adb_version(&client), latest_scrcpy_version(&client),);
-    if let Ok(latest) = adb_latest {
-        status.adb.update_checked = true;
-        status.adb.update_available =
-            status.adb.available && update_available("adb", &latest, &status.adb.version);
-        status.adb.latest_version = latest;
+    #[cfg(store_build)]
+    {
+        TOOLS_UPDATES_FINISHED.store(true, Ordering::Release);
+        tools_status_cached().await
     }
-    if let Ok(latest) = scrcpy_latest {
-        status.scrcpy.update_checked = true;
-        status.scrcpy.update_available =
-            status.scrcpy.available && update_available("scrcpy", &latest, &status.scrcpy.version);
-        status.scrcpy.latest_version = latest;
+
+    #[cfg(not(store_build))]
+    {
+        let mut status = tools_status_cached().await;
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(12))
+            .build()
+            .unwrap_or_default();
+        let (adb_latest, scrcpy_latest) =
+            tokio::join!(latest_adb_version(&client), latest_scrcpy_version(&client),);
+        if let Ok(latest) = adb_latest {
+            status.adb.update_checked = true;
+            status.adb.update_available =
+                status.adb.available && update_available("adb", &latest, &status.adb.version);
+            status.adb.latest_version = latest;
+        }
+        if let Ok(latest) = scrcpy_latest {
+            status.scrcpy.update_checked = true;
+            status.scrcpy.update_available =
+                status.scrcpy.available && update_available("scrcpy", &latest, &status.scrcpy.version);
+            status.scrcpy.latest_version = latest;
+        }
+        if let Ok(mut cache) = cached_status().lock() {
+            *cache = Some(status.clone());
+        }
+        TOOLS_UPDATES_FINISHED.store(true, Ordering::Release);
+        status
     }
-    if let Ok(mut cache) = cached_status().lock() {
-        *cache = Some(status.clone());
-    }
-    TOOLS_UPDATES_FINISHED.store(true, Ordering::Release);
-    status
 }
 
 pub async fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {

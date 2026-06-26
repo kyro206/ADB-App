@@ -47,6 +47,7 @@ public/mock*
 # Microsoft Store
 src-tauri/gen/windows/Assets/*.png
 !src-tauri/gen/windows/Assets/Wide310x150Logo.png
+src-tauri/store_tools
 
 # DB Files
 src/assets/debloat-data.json

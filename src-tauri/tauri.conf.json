@@ -25,7 +25,14 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "dmg", "app", "deb", "rpm", "appimage"],
+    "targets": [
+      "nsis",
+      "dmg",
+      "app",
+      "deb",
+      "rpm",
+      "appimage"
+    ],
     "category": "DeveloperTool",
     "publisher": "kyro206",
     "shortDescription": "Visual manager for the Android Debug Bridge (ADB).",
@@ -46,11 +53,22 @@
     },
     "linux": {
       "deb": {
-        "depends": ["scrcpy", "temurin-25-jdk", "android-tools"]
+        "depends": [
+          "scrcpy",
+          "temurin-25-jdk",
+          "android-tools"
+        ]
       },
       "rpm": {
-        "depends": ["scrcpy", "temurin-25-jdk", "android-tools"]
+        "depends": [
+          "scrcpy",
+          "temurin-25-jdk",
+          "android-tools"
+        ]
       }
-    }
+    },
+    "resources": [
+      "store_tools/**/*"
+    ]
   }
 }

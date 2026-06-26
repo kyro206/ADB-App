@@ -12,6 +12,7 @@ struct AppPaths {
     packaged: bool,
     current_data: PathBuf,
     current_cache: PathBuf,
+    resource_dir: PathBuf,
 }
 
 static PATHS: OnceLock<RwLock<AppPaths>> = OnceLock::new();
@@ -63,6 +64,7 @@ pub fn initialize(app: &AppHandle) -> Result<(), String> {
         webview_data,
         identifier,
         packaged,
+        resource_dir: app.path().resource_dir().unwrap_or_default(),
     };
 
     PATHS
@@ -145,6 +147,16 @@ pub fn cache_dir() -> PathBuf {
         .read()
         .unwrap()
         .current_cache
+        .clone()
+}
+
+pub fn resource_dir() -> PathBuf {
+    PATHS
+        .get()
+        .expect("ADB App paths must be initialized")
+        .read()
+        .unwrap()
+        .resource_dir
         .clone()
 }
 

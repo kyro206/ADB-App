@@ -9,12 +9,14 @@ use flate2::read::GzDecoder;
 use crate::tools::managed_executable;
 use crate::tools::{executable_name, managed_dir};
 
+#[cfg(not(store_build))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ArchiveKind {
     Zip,
     TarGz,
 }
 
+#[cfg(not(store_build))]
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
@@ -22,6 +24,7 @@ fn client() -> Result<reqwest::Client, String> {
         .map_err(|error| error.to_string())
 }
 
+#[cfg(not(store_build))]
 async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
     client
         .get(url)
@@ -37,6 +40,7 @@ async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, 
         .map_err(|error| format!("Could not read the download: {error}"))
 }
 
+#[cfg(not(store_build))]
 async fn tool_asset(
     tool: &str,
     client: &reqwest::Client,
@@ -112,6 +116,7 @@ async fn tool_asset(
     }
 }
 
+#[cfg(not(store_build))]
 fn extract(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Result<(), String> {
     fs::create_dir_all(destination).map_err(|error| error.to_string())?;
     match kind {
@@ -148,6 +153,7 @@ fn extract(bytes: &[u8], kind: ArchiveKind, destination: &Path) -> Result<(), St
     Ok(())
 }
 
+#[cfg(not(store_build))]
 fn find_file(directory: &Path, name: &str) -> Option<PathBuf> {
     for entry in fs::read_dir(directory).ok()?.flatten() {
         let path = entry.path();
@@ -163,6 +169,7 @@ fn find_file(directory: &Path, name: &str) -> Option<PathBuf> {
     None
 }
 
+#[cfg(not(store_build))]
 fn remove_dir(path: &Path) -> Result<(), String> {
     match fs::remove_dir_all(path) {
         Ok(()) => Ok(()),
@@ -171,6 +178,12 @@ fn remove_dir(path: &Path) -> Result<(), String> {
     }
 }
 
+#[cfg(store_build)]
+pub async fn install_tool(_tool: &str) -> Result<(), String> {
+    Err("La versión de la tienda no soporta descargas.".to_string())
+}
+
+#[cfg(not(store_build))]
 pub async fn install_tool(tool: &str) -> Result<(), String> {
     let client = client()?;
     let (url, kind) = tool_asset(tool, &client).await?;
@@ -212,6 +225,12 @@ pub async fn install_tool(tool: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(store_build)]
+pub async fn ensure_bundletool() -> Result<PathBuf, String> {
+    Ok(crate::app_paths::resource_dir().join("store_tools").join("bundletool").join("bundletool-all.jar"))
+}
+
+#[cfg(not(store_build))]
 pub async fn ensure_bundletool() -> Result<PathBuf, String> {
     let directory = crate::app_paths::data_dir()
         .join("tools")

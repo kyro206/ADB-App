@@ -10,7 +10,7 @@
     "build": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && tsc && vite build",
     "preview": "vite preview",
     "tauri": "node scripts/tauri.mjs",
-    "tauri:windows:build": "tauri-windows-bundle build --runner bun"
+    "tauri:windows:build": "bun run scripts/store-build.mjs"
   },
   "dependencies": {
     "@fontsource-variable/google-sans-flex": "^5.2.3",
