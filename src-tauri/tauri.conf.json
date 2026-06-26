@@ -25,6 +25,10 @@
   },
   "bundle": {
     "active": true,
+    "resources": {
+      "../tools/java/info_apps.jar": "tools/java/info_apps.jar",
+      "../tools/java/wallpaper_extractor.jar": "tools/java/wallpaper_extractor.jar"
+    },
     "targets": [
       "nsis",
       "dmg",

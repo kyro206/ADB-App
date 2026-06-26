@@ -54,7 +54,7 @@ pub fn run() {
             let init_script = format!("window.__APP_SETTINGS__ = {};", settings_json);
 
             let (window_width, window_height) = if std::env::var_os("ADB_APP_MOCK").is_some() {
-                (1720.0, 968.0)
+                (1720.0, 968.0) // (1870.0, 938.0)
             } else {
                 (1180.0, 760.0)
             };

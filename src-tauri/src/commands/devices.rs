@@ -18,12 +18,18 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
 
 /// Get detailed information about a specific device.
 #[tauri::command]
-pub async fn get_device_details(device: Device) -> Result<DeviceDetails, String> {
+pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result<DeviceDetails, String> {
     if crate::mock::enabled() {
         return Ok(crate::mock::device_details());
     }
 
     let serial = device.serial.clone();
+
+    // Lanzar en segundo plano el envío de los daemons
+    let serial_for_daemons = serial.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::operations::push_daemons_if_needed(&app, &serial_for_daemons).await;
+    });
 
     if device.state != "device" {
         // Device not fully connected, return minimal details

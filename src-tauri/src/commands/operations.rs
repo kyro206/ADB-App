@@ -253,57 +253,16 @@ pub async fn save_app_settings(
 }
 
 #[tauri::command]
-pub async fn get_device_wallpaper(serial: String) -> Result<String, String> {
+pub async fn get_device_wallpaper(app: tauri::AppHandle, serial: String) -> Result<String, String> {
     if crate::mock::enabled() {
         return crate::mock::wallpaper_base64();
     }
 
-    if WALLPAPER_DAEMON_BYTES.is_empty() {
-        return Err("Wallpaper Extractor JAR is not compiled yet.".to_string());
-    }
-
-    let java_tools_dir = crate::app_paths::cache_dir().join("tools").join("java");
-    if !java_tools_dir.exists() {
-        let _ = fs::create_dir_all(&java_tools_dir);
-    }
+    push_daemons_if_needed(&app, &serial).await?;
 
     let version = env!("CARGO_PKG_VERSION");
     let jar_name = format!("wallpaper_extractor_{}.jar", version);
-    let daemon_local_path = java_tools_dir.join(&jar_name);
     let daemon_device_path = format!("/data/local/tmp/{}", jar_name);
-
-    // Escribimos temporalmente en el PC porque `adb shell cat` corrompe binarios en Windows
-    fs::write(&daemon_local_path, WALLPAPER_DAEMON_BYTES).map_err(|e| e.to_string())?;
-
-    // Comprobamos si el JAR ya está en el móvil y si el tamaño coincide para ahorrar escrituras
-    let check_daemon =
-        adb::run_adb_for_serial(&serial, &["shell", "ls", "-l", &daemon_device_path]).await?;
-    let needs_push = if check_daemon.ok() && !check_daemon.output.contains("No such file") {
-        let size_str = check_daemon.output.split_whitespace().nth(4).unwrap_or("");
-        size_str.parse::<usize>().unwrap_or(0) != WALLPAPER_DAEMON_BYTES.len()
-    } else {
-        true
-    };
-
-    if needs_push {
-        let _ = adb::run_adb_for_serial(&serial, &["shell", "rm", "-f", "/data/local/tmp/wallpaper_extractor*.jar"]).await;
-        
-        adb::run_adb_for_serial(
-            &serial,
-            &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"],
-        )
-        .await?;
-        adb::run_adb_for_serial(
-            &serial,
-            &[
-                "push",
-                &daemon_local_path.to_string_lossy(),
-                &daemon_device_path,
-            ],
-        )
-        .await?;
-        adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", &daemon_device_path]).await?;
-    }
 
     // Ejecutar el jar
     let result = adb::run_adb_for_serial(
@@ -1501,7 +1460,7 @@ fn keyboard_package_name(id: &str) -> &str {
 }
 
 #[tauri::command]
-pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
+pub async fn get_system_state(app: tauri::AppHandle, serial: String) -> Result<SystemState, String> {
     if crate::mock::enabled() {
         return Ok(crate::mock::system_state());
     }
@@ -1606,7 +1565,7 @@ pub async fn get_system_state(serial: String) -> Result<SystemState, String> {
     }
 
     if !keyboard_requests.is_empty() {
-        if let Ok(summaries) = enrich_app_summaries(serial.clone(), keyboard_requests).await {
+        if let Ok(summaries) = enrich_app_summaries(app.clone(), serial.clone(), keyboard_requests).await {
             for summary in summaries {
                 keyboard_labels.insert(summary.package_name, summary.display_name);
             }
@@ -1872,15 +1831,72 @@ struct DaemonResponse {
     error: Option<String>,
 }
 
-static DAEMON_BYTES: &[u8] = include_bytes!("../../../tools/java/info_apps.jar");
-static WALLPAPER_DAEMON_BYTES: &[u8] =
-    include_bytes!("../../../tools/java/wallpaper_extractor.jar");
-
 static PUSHED_DAEMONS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
     std::sync::OnceLock::new();
 
+pub async fn push_daemons_if_needed(app: &tauri::AppHandle, serial: &str) -> Result<(), String> {
+    use tauri::Manager;
+    let daemons_cache =
+        PUSHED_DAEMONS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()));
+    let session_pushed = {
+        let cache = daemons_cache.lock().unwrap();
+        cache.contains(serial)
+    };
+
+    if session_pushed {
+        return Ok(());
+    }
+
+    let version = env!("CARGO_PKG_VERSION");
+
+    // --- info_apps.jar ---
+    let info_apps_local = app.path().resolve("tools/java/info_apps.jar", tauri::path::BaseDirectory::Resource).map_err(|e| e.to_string())?;
+    let info_apps_device = format!("/data/local/tmp/info_apps_{}.jar", version);
+    let info_apps_size = std::fs::metadata(&info_apps_local).map_err(|e| e.to_string())?.len() as usize;
+
+    let check_info = adb::run_adb_for_serial(serial, &["shell", "ls", "-l", &info_apps_device]).await;
+    let needs_push_info = match check_info {
+        Ok(res) if res.ok() && !res.output.contains("No such file") => {
+            let size_str = res.output.split_whitespace().nth(4).unwrap_or("");
+            size_str.parse::<usize>().unwrap_or(0) != info_apps_size
+        },
+        _ => true
+    };
+
+    if needs_push_info {
+        let _ = adb::run_adb_for_serial(serial, &["shell", "rm", "-f", "/data/local/tmp/info_apps*.jar"]).await;
+        let _ = adb::run_adb_for_serial(serial, &["push", &info_apps_local.to_string_lossy(), &info_apps_device]).await;
+        let _ = adb::run_adb_for_serial(serial, &["shell", "chmod", "777", &info_apps_device]).await;
+    }
+
+    // --- wallpaper_extractor.jar ---
+    let wallpaper_local = app.path().resolve("tools/java/wallpaper_extractor.jar", tauri::path::BaseDirectory::Resource).map_err(|e| e.to_string())?;
+    let wallpaper_device = format!("/data/local/tmp/wallpaper_extractor_{}.jar", version);
+    let wallpaper_size = std::fs::metadata(&wallpaper_local).map_err(|e| e.to_string())?.len() as usize;
+
+    let check_wallpaper = adb::run_adb_for_serial(serial, &["shell", "ls", "-l", &wallpaper_device]).await;
+    let needs_push_wallpaper = match check_wallpaper {
+        Ok(res) if res.ok() && !res.output.contains("No such file") => {
+            let size_str = res.output.split_whitespace().nth(4).unwrap_or("");
+            size_str.parse::<usize>().unwrap_or(0) != wallpaper_size
+        },
+        _ => true
+    };
+
+    if needs_push_wallpaper {
+        let _ = adb::run_adb_for_serial(serial, &["shell", "rm", "-f", "/data/local/tmp/wallpaper_extractor*.jar"]).await;
+        let _ = adb::run_adb_for_serial(serial, &["push", &wallpaper_local.to_string_lossy(), &wallpaper_device]).await;
+    }
+
+    let mut cache = daemons_cache.lock().unwrap();
+    cache.insert(serial.to_string());
+    
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn enrich_app_summaries(
+    app: tauri::AppHandle,
     serial: String,
     requests: Vec<AppSummaryRequest>,
 ) -> Result<Vec<AppSummary>, String> {
@@ -1921,62 +1937,11 @@ pub async fn enrich_app_summaries(
         return Ok(results);
     }
 
-    // 2. Prepare daemon
-    let java_tools_dir = crate::app_paths::cache_dir().join("tools").join("java");
-    if !java_tools_dir.exists() {
-        let _ = fs::create_dir_all(&java_tools_dir);
-    }
+    push_daemons_if_needed(&app, &serial).await?;
+
     let version = env!("CARGO_PKG_VERSION");
     let jar_name = format!("info_apps_{}.jar", version);
-    let daemon_local_path = java_tools_dir.join(&jar_name);
-    let daemon_device_path = format!("/data/local/tmp/tools/java/{}", jar_name);
-
-    // Siempre sobrescribimos el local por si se ha actualizado el ejecutable de Rust
-    let _ = fs::write(&daemon_local_path, DAEMON_BYTES);
-
-    let daemons_cache =
-        PUSHED_DAEMONS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()));
-    let session_pushed = {
-        let cache = daemons_cache.lock().unwrap();
-        cache.contains(&serial)
-    };
-
-    if !session_pushed {
-        let check_daemon =
-            adb::run_adb_for_serial(&serial, &["shell", "ls", "-l", &daemon_device_path]).await;
-        
-        let needs_push = match check_daemon {
-            Ok(res) if res.ok() && !res.output.contains("No such file") => {
-                let size_str = res.output.split_whitespace().nth(4).unwrap_or("");
-                size_str.parse::<usize>().unwrap_or(0) != DAEMON_BYTES.len()
-            },
-            _ => true
-        };
-
-        if needs_push {
-            // Borrar las versiones antiguas
-            let _ = adb::run_adb_for_serial(&serial, &["shell", "rm", "-f", "/data/local/tmp/tools/java/info_apps*.jar"]).await;
-
-            let _ = adb::run_adb_for_serial(
-                &serial,
-                &["shell", "mkdir", "-p", "/data/local/tmp/tools/java"],
-            )
-            .await;
-            let _ = adb::run_adb_for_serial(
-                &serial,
-                &[
-                    "push",
-                    &daemon_local_path.to_string_lossy(),
-                    &daemon_device_path,
-                ],
-            )
-            .await;
-            let _ = adb::run_adb_for_serial(&serial, &["shell", "chmod", "777", &daemon_device_path]).await;
-        }
-        
-        let mut cache = daemons_cache.lock().unwrap();
-        cache.insert(serial.clone());
-    }
+    let daemon_device_path = format!("/data/local/tmp/{}", jar_name);
 
     // 3. Run daemon with all packages
     let package_names: Vec<String> = needs_daemon.iter().map(|r| r.package_name.clone()).collect();
