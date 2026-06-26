@@ -303,9 +303,16 @@ import * as m from '../paraglide/messages';
           <md-filled-button onclick={() => onSaveToolPath(toolName, path)}>
             {m.settings_savePath()}
           </md-filled-button>
-          <md-outlined-button onclick={() => onSaveToolPath(toolName, '')}>
-            {m.settings_autoDetect()}
-          </md-outlined-button>
+          {#if appSettings?.store_build && toolName === 'adb'}
+            <md-outlined-button onclick={() => onSaveToolPath(toolName, '')}>
+              <MaterialIcon name="restore" slot="icon" />
+              {m.common_reset()}
+            </md-outlined-button>
+          {:else}
+            <md-outlined-button onclick={() => onSaveToolPath(toolName, '')}>
+              {m.settings_autoDetect()}
+            </md-outlined-button>
+          {/if}
           
           {#if tool?.install_supported && !tool.available && !appSettings?.store_build}
             <md-filled-button onclick={() => onInstallTool(toolName)}>
