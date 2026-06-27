@@ -3,12 +3,44 @@ import * as m from '../../paraglide/messages';
 
   import { onMount } from 'svelte';
   
-  import type { Device } from '../../context/devices.svelte';
+  import type { Device, DeviceDetails } from '../../context/devices.svelte';
   import MaterialIcon from '../MaterialIcon.svelte';
+  import { getMarketingName } from '../../pages/workbench/utils';
+
+  function formatLabel(marketingName: string, model: string) {
+    return marketingName ? `${marketingName} (${model})` : model;
+  }
+
+  function getShortDeviceName(device: Device | null) {
+    if (!device) return null;
+    if (device.model) {
+      let marketingName = getMarketingName(device.model);
+      if (!marketingName) {
+         const cleanModel = device.model.replace(/_/g, '-').toUpperCase();
+         marketingName = getMarketingName(cleanModel);
+      }
+      return marketingName || device.model;
+    }
+    return device.serial;
+  }
+
+  function getDeviceName(device: Device | null) {
+    if (!device) return null;
+    if (device.model) {
+      let marketingName = getMarketingName(device.model);
+      if (!marketingName) {
+         const cleanModel = device.model.replace(/_/g, '-').toUpperCase();
+         marketingName = getMarketingName(cleanModel);
+      }
+      return formatLabel(marketingName, device.model);
+    }
+    return device.serial;
+  }
 
   let {
     devices,
     selectedDevice,
+    deviceDetails = null,
     loading,
     loadingLabel,
     emptyLabel,
@@ -17,6 +49,7 @@ import * as m from '../../paraglide/messages';
   } = $props<{
     devices: Device[];
     selectedDevice: Device | null;
+    deviceDetails?: DeviceDetails | null;
     loading: boolean;
     loadingLabel: string;
     emptyLabel: string;
@@ -29,7 +62,12 @@ import * as m from '../../paraglide/messages';
   let open = $state(false);
 
   let disabled = $derived(loading || devices.length === 0);
-  let label = $derived(selectedDevice?.model || selectedDevice?.serial || (loading ? loadingLabel : emptyLabel));
+  let label = $derived(
+    (deviceDetails 
+      ? (getMarketingName(deviceDetails.model, deviceDetails.brand) || deviceDetails.model)
+      : getShortDeviceName(selectedDevice))
+    || (loading ? loadingLabel : emptyLabel)
+  );
   let connectionIcon = $derived(selectedDevice && (selectedDevice.serial.includes(':') || selectedDevice.serial.includes('._tcp')) ? 'wifi' : 'smartphone');
 
   onMount(() => {
@@ -111,14 +149,15 @@ import * as m from '../../paraglide/messages';
   >
     {#each devices as device}
       {@const isWireless = device.serial.includes(':') || device.serial.includes('._tcp')}
+      {@const deviceName = getDeviceName(device)}
       <md-menu-item
         class="topbar-device-picker__option"
         data-device-serial={device.serial}
         selected={selectedDevice?.serial === device.serial ? true : undefined}
-        typeaheadText={`${device.model} ${device.serial}`}
+        typeaheadText={`${deviceName} ${device.serial}`}
       >
         <MaterialIcon slot="start" name={isWireless ? 'wifi' : 'smartphone'} />
-        <div slot="headline">{device.model || device.serial}</div>
+        <div slot="headline">{deviceName}</div>
         <div slot="supporting-text">{device.serial} · {device.state}</div>
         
         {#if isWireless}

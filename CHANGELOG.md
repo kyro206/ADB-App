@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - 2026-06-26
+
+### Added
+- Added advanced options containing useful commands, the first being a captive portal activator (useful for WearOS).
+- The marketing name of the device is now shown on home.
+- Added uninstall and reinstall menus for system apps.
+- Added a debloat option in apps.
+- Added search on APKMirror or Web from Apps.
+- Double clicking a file opens it if it's less than 25 mb.
+- Microsoft Store version includes an option to rate the app in the Microsoft Store.
+- Microsoft Store version includes Scrcpy and ADB are included by default.
+
+### Changed
+- New app icon.
+- Transfers are now background operations and also include app installations; they are situated in the topbar for easy access from anywhere.
+- Improved wireless connection stability.
+- App cache now only saves the app name to reuse the cache across different devices.
+- In mirroring, the app name appears if it is loaded.
+- Drastically improved the loading speed of apps and files when there are many elements.
+- The QR code for wireless pairing is now generated directly by JS.
+- The wireless debugging dialog box it's simpler.
+- Folder transfers in files now try to resume where they left off.
+- The Home screen now only executes a single command for better performance.
+- Replaced the manual browser shortcut detector with `tauri-plugin-prevent-default`.
+- Improved how scrcpy shows the currently installed version and optimized getting all dependencies.
+
+### Fixed
+- Fixed several bugs with the contextual menu of files.
+- Fixed the installation of APKs and handled related errors.
+- Fixed Svelte errors and replaced heavy regex for better performance.
+
+### Removed
+- `tar` and `flate2` are no longer included unless the platform is macOS.
+
 ## [2.0.0] - 2026-06-20
 
 ### Added

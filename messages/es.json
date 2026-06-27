@@ -24,7 +24,7 @@
   "common_copy": "Copiar valor",
   "common_cannotUndo": "Esta acción no se puede deshacer",
   "common_device_empty_title": "No hay un dispositivo conectado",
-  "common_device_empty_desc": "Selecciona un dispositivo en la barra superior para administrarlo.",
+  "common_device_empty_desc": "Conecte o seleccione un dispositivo en la barra superior para administrarlo.",
   "home_saveWallpaper": "Descargar fondo de pantalla",
   "home_saveCapture": "Guardar captura",
   "home_capture": "Captura de pantalla",

@@ -12,7 +12,7 @@
 
   import MaterialIcon from "../components/MaterialIcon.svelte";
   import PowerDialog from "../components/dialogs/PowerDialog.svelte";
-  import deviceDb from "../assets/device-db.json";
+  import { getMarketingName } from "./workbench/utils";
 
   const formatMemory = (mb: number) =>
     mb <= 0 ? "-" : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
@@ -26,20 +26,7 @@
           : `${mb} MB`;
           
   const secondaryTitle = (details: DeviceDetails) => {
-    let marketingName = "";
-    if (details.brand && (deviceDb as any)[details.brand]) {
-      const name = (deviceDb as any)[details.brand][details.model];
-      if (name) marketingName = `${details.brand} ${name}`;
-    }
-    if (!marketingName) {
-      for (const [brand, models] of Object.entries(deviceDb)) {
-        const name = (models as any)[details.model];
-        if (name) {
-          marketingName = `${brand} ${name}`;
-          break;
-        }
-      }
-    }
+    const marketingName = getMarketingName(details.model, details.brand);
 
     return [marketingName || details.model, details.soc]
       .filter((value) => value && value !== "-")
@@ -47,7 +34,7 @@
   };
 
 
-  let timeNow = $state(new Date());
+  let timeNow = $state(import.meta.env.MODE === 'mock' ? new Date('2026-06-15T09:45:00') : new Date());
   let capturing = $state(false);
   let savingScreenshot = $state(false);
   let powerOpen = $state(false);
@@ -141,6 +128,7 @@
 
   $effect(() => {
     if (!devicesState.wallpaperImage || devicesState.screenshot) return;
+    if (import.meta.env.MODE === 'mock') return;
 
     const clockInterval = window.setInterval(() => {
       timeNow = new Date();
@@ -151,7 +139,7 @@
 
   let bootDate = $derived.by(() => {
     if (dd && dd.uptime_seconds >= 0) {
-      const date = new Date(Date.now() - dd.uptime_seconds * 1000);
+      const date = new Date(timeNow.getTime() - dd.uptime_seconds * 1000);
       return {
         short: date
           .toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })

@@ -24,7 +24,7 @@
   "common_copy": "Copy value",
   "common_cannotUndo": "This action cannot be undone",
   "common_device_empty_title": "No device connected",
-  "common_device_empty_desc": "Select a device from the top bar to manage it.",
+  "common_device_empty_desc": "Connect or select a device in the top bar to manage it.",
   "home_saveWallpaper": "Download wallpaper",
   "home_saveCapture": "Save screenshot",
   "home_capture": "Screenshot",

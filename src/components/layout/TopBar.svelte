@@ -90,6 +90,7 @@ import * as m from '../../paraglide/messages';
     <DeviceSelector 
       devices={devicesState.devices} 
       selectedDevice={devicesState.selectedDevice} 
+      deviceDetails={devicesState.deviceDetails}
       loading={devicesState.loading} 
       loadingLabel={m.common_loading()} 
       emptyLabel={m.common_device_empty_title()} 

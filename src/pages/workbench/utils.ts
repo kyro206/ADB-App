@@ -1,4 +1,18 @@
 import * as m from '../../paraglide/messages';
+import deviceDb from '../../assets/device-db.json';
+
+export function getMarketingName(model: string, brand?: string): string {
+  if (!model) return '';
+  if (brand && (deviceDb as any)[brand]) {
+    const name = (deviceDb as any)[brand][model];
+    if (name) return `${brand} ${name}`;
+  }
+  for (const [dbBrand, models] of Object.entries(deviceDb)) {
+    const name = (models as any)[model];
+    if (name) return `${dbBrand} ${name}`;
+  }
+  return '';
+}
 
 export const words = (value: string) =>
   value.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(part => part.replace(/^"|"$/g, '')) ?? [];
