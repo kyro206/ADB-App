@@ -52,12 +52,11 @@ import * as m from '../paraglide/messages';
     }
   }
 
-  async function applySystemAction(args: string[], success: string) {
+  async function applySystemAction(args: string[]) {
     if (!serial) return status = m.control_error_noDevice();
     systemLoading = true;
     try {
       await invoke<string>('run_device_action', { serial, args });
-      status = success;
       await refreshSystemState();
     } catch (error) {
       status = String(error);
@@ -69,13 +68,13 @@ import * as m from '../paraglide/messages';
   async function createSystemUser() {
     const name = newSystemUser.trim();
     if (!name) return status = m.system_error_noUserName();
-    await applySystemAction(['shell', 'pm', 'create-user', name], m.system_status_userCreated({ name }));
+    await applySystemAction(['shell', 'pm', 'create-user', name]);
     newSystemUser = '';
   }
 
   async function removeSystemUser() {
     if (!userToDelete) return;
-    await applySystemAction(['shell', 'pm', 'remove-user', userToDelete], m.system_status_userRemoved({ name: userToDelete }));
+    await applySystemAction(['shell', 'pm', 'remove-user', userToDelete]);
     userToDelete = null;
   }
 
@@ -93,17 +92,17 @@ import * as m from '../paraglide/messages';
       id: 'captive_portal',
       title: m.system_advanced_captivePortal(),
       description: m.system_advanced_captivePortalDesc(),
-      isRecommended: (type) => type === 'watch',
+      isRecommended: (type?: string) => type === 'watch',
       value: systemState?.captive_portal_mode !== '0',
       onToggle: () => {
         const isCurrentlyDisabled = systemState?.captive_portal_mode === '0';
         const actionArgs = isCurrentlyDisabled 
           ? ['shell', 'settings', 'put', 'global', 'captive_portal_mode', '1'] 
           : ['shell', 'settings', 'put', 'global', 'captive_portal_mode', '0'];
-        applySystemAction(actionArgs, m.system_status_captivePortalUpdated());
+        applySystemAction(actionArgs);
       },
       onReset: () => {
-        applySystemAction(['shell', 'settings', 'delete', 'global', 'captive_portal_mode'], m.system_status_captivePortalUpdated());
+        applySystemAction(['shell', 'settings', 'delete', 'global', 'captive_portal_mode']);
       }
     }
   ].sort((a, b) => {
@@ -133,7 +132,7 @@ import * as m from '../paraglide/messages';
           <div 
             class="md-system-list-item {isCurrent ? 'selected' : ''}"
             style="cursor: {isCurrent ? 'default' : 'pointer'}"
-            onclick={() => !isCurrent && applySystemAction(['shell', 'am', 'switch-user', String(user.id)], m.system_status_userSwitched({ id: String(user.id) }))}
+            onclick={() => !isCurrent && applySystemAction(['shell', 'am', 'switch-user', String(user.id)])}
           >
             <MaterialIcon name="person" size={20} />
             <div class="md-item-content">
@@ -193,8 +192,7 @@ import * as m from '../paraglide/messages';
         <md-switch 
           selected={systemState?.app_languages_enabled ?? false}
           onclick={() => applySystemAction(
-            ['shell', 'settings', 'put', 'global', 'settings_app_locale_opt_in_enabled', systemState?.app_languages_enabled ? '0' : '1'], 
-            m.system_status_langUpdated()
+            ['shell', 'settings', 'put', 'global', 'settings_app_locale_opt_in_enabled', systemState?.app_languages_enabled ? '0' : '1']
           )}
         ></md-switch>
       </div>
@@ -207,8 +205,7 @@ import * as m from '../paraglide/messages';
         <md-switch 
           selected={systemState?.gestural_navigation ?? false}
           onclick={() => applySystemAction(
-            ['shell', 'cmd', 'overlay', systemState?.gestural_navigation ? 'disable' : 'enable', 'com.android.internal.systemui.navbar.gestural'], 
-            m.system_status_navUpdated()
+            ['shell', 'cmd', 'overlay', systemState?.gestural_navigation ? 'disable' : 'enable', 'com.android.internal.systemui.navbar.gestural']
           )}
         ></md-switch>
       </div>
@@ -260,8 +257,7 @@ import * as m from '../paraglide/messages';
       <md-filled-tonal-button 
         disabled={!selectedKeyboardInfo || systemLoading ? true : undefined} 
         onclick={() => selectedKeyboardInfo && applySystemAction(
-          ['shell', 'ime', selectedKeyboardInfo.enabled ? 'disable' : 'enable', selectedKeyboardInfo.id], 
-          selectedKeyboardInfo.enabled ? m.system_status_imeDisabled() : m.system_status_imeEnabled()
+          ['shell', 'ime', selectedKeyboardInfo.enabled ? 'disable' : 'enable', selectedKeyboardInfo.id]
         )}
       >
         <MaterialIcon slot="icon" name={selectedKeyboardInfo?.enabled ? 'block' : 'check_circle'} />
@@ -272,8 +268,8 @@ import * as m from '../paraglide/messages';
         disabled={!selectedKeyboardInfo || systemState?.current_keyboard_id === selectedKeyboard || systemLoading ? true : undefined} 
         onclick={async () => {
           if (selectedKeyboardInfo) {
-            await applySystemAction(['shell', 'ime', 'enable', selectedKeyboardInfo.id], m.system_status_imeEnabled()); 
-            await applySystemAction(['shell', 'settings', 'put', 'secure', 'default_input_method', selectedKeyboardInfo.id], m.system_status_imeDefaultUpdated());
+            await applySystemAction(['shell', 'ime', 'enable', selectedKeyboardInfo.id]); 
+            await applySystemAction(['shell', 'settings', 'put', 'secure', 'default_input_method', selectedKeyboardInfo.id]);
           }
         }}
       >

@@ -20,7 +20,6 @@
     AppSummary,
     AppDetailsInfo,
     AppPermissionInfo,
-    AppFilter,
     StorageSizes,
   } from "./workbench/types";
   import { devicesState } from "../context/devices.svelte";
@@ -190,10 +189,6 @@
         packageName,
       });
       const summary = apps.find((app) => app.package_name === packageName);
-
-      const hasRequestInstall = value.permissions.some(
-        (p) => p.name === "android.permission.REQUEST_INSTALL_PACKAGES",
-      );
 
       appDetails =
         appDetails?.package_name === packageName

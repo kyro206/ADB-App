@@ -26,7 +26,9 @@ pub fn run() {
             });
 
             let temp_dir = crate::app_paths::cache_dir().join("temp_downloads");
-            let _ = std::fs::remove_dir_all(temp_dir);
+            tauri::async_runtime::spawn(async move {
+                let _ = std::fs::remove_dir_all(temp_dir);
+            });
 
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {

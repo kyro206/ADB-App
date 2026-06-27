@@ -63,7 +63,6 @@ pub(crate) fn managed_dir(tool: &str) -> PathBuf {
     crate::app_paths::data_dir()
         .join("tools")
         .join(tool)
-        .join("managed")
 }
 
 pub(crate) fn executable_name(tool: &str) -> String {
