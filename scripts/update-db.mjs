@@ -28,7 +28,12 @@ async function main() {
   const debloatPath = path.resolve(__dirname, '../src/assets/debloat-data.json');
   if (!fs.existsSync(debloatPath)) {
     console.log("Downloading debloat lists...");
-    const map = {};
+    const map = {
+      "delete": {},
+      "replace": {},
+      "caution": {},
+      "unsafe": {}
+    };
 
     for (const file of DEBLOAT_LISTS) {
       const res = await fetch(`${BASE_URL}${file}`);
@@ -36,18 +41,21 @@ async function main() {
       const items = await res.json();
       for (const item of items) {
         if (!item.id || !item.removal) continue;
-        const removalLevel = REMOVAL_MAP[item.removal];
-        if (removalLevel === undefined) continue;
         
-        const tuple = [removalLevel, item.description || ""];
+        const category = item.removal;
+        if (!map[category]) continue;
+        
+        const details = [item.description || ""];
         if (item.warning) {
-          tuple.push(item.warning);
+          details.push(item.warning);
         }
-        map[item.id] = tuple;
+        
+        map[category][item.id] = details.length === 1 ? details[0] : details;
       }
     }
 
     fs.mkdirSync(path.dirname(debloatPath), { recursive: true });
+    // Usamos JSON.stringify con minificación
     fs.writeFileSync(debloatPath, JSON.stringify(map));
     console.log(`Successfully compiled debloat list to src/assets/debloat-data.json`);
   } else {

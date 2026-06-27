@@ -1737,38 +1737,34 @@ pub async fn list_apps(
     if legacy_details.exists() {
         let _ = fs::remove_dir_all(legacy_details);
     }
-    let (result, system, disabled) = tokio::join!(
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-f", "-u"]),
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-s"]),
-        adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-d"])
-    );
-
-    let installed_result = adb::run_adb_for_serial(&serial, &["shell", "pm", "list", "packages", "-f"]).await?;
-
-    let result = result?;
-    let system = system?;
-    let disabled = disabled?;
-
-    if !result.ok() {
-        return Err(result.output);
+    
+    let script = "pm list packages -f -u; echo '---ADBAPPSEP---'; pm list packages -s; echo '---ADBAPPSEP---'; pm list packages -d; echo '---ADBAPPSEP---'; pm list packages -f || true";
+    let script_result = adb::run_adb_for_serial(&serial, &["shell", script]).await?;
+    
+    if !script_result.ok() {
+        return Err(script_result.output);
     }
-    let system_packages = package_set(&system.output);
-    let disabled_packages = package_set(&disabled.output);
+
+    let mut parts = script_result.output.split("---ADBAPPSEP---");
+    let result_out = parts.next().unwrap_or("").trim();
+    let system_out = parts.next().unwrap_or("").trim();
+    let disabled_out = parts.next().unwrap_or("").trim();
+    let installed_out = parts.next().unwrap_or("").trim();
+
+    let system_packages = package_set(system_out);
+    let disabled_packages = package_set(disabled_out);
     
     // Parse installed packages to figure out which ones are uninstalled
     let mut installed_packages = HashSet::new();
-    if installed_result.ok() {
-        for line in installed_result.output.lines() {
-            if let Some(value) = line.trim().strip_prefix("package:") {
-                if let Some((_, package_name)) = value.rsplit_once('=') {
-                    installed_packages.insert(package_name.to_string());
-                }
+    for line in installed_out.lines() {
+        if let Some(value) = line.trim().strip_prefix("package:") {
+            if let Some((_, package_name)) = value.rsplit_once('=') {
+                installed_packages.insert(package_name.to_string());
             }
         }
     }
 
-    let mut apps = result
-        .output
+    let mut apps = result_out
         .lines()
         .filter_map(|line| {
             let value = line.trim().strip_prefix("package:")?;
@@ -1824,11 +1820,14 @@ pub struct AppSummaryRequest {
 }
 
 #[derive(Deserialize)]
+#[allow(non_snake_case)]
 struct DaemonResponse {
     package: Option<String>,
     label: Option<String>,
     icon: Option<String>,
     error: Option<String>,
+    dataSize: Option<i64>,
+    cacheSize: Option<i64>,
 }
 
 static PUSHED_DAEMONS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
@@ -2136,17 +2135,22 @@ pub async fn get_app_details(
     package_name: String,
 ) -> Result<AppDetailsInfo, String> {
     let script = format!(
-        "dumpsys package '{pkg}'; \
+        "PKG='{pkg}'; \
+         dumpsys package \"$PKG\"; \
          echo '---ADBAPPSEP---'; \
-         pm path '{pkg}'; \
+         pm path \"$PKG\"; \
          echo '---ADBAPPSEP---'; \
-         pm list packages -s '{pkg}'; \
+         pm list packages -s \"$PKG\"; \
          echo '---ADBAPPSEP---'; \
-         pm list packages -d '{pkg}'; \
+         pm list packages -d \"$PKG\"; \
          echo '---ADBAPPSEP---'; \
-         cmd appops get '{pkg}'; \
+         cmd appops get \"$PKG\"; \
          echo '---ADBAPPSEP---'; \
-         pm list permissions -g -d",
+         pm list permissions -g -d; \
+         echo '---ADBAPPSEP---'; \
+         APK=$(pm path \"$PKG\" | sed 's/package://' | head -n 1); \
+         if [ -z \"$APK\" ]; then APK=\"/dev/null\"; fi; \
+         du -sk \"$APK\" 2>/dev/null || true",
         pkg = package_name
     );
 
@@ -2162,6 +2166,7 @@ pub async fn get_app_details(
     let disabled_out = parts.next().unwrap_or("").trim();
     let appops_out = parts.next().unwrap_or("").trim();
     let changeable_permissions = parse_changeable_permissions(parts.next().unwrap_or(""));
+    let du_out = parts.next().unwrap_or("").trim();
 
     let apk_paths: Vec<String> = paths_out
         .lines()
@@ -2177,44 +2182,24 @@ pub async fn get_app_details(
     let data_dir = dump_value(&dump_out, "dataDir");
 
     let safe_apk = if apk_path.is_empty() || apk_path == "-" { "/dev/null".to_string() } else { apk_path.clone() };
-    let safe_data = if data_dir.is_empty() || data_dir == "-" { "/dev/null".to_string() } else { data_dir.clone() };
-    let safe_cache = if data_dir.is_empty() || data_dir == "-" { "/dev/null".to_string() } else { format!("{}/cache", data_dir) };
 
-    let du_script = format!(
-        "du -sk '{}' '{}' '{}' 2>/dev/null", safe_apk, safe_data, safe_cache
-    );
-    let du_result = adb::run_adb_for_serial(&serial, &["shell", &du_script]).await?;
-    
     let mut code_size_bytes: i64 = -1;
-    let mut total_data_bytes: i64 = -1;
-    let mut cache_size_bytes: i64 = -1;
 
-    if du_result.ok() {
-        for line in du_result.output.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                let kb = parts[0].parse::<i64>().ok().unwrap_or(-1);
-                let bytes = if kb >= 0 { kb * 1024 } else { -1 };
-                let path = parts[1..].join(" ");
-                if path == safe_apk {
-                    code_size_bytes = bytes;
-                } else if path == safe_data {
-                    total_data_bytes = bytes;
-                } else if path == safe_cache {
-                    cache_size_bytes = bytes;
-                }
+    for line in du_out.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let kb = parts[0].parse::<i64>().ok().unwrap_or(-1);
+            let bytes = if kb >= 0 { kb * 1024 } else { -1 };
+            let path = parts[1..].join(" ");
+            if path == safe_apk {
+                code_size_bytes = bytes;
             }
         }
     }
     if safe_apk == "/dev/null" { code_size_bytes = -1; }
-    if safe_data == "/dev/null" { total_data_bytes = -1; }
-    if safe_cache == "/dev/null" { cache_size_bytes = -1; }
 
-    let data_size_bytes = if total_data_bytes >= 0 {
-        (total_data_bytes - cache_size_bytes.max(0)).max(0)
-    } else {
-        -1
-    };
+    let data_size_bytes = -1; // This is now loaded asynchronously via Java daemon
+    let cache_size_bytes = -1; // This is now loaded asynchronously via Java daemon
     let background_mode = if appops_out.contains("RUN_ANY_IN_BACKGROUND: allow") {
         "unrestricted"
     } else if appops_out.contains("RUN_ANY_IN_BACKGROUND: ignore")
@@ -2224,6 +2209,20 @@ pub async fn get_app_details(
     } else {
         "optimized"
     };
+
+    let mut permissions = parse_permissions(&dump_out, &changeable_permissions);
+    
+    // REQUEST_INSTALL_PACKAGES is an appop, but listed in manifest permissions.
+    // If it exists in the manifest, we must mark it as changeable.
+    if let Some(p) = permissions.iter_mut().find(|p| p.name == "android.permission.REQUEST_INSTALL_PACKAGES") {
+        p.changeable = true;
+        if let Some(pos) = appops_out.find("REQUEST_INSTALL_PACKAGES: ") {
+            let after = &appops_out[pos + "REQUEST_INSTALL_PACKAGES: ".len()..];
+            p.granted = after.starts_with("allow");
+        } else {
+            p.granted = false;
+        }
+    }
 
     Ok(AppDetailsInfo {
         package_name: package_name.clone(),
@@ -2242,7 +2241,7 @@ pub async fn get_app_details(
         data_size_bytes,
         cache_size_bytes,
         background_mode: background_mode.to_string(),
-        permissions: parse_permissions(&dump_out, &changeable_permissions),
+        permissions,
         icon_data_url: String::new(),
         install_date: dump_date_value(&dump_out, "firstInstallTime"),
         update_date: dump_date_value(&dump_out, "lastUpdateTime"),
@@ -2834,4 +2833,66 @@ pub async fn open_store_review(app: tauri::AppHandle) -> Result<(), String> {
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+pub struct StorageSizes {
+    pub data_size_bytes: i64,
+    pub cache_size_bytes: i64,
+}
+
+#[tauri::command]
+pub async fn get_app_storage_sizes(
+    app: tauri::AppHandle,
+    serial: String,
+    package_name: String,
+) -> Result<StorageSizes, String> {
+    if crate::mock::enabled() {
+        return Ok(StorageSizes { data_size_bytes: -1, cache_size_bytes: -1 });
+    }
+
+    push_daemons_if_needed(&app, &serial).await?;
+
+    let version = env!("CARGO_PKG_VERSION");
+    let jar_name = format!("info_apps_{}.jar", version);
+    let daemon_device_path = format!("/data/local/tmp/{}", jar_name);
+
+    let result = adb::run_adb_for_serial(
+        &serial,
+        &[
+            "shell",
+            &format!(
+                "CLASSPATH={} app_process / com.kyro.adbapp.extractapktool.GetSizes {}",
+                daemon_device_path, package_name
+            ),
+        ],
+    )
+    .await?;
+
+    if !result.ok() {
+        return Err(format!("Daemon execution failed: {}", result.output));
+    }
+
+    let daemon_output = result.output.trim();
+    let json_start = daemon_output.find('[').unwrap_or(0);
+    let json_end = daemon_output.rfind(']').unwrap_or_else(|| daemon_output.len().saturating_sub(1));
+    
+    let clean_json = if json_start <= json_end && json_end < daemon_output.len() {
+        &daemon_output[json_start..=json_end]
+    } else {
+        daemon_output
+    };
+
+    let parsed_responses: Vec<DaemonResponse> = serde_json::from_str(clean_json).unwrap_or_else(|_| {
+        Vec::new()
+    });
+
+    if let Some(resp) = parsed_responses.first() {
+        Ok(StorageSizes {
+            data_size_bytes: resp.dataSize.unwrap_or(-1),
+            cache_size_bytes: resp.cacheSize.unwrap_or(-1),
+        })
+    } else {
+        Ok(StorageSizes { data_size_bytes: -1, cache_size_bytes: -1 })
+    }
 }

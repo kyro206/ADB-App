@@ -20,11 +20,11 @@
     AppSummary,
     AppDetailsInfo,
     AppPermissionInfo,
+    AppFilter,
+    StorageSizes,
   } from "./workbench/types";
   import { devicesState } from "../context/devices.svelte";
   import { operationsState } from "../context/operations.svelte";
-  import DestructiveActionDialog from "../components/dialogs/DestructiveActionDialog.svelte";
-  import InstallationDialog from "../components/dialogs/InstallationDialog.svelte";
   import MaterialIcon from "../components/MaterialIcon.svelte";
   import { materialTextFieldValue } from "../actions/materialTextFieldValue";
   import { appTone, formatBytes, translateError } from "./workbench/utils";
@@ -106,7 +106,7 @@
       result = result.filter((app) => {
         if (!app.system_app || app.disabled || app.uninstalled) return false;
         const info = getDebloatInfo(app.package_name);
-        return info && (info.removal === "delete" || info.removal === "replace" || info.removal === "caution");
+        return info !== undefined;
       });
     }
     if (appFilter) {
@@ -194,31 +194,6 @@
       const hasRequestInstall = value.permissions.some(
         (p) => p.name === "android.permission.REQUEST_INSTALL_PACKAGES",
       );
-      if (hasRequestInstall) {
-        try {
-          const appOpsResult = await runQuiet([
-            "shell",
-            "appops",
-            "get",
-            packageName,
-            "REQUEST_INSTALL_PACKAGES",
-          ]);
-          const isGranted = appOpsResult
-            ? appOpsResult.toLowerCase().includes("allow")
-            : false;
-          value.permissions = value.permissions.map((p) =>
-            p.name === "android.permission.REQUEST_INSTALL_PACKAGES"
-              ? { ...p, changeable: true, granted: isGranted }
-              : p,
-          );
-        } catch (e) {
-          value.permissions = value.permissions.map((p) =>
-            p.name === "android.permission.REQUEST_INSTALL_PACKAGES"
-              ? { ...p, changeable: true }
-              : p,
-          );
-        }
-      }
 
       appDetails =
         appDetails?.package_name === packageName
@@ -247,6 +222,18 @@
             }
           : app,
       );
+
+      invoke<StorageSizes>("get_app_storage_sizes", { serial, packageName })
+        .then((sizes) => {
+          if (appDetails?.package_name === packageName) {
+            appDetails = {
+              ...appDetails,
+              data_size_bytes: sizes.data_size_bytes,
+              cache_size_bytes: sizes.cache_size_bytes,
+            };
+          }
+        })
+        .catch(() => {});
     } catch (error) {
       status = String(error);
     } finally {
@@ -462,21 +449,7 @@
           : ["default", "default"];
     await runQuiet([
       "shell",
-      "cmd",
-      "appops",
-      "set",
-      selectedPackage,
-      "RUN_ANY_IN_BACKGROUND",
-      values[0],
-    ]);
-    await runQuiet([
-      "shell",
-      "cmd",
-      "appops",
-      "set",
-      selectedPackage,
-      "RUN_IN_BACKGROUND",
-      values[1],
+      `cmd appops set ${selectedPackage} RUN_ANY_IN_BACKGROUND ${values[0]} ; cmd appops set ${selectedPackage} RUN_IN_BACKGROUND ${values[1]}`,
     ]);
     await refreshAppDetails();
   }
@@ -577,17 +550,17 @@
     }
   }
 
-  async function clearApplicationCache() {
+  async function openAppInfo() {
     if (!selectedPackage) return;
     await runQuiet([
       "shell",
-      "run-as",
-      selectedPackage,
-      "sh",
-      "-c",
-      "rm -rf cache/* code_cache/* 2>/dev/null || true",
+      "am",
+      "start",
+      "-a",
+      "android.settings.APPLICATION_DETAILS_SETTINGS",
+      "-d",
+      `package:${selectedPackage}`,
     ]);
-    await refreshAppDetails();
   }
 
   async function performDestructiveAppAction() {
@@ -1046,9 +1019,9 @@
                   ? m.apps_action_enable()
                   : m.apps_action_disable()}
               </md-filled-tonal-button>
-              <md-filled-tonal-button onclick={clearApplicationCache}>
-                <MaterialIcon slot="icon" name="cleaning_services" />
-                {m.common_clearCache()}
+              <md-filled-tonal-button onclick={openAppInfo}>
+                <MaterialIcon slot="icon" name="info" />
+                {m.apps_action_appInfo()}
               </md-filled-tonal-button>
               <md-outlined-button
                 onclick={() => (destructiveAction = "clear-data")}
@@ -1175,6 +1148,10 @@
                 <dt>{m.apps_info_apkPath()}</dt>
                 <dd>{appDetails.apk_path}</dd>
               </div>
+              <div class="wide">
+                <dt>{m.apps_info_dataPath()}</dt>
+                <dd>{appDetails.data_dir}</dd>
+              </div>
             </dl>
           </section>
 
@@ -1233,40 +1210,44 @@
     </aside>
   </div>
 
-  <DestructiveActionDialog
-    action={destructiveAction}
-    appName={appDetails?.display_name || selectedPackage}
-    packageName={selectedPackage}
-    iconDataUrl={appDetails?.icon_data_url || ""}
-    busy={destructiveBusy}
-    onClose={() => (destructiveAction = null)}
-    onConfirm={performDestructiveAppAction}
-  />
+  {#await import("../components/dialogs/DestructiveActionDialog.svelte") then { default: DestructiveActionDialog }}
+    <DestructiveActionDialog
+      action={destructiveAction}
+      appName={appDetails?.display_name || selectedPackage}
+      packageName={selectedPackage}
+      iconDataUrl={appDetails?.icon_data_url || ""}
+      busy={destructiveBusy}
+      onClose={() => (destructiveAction = null)}
+      onConfirm={performDestructiveAppAction}
+    />
+  {/await}
 
-  <InstallationDialog
-    open={installOpen}
-    files={installFiles}
-    options={{
-      replace: installReplace,
-      grant: installGrant,
-      test: installTest,
-      bypass: installBypass,
-    }}
-    canInstall={Boolean(serial && installFiles.length)}
-    onClose={() => (installOpen = false)}
-    onChooseFiles={chooseInstallFiles}
-    onRemoveFile={(file) => {
-      installFiles = installFiles.filter((value) => value !== file);
-    }}
-    onOptionChange={(option, value) => {
-      if (option === "replace") installReplace = value;
-      else if (option === "grant") installGrant = value;
-      else if (option === "test") installTest = value;
-      else if (option === "bypass") installBypass = value;
-    }}
-    onInstall={installSelectedApps}
-    {javaAvailable}
-  />
+  {#await import("../components/dialogs/InstallationDialog.svelte") then { default: InstallationDialog }}
+    <InstallationDialog
+      open={installOpen}
+      files={installFiles}
+      options={{
+        replace: installReplace,
+        grant: installGrant,
+        test: installTest,
+        bypass: installBypass,
+      }}
+      canInstall={Boolean(serial && installFiles.length)}
+      onClose={() => (installOpen = false)}
+      onChooseFiles={chooseInstallFiles}
+      onRemoveFile={(file) => {
+        installFiles = installFiles.filter((value) => value !== file);
+      }}
+      onOptionChange={(option, value) => {
+        if (option === "replace") installReplace = value;
+        else if (option === "grant") installGrant = value;
+        else if (option === "test") installTest = value;
+        else if (option === "bypass") installBypass = value;
+      }}
+      onInstall={installSelectedApps}
+      {javaAvailable}
+    />
+  {/await}
 </div>
 
 <style>

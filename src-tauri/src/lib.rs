@@ -158,6 +158,7 @@ pub fn run() {
             operations::reinstall_app,
             operations::get_app_settings,
             operations::save_app_settings,
+            operations::get_app_storage_sizes,
             operations::close_app,
             operations::get_default_cache_dir,
             operations::list_directory,

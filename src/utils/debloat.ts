@@ -11,14 +11,17 @@ export interface DebloatInfo {
 const REMOVAL_MAP = ["delete", "replace", "caution", "unsafe"] as const;
 
 export function getDebloatInfo(packageName: string): DebloatInfo | undefined {
-  // @ts-ignore: debloatData is a dictionary mapping strings to tuples
-  const item = debloatData[packageName];
-  if (!item) return undefined;
-  
-  return {
-    id: packageName,
-    removal: REMOVAL_MAP[item[0]],
-    description: item[1] || "",
-    warning: item[2]
-  };
+  for (const removal of REMOVAL_MAP) {
+    // @ts-ignore
+    const item = debloatData[removal]?.[packageName];
+    if (item) {
+      return {
+        id: packageName,
+        removal: removal,
+        description: typeof item === "string" ? item : item[0],
+        warning: typeof item === "string" ? undefined : item[1]
+      };
+    }
+  }
+  return undefined;
 }
