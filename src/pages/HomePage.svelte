@@ -4,12 +4,10 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen, emit } from "@tauri-apps/api/event";
-  import { save, open } from "@tauri-apps/plugin-dialog";
-  import { getName } from "@tauri-apps/api/app";
+  import { save } from "@tauri-apps/plugin-dialog";
   import { devicesState, type DeviceDetails } from "../context/devices.svelte";
   import { i18n } from "../context/i18n.svelte";
   import { themeState } from "../context/theme.svelte";
-
   import MaterialIcon from "../components/MaterialIcon.svelte";
   import PowerDialog from "../components/dialogs/PowerDialog.svelte";
   import { getMarketingName } from "./workbench/utils";
@@ -37,6 +35,7 @@
   let timeNow = $state(import.meta.env.MODE === 'mock' ? new Date('2026-06-15T09:45:00') : new Date());
   let capturing = $state(false);
   let savingScreenshot = $state(false);
+  let autoSavedScreenshotPath = $state<string | null>(null);
   let powerOpen = $state(false);
   let powerBusy = $state(false);
   let shizukuStatus = $state<"idle" | "busy" | "success" | "error">("idle");
@@ -252,8 +251,24 @@
     if (!selectedDevice || selectedState !== "device") return;
     capturing = true;
     actionError = null;
+    autoSavedScreenshotPath = null;
     try {
-      devicesState.screenshot = `data:image/png;base64,${await invoke<string>("capture_screenshot", { serial: selectedDevice.serial })}`;
+      const base64 = await invoke<string>("capture_screenshot", { serial: selectedDevice.serial });
+      devicesState.screenshot = `data:image/png;base64,${base64}`;
+
+      const settings = await invoke<any>("get_app_settings");
+      if (settings?.auto_save_screenshots) {
+        try {
+          const deviceNameRaw = devicesState.homeIdentity?.deviceName || selectedDevice.device || selectedDevice.model || "Unknown";
+          const savedPath = await invoke<string>("save_screenshot_auto", {
+            deviceName: deviceNameRaw,
+            pngBase64: base64,
+          });
+          autoSavedScreenshotPath = savedPath;
+        } catch (saveErr) {
+          console.error("Auto-save failed", saveErr);
+        }
+      }
     } catch (e) {
       actionError = String(e);
     } finally {
@@ -265,7 +280,7 @@
     if (!devicesState.screenshot || !selectedDevice || savingScreenshot) return;
     const destination = await save({
       title: m.home_saveCapture(),
-      defaultPath: `adb-captura-${new Date().toISOString().replace(/[:.]/g, "-")}.png`,
+      defaultPath: `${new Date().toISOString().replace(/[:.]/g, "-")}.png`,
       filters: [{ name: "Imagen PNG", extensions: ["png"] }],
     });
     if (!destination) return;
@@ -630,29 +645,67 @@
 
           <div class="home-screenshot-review">
             <md-text-button
-              onclick={() => (devicesState.screenshot = null)}
+              onclick={() => {
+                devicesState.screenshot = null;
+                autoSavedScreenshotPath = null;
+              }}
               disabled={savingScreenshot ? true : undefined}
+              title={m.common_cancel()}
             >
               <span slot="icon"><MaterialIcon name="close" size={18} /></span>
-              {m.common_cancel()}
-            </md-text-button>
-            <md-filled-button
-              onclick={saveScreenshotData}
-              disabled={savingScreenshot ? true : undefined}
-            >
-              <span slot="icon">
-                {#if savingScreenshot}
-                  <MaterialIcon name="sync" class="home-spin" size={18} />
-                {:else}
-                  <MaterialIcon name="save" size={18} />
-                {/if}
-              </span>
-              {#if savingScreenshot}
-                {m.common_processing()}
-              {:else}
-                {m.home_saveCapture()}
+              {#if !autoSavedScreenshotPath}
+                {m.common_cancel()}
               {/if}
-            </md-filled-button>
+            </md-text-button>
+
+            {#if autoSavedScreenshotPath}
+              <md-text-button
+                onclick={async () => {
+                  try {
+                    await invoke("delete_screenshot_auto", { path: autoSavedScreenshotPath! });
+                    devicesState.screenshot = null;
+                    autoSavedScreenshotPath = null;
+                  } catch (e) {
+                    actionError = String(e);
+                  }
+                }}
+                disabled={savingScreenshot ? true : undefined}
+              >
+                <span slot="icon"><MaterialIcon name="delete" size={18} /></span>
+                {m.common_erase ? m.common_erase() : 'Borrar'}
+              </md-text-button>
+              <md-filled-button
+                onclick={async () => {
+                  try {
+                    await invoke("open_screenshot_auto", { path: autoSavedScreenshotPath! });
+                  } catch (e) {
+                    actionError = String(e);
+                  }
+                }}
+                disabled={savingScreenshot ? true : undefined}
+              >
+                <span slot="icon"><MaterialIcon name="open_in_new" size={18} /></span>
+                {m.common_open ? m.common_open() : 'Abrir'}
+              </md-filled-button>
+            {:else}
+              <md-filled-button
+                onclick={saveScreenshotData}
+                disabled={savingScreenshot ? true : undefined}
+              >
+                <span slot="icon">
+                  {#if savingScreenshot}
+                    <MaterialIcon name="sync" class="home-spin" size={18} />
+                  {:else}
+                    <MaterialIcon name="save" size={18} />
+                  {/if}
+                </span>
+                {#if savingScreenshot}
+                  {m.common_processing()}
+                {:else}
+                  {m.home_saveCapture()}
+                {/if}
+              </md-filled-button>
+            {/if}
           </div>
         </div>
       {:else if devicesState.wallpaperImage}

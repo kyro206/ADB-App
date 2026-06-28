@@ -16,7 +16,7 @@
 </p>
 
 <div align="center">
-  <img src="screenshot.webp" alt="ADB App Screenshot" width="800" style="border-radius: 12px;">
+  <img src="screenshot.webp" alt="ADB App Screenshot" width="100%" style="border-radius: 12px;">
 </div>
 
 ## About

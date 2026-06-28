@@ -50,8 +50,8 @@ import * as m from '../paraglide/messages';
     onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
     onInstallTool: (tool: InstallableTool) => void;
     onClearCache: () => void;
-    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean } | null;
-    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean }) => void;
+    appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; auto_save_screenshots: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean } | null;
+    onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; auto_save_screenshots: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean }) => void;
     defaultCacheDir: string;
   }>();
 
@@ -184,6 +184,18 @@ import * as m from '../paraglide/messages';
           onchange={(e: any) => {
             if (appSettings) {
               onSaveAppSettings({ ...appSettings, kill_adb_on_exit: e.target.selected });
+            }
+          }}
+        ></md-switch>
+      </label>
+
+      <label class="settings-switch-row" style="width: 100%; box-sizing: border-box;">
+        <span class="md3-body-large">{m.settings_autoSaveScreenshot()}</span>
+        <md-switch 
+          selected={appSettings?.auto_save_screenshots ?? false}
+          onchange={(e: any) => {
+            if (appSettings) {
+              onSaveAppSettings({ ...appSettings, auto_save_screenshots: e.target.selected });
             }
           }}
         ></md-switch>
