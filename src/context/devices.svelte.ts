@@ -127,15 +127,21 @@ class DeviceState {
       let samePhysicalDevice = false;
       if (!targetDevice && previousSerial && previous) {
         targetDevice = deviceList.find(device => device.serial === previousSerial) ?? null;
-        if (!targetDevice && this.#isWireless(previous.serial)) {
-          const onlineDevices = deviceList.filter(device => device.state === 'device');
-          const matchingDevices = onlineDevices.filter(device => this.#sameDeviceIdentity(previous, device));
-          targetDevice = matchingDevices.length === 1
-            ? matchingDevices[0]
-            : onlineDevices.length === 1 ? onlineDevices[0] : null;
-          samePhysicalDevice = !!targetDevice;
+        if (!targetDevice) {
+          if (this.#isWireless(previous.serial)) {
+            const onlineDevices = deviceList.filter(device => device.state === 'device');
+            const matchingDevices = onlineDevices.filter(device => this.#sameDeviceIdentity(previous, device));
+            targetDevice = matchingDevices.length === 1
+              ? matchingDevices[0]
+              : null;
+            samePhysicalDevice = !!targetDevice;
+            targetDevice ??= { ...previous, state: 'offline' };
+          } else {
+            if (deviceList.length === 0) {
+              targetDevice = { ...previous, state: 'offline' };
+            }
+          }
         }
-        targetDevice ??= { ...previous, state: 'offline' };
       }
       if (!targetDevice) {
         targetDevice = deviceList.find(device => device.state === 'device')
