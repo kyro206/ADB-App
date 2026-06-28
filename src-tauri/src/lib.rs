@@ -11,7 +11,8 @@ mod tools;
 use commands::devices;
 use commands::operations;
 use commands::screenshot;
-use tauri::Emitter;
+use commands::queue;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -39,6 +40,9 @@ pub fn run() {
                 let status = crate::tools::tools_status_with_updates().await;
                 let _ = tools_app.emit("tools-updates-checked", status);
             });
+            
+            app.manage(queue::JobQueueState::default());
+            queue::start_job_processor(app.handle().clone());
 
             let mut settings_value = serde_json::to_value(&settings).unwrap_or_default();
             if let Some(settings_object) = settings_value.as_object_mut() {
@@ -140,6 +144,11 @@ pub fn run() {
             screenshot::save_screenshot_auto,
             screenshot::delete_screenshot_auto,
             screenshot::open_screenshot_auto,
+            queue::enqueue_job,
+            queue::clear_completed_jobs,
+            queue::retry_job,
+            queue::remove_job,
+            queue::get_jobs,
             operations::run_device_action,
             operations::run_device_action_batch,
             operations::connect_wireless_device,

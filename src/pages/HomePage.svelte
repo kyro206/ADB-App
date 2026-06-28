@@ -5,6 +5,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { listen, emit } from "@tauri-apps/api/event";
   import { save } from "@tauri-apps/plugin-dialog";
+  import { getName } from "@tauri-apps/api/app";
   import { devicesState, type DeviceDetails } from "../context/devices.svelte";
   import { i18n } from "../context/i18n.svelte";
   import { themeState } from "../context/theme.svelte";
