@@ -92,7 +92,6 @@ pub struct WirelessQrPayload {
 pub struct AppInstallOptions {
     pub replace_existing: bool,
     pub grant_runtime_permissions: bool,
-    pub allow_test_packages: bool,
     pub bypass_low_target_sdk_block: bool,
 }
 
@@ -2064,13 +2063,9 @@ pub async fn install_application_packages(
                     });
                     if options.replace_existing {
                         args.push("-r".into());
-                        args.push("-d".into());
                     }
                     if options.grant_runtime_permissions {
                         args.push("-g".into());
-                    }
-                    if options.allow_test_packages {
-                        args.push("-t".into());
                     }
                     if options.bypass_low_target_sdk_block {
                         args.push("--bypass-low-target-sdk-block".into());

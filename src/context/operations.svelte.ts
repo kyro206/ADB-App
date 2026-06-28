@@ -106,20 +106,26 @@ class OperationsState {
       } else if (nextJob.type === 'download') {
         await invoke<string>('pull_file', { serial, remotePath: nextJob.source, localPath: nextJob.destination });
       } else if (nextJob.type === 'install') {
-        const args = ['install'];
-        // Parse options from destination string since we need to pass them through.
-        // Or we can just use source for install and assume arguments are passed in destination JSON string.
+        let installOptions = {
+          replace_existing: false,
+          grant_runtime_permissions: false,
+          bypass_low_target_sdk_block: false,
+        };
         if (nextJob.destination) {
           try {
             const options = JSON.parse(nextJob.destination);
-            if (options.replace) args.push('-r');
-            if (options.grant) args.push('-g');
-            if (options.test) args.push('-t');
-            if (options.bypass) args.push('--bypass-low-target-sdk-block');
+            installOptions = {
+              replace_existing: !!options.replace,
+              grant_runtime_permissions: !!options.grant,
+              bypass_low_target_sdk_block: !!options.bypass,
+            };
           } catch (e) {}
         }
-        args.push(nextJob.source);
-        await invoke<string>('run_device_action', { serial, args });
+        await invoke<string>('install_application_packages', {
+          serial,
+          files: [nextJob.source],
+          options: installOptions
+        });
       }
       
       const idx = this.jobs.findIndex(j => j.id === nextJob.id);

@@ -4,7 +4,6 @@ import * as m from '../../paraglide/messages';
   export type InstallOptions = {
     replace: boolean;
     grant: boolean;
-    test: boolean;
     bypass: boolean;
   };
 </script>
@@ -43,7 +42,6 @@ import * as m from '../../paraglide/messages';
   let optionDefinitions = $derived<Array<[keyof InstallOptions, string, string]>>([
     ['replace', m.install_option_replace(), m.install_option_replaceDesc()],
     ['grant', m.install_option_grant(), m.install_option_grantDesc()],
-    ['test', m.install_option_test(), m.install_option_testDesc()],
     ['bypass', m.install_option_bypass(), m.install_option_bypassDesc()],
   ]);
 

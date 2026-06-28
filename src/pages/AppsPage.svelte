@@ -67,9 +67,8 @@
   let installFiles = $state<string[]>([]);
 
   let installReplace = $state(true);
-  let installGrant = $state(true);
-  let installTest = $state(true);
-  let installBypass = $state(false);
+  let installGrant = $state(false);
+  let installBypass = $state(true);
   let filter = $state<"all" | "user" | "system" | "disabled" | "uninstalled" | "debloat">("user");
   let appFilter = $state("");
   let selectedPackage = $state("");
@@ -376,7 +375,6 @@
     const options = {
       replace: installReplace,
       grant: installGrant,
-      test: installTest,
       bypass: installBypass,
     };
 
@@ -1224,7 +1222,6 @@
       options={{
         replace: installReplace,
         grant: installGrant,
-        test: installTest,
         bypass: installBypass,
       }}
       canInstall={Boolean(serial && installFiles.length)}
@@ -1236,7 +1233,6 @@
       onOptionChange={(option, value) => {
         if (option === "replace") installReplace = value;
         else if (option === "grant") installGrant = value;
-        else if (option === "test") installTest = value;
         else if (option === "bypass") installBypass = value;
       }}
       onInstall={installSelectedApps}
