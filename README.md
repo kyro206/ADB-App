@@ -10,7 +10,7 @@
 
   <br />
   
-  <a href="https://apps.microsoft.com/detail/9N4VV2153B05?referrer=appbadge&mode=full" target="_blank"  rel="noopener noreferrer">
+  <a href="https://apps.microsoft.com/detail/9N4VV2153B05?referrer=appbadge&cid=github&mode=full" target="_blank"  rel="noopener noreferrer">
   	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
   </a>
 </p>
