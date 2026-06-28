@@ -48,7 +48,17 @@ name: Release ADB App
       build_microsoft_store:
         description: "Compilar Microsoft Store MSIX bundle x64 + ARM64. No compatible con pre-release"
         required: true
+        default: false
+        type: boolean
+      publish_to_partner_center:
+        description: "Subir automáticamente el MSIX bundle a Partner Center tras compilar Microsoft Store"
+        required: true
         default: true
+        type: boolean
+      store_replace_pending_submission:
+        description: "Eliminar una submission pendiente existente antes de crear la nueva"
+        required: true
+        default: false
         type: boolean
 
 permissions:
@@ -599,6 +609,255 @@ jobs:
           dest="ADB-App-MicrosoftStore-Version-x64-arm64.msixbundle"
           cp "$bundle" "$OUT/$dest"
           gh release upload "$TAG" "$OUT/$dest" --clobber
+
+      - name: Publicar MSIX bundle en Partner Center
+        if: ${{ inputs.publish_to_partner_center }}
+        uses: actions/github-script@v9
+        env:
+          STORE_CLIENT_ID: ${{ secrets.STORE_CLIENT_ID }}
+          STORE_TENANT_ID: ${{ secrets.STORE_TENANT_ID }}
+          STORE_CLIENT_SECRET: ${{ secrets.STORE_CLIENT_SECRET }}
+          STORE_PRODUCT_ID_SECRET: ${{ secrets.STORE_PRODUCT_ID }}
+          STORE_REPLACE_PENDING_SUBMISSION: ${{ inputs.store_replace_pending_submission }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { execFileSync } = require('child_process');
+
+            const clientId = process.env.STORE_CLIENT_ID?.trim();
+            const tenantId = process.env.STORE_TENANT_ID?.trim();
+            const clientSecret = process.env.STORE_CLIENT_SECRET?.trim();
+            const productIdSecret = process.env.STORE_PRODUCT_ID_SECRET?.trim();
+            const replacePending = process.env.STORE_REPLACE_PENDING_SUBMISSION === 'true';
+            const version = process.env.VERSION;
+
+            if (!clientId || !tenantId || !clientSecret) {
+              throw new Error('Faltan secrets de Partner Center. Configura STORE_CLIENT_ID, STORE_TENANT_ID y STORE_CLIENT_SECRET.');
+            }
+
+            const msixBundle = fs.readdirSync('store-assets')
+              .filter((name) => name.toLowerCase().endsWith('.msixbundle'))
+              .sort()[0];
+
+            if (!msixBundle) {
+              throw new Error('No se encontró ningún .msixbundle en store-assets.');
+            }
+
+            const msixPath = path.resolve('store-assets', msixBundle);
+            const uploadZipPath = path.resolve('store-assets', `partner-center-${version}.zip`);
+
+            core.info(`Preparando ZIP de subida para Partner Center: ${uploadZipPath}`);
+            if (fs.existsSync(uploadZipPath)) fs.rmSync(uploadZipPath, { force: true });
+
+            execFileSync('powershell.exe', [
+              '-NoProfile',
+              '-ExecutionPolicy',
+              'Bypass',
+              '-Command',
+              `$ErrorActionPreference = 'Stop'; Compress-Archive -LiteralPath '${msixPath.replace(/'/g, "''")}' -DestinationPath '${uploadZipPath.replace(/'/g, "''")}' -Force`,
+            ], { stdio: 'inherit' });
+
+            async function token() {
+              const params = new URLSearchParams();
+              params.set('grant_type', 'client_credentials');
+              params.set('client_id', clientId);
+              params.set('client_secret', clientSecret);
+              params.set('resource', 'https://manage.devcenter.microsoft.com');
+
+              const res = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' },
+                body: params,
+              });
+
+              const text = await res.text();
+              if (!res.ok) throw new Error(`No se pudo obtener token de Partner Center: HTTP ${res.status} ${res.statusText}\n${text}`);
+
+              const json = JSON.parse(text);
+              if (!json.access_token) throw new Error(`Respuesta de token sin access_token: ${text}`);
+              return json.access_token;
+            }
+
+            const accessToken = await token();
+            const base = 'https://manage.devcenter.microsoft.com/v1.0/my';
+
+            async function api(method, relativePath, body) {
+              const res = await fetch(`${base}${relativePath}`, {
+                method,
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: body === undefined ? undefined : JSON.stringify(body),
+              });
+
+              const text = await res.text();
+              if (!res.ok) {
+                throw new Error(`Partner Center API ${method} ${relativePath} falló: HTTP ${res.status} ${res.statusText}\n${text}`);
+              }
+
+              return text ? JSON.parse(text) : null;
+            }
+
+            function normalizeApps(response) {
+              if (Array.isArray(response)) return response;
+              if (Array.isArray(response?.value)) return response.value;
+              if (Array.isArray(response?.applications)) return response.applications;
+              return [];
+            }
+
+            async function resolveProductId() {
+              if (productIdSecret) return productIdSecret;
+
+              core.info('No se ha indicado store_product_id ni STORE_PRODUCT_ID. Intentando autodetectar la app en Partner Center...');
+              const apps = normalizeApps(await api('GET', '/applications'));
+
+              if (apps.length === 1) {
+                core.info(`Autodetectada única app de Partner Center: ${apps[0].primaryName || apps[0].id} (${apps[0].id})`);
+                return apps[0].id;
+              }
+
+              const exact = apps.find((app) => String(app.primaryName || '').toLowerCase() === 'adb app');
+              if (exact) {
+                core.info(`Autodetectada app por primaryName: ${exact.primaryName} (${exact.id})`);
+                return exact.id;
+              }
+
+              const fuzzy = apps.find((app) => {
+                const text = `${app.primaryName || ''} ${app.packageIdentityName || ''} ${app.packageFamilyName || ''}`.toLowerCase();
+                return text.includes('adb');
+              });
+
+              if (fuzzy) {
+                core.info(`Autodetectada app por coincidencia ADB: ${fuzzy.primaryName || fuzzy.id} (${fuzzy.id})`);
+                return fuzzy.id;
+              }
+
+              const names = apps.map((app) => `- ${app.primaryName || '(sin nombre)'}: ${app.id}`).join('\n');
+              throw new Error(
+                'No pude autodetectar la app de Partner Center. Añade el input store_product_id al ejecutar el workflow o crea un secret STORE_PRODUCT_ID.\n' +
+                `Apps encontradas:\n${names || '(ninguna)'}`
+              );
+            }
+
+            const productId = await resolveProductId();
+            core.info(`Usando Partner Center product/application ID: ${productId}`);
+
+            const app = await api('GET', `/applications/${encodeURIComponent(productId)}`);
+            const pendingSubmission = app?.pendingApplicationSubmission;
+
+            if (pendingSubmission?.id) {
+              if (!replacePending) {
+                throw new Error(
+                  `Ya existe una submission pendiente en Partner Center: ${pendingSubmission.id}. ` +
+                  'Revísala en Partner Center, elimínala manualmente o marca store_replace_pending_submission=true para que el workflow la elimine antes de crear una nueva.'
+                );
+              }
+
+              core.warning(`Eliminando submission pendiente existente: ${pendingSubmission.id}`);
+              await api('DELETE', `/applications/${encodeURIComponent(productId)}/submissions/${encodeURIComponent(pendingSubmission.id)}`);
+            }
+
+            const submission = await api('POST', `/applications/${encodeURIComponent(productId)}/submissions`);
+            const submissionId = submission.id;
+
+            if (!submissionId || !submission.fileUploadUrl) {
+              throw new Error(`La submission creada no contiene id o fileUploadUrl: ${JSON.stringify(submission, null, 2)}`);
+            }
+
+            core.info(`Submission creada: ${submissionId}`);
+
+            const packageEntry = {
+              fileName: msixBundle,
+              fileStatus: 'PendingUpload',
+              minimumDirectXVersion: 'None',
+              minimumSystemRam: 'None',
+            };
+
+            const packagesToDelete = (submission.applicationPackages || []).map((pkg) => ({
+              fileName: pkg.fileName,
+              fileStatus: 'PendingDelete',
+              minimumDirectXVersion: pkg.minimumDirectXVersion || 'None',
+              minimumSystemRam: pkg.minimumSystemRam || 'None',
+            }));
+
+            const updatedSubmission = {
+              ...submission,
+              applicationPackages: [...packagesToDelete, packageEntry],
+              notesForCertification: [
+                `Automated Microsoft Store submission from GitHub Actions.`,
+                `Version: ${version}.`,
+                `Package: ${msixBundle}.`,
+              ].join(' '),
+            };
+
+            await api('PUT', `/applications/${encodeURIComponent(productId)}/submissions/${encodeURIComponent(submissionId)}`, updatedSubmission);
+            core.info('Metadata de submission actualizada.');
+
+            const zipBuffer = fs.readFileSync(uploadZipPath);
+            const uploadResponse = await fetch(submission.fileUploadUrl, {
+              method: 'PUT',
+              headers: {
+                'x-ms-blob-type': 'BlockBlob',
+                'x-ms-version': '2020-10-02',
+                'Content-Type': 'application/zip',
+                'Content-Length': String(zipBuffer.length),
+              },
+              body: zipBuffer,
+            });
+
+            const uploadText = await uploadResponse.text().catch(() => '');
+            if (!uploadResponse.ok) {
+              throw new Error(`Falló la subida del ZIP a Azure Blob Storage: HTTP ${uploadResponse.status} ${uploadResponse.statusText}\n${uploadText}`);
+            }
+
+            core.info('ZIP subido a Azure Blob Storage mediante SAS URL.');
+
+            await api('POST', `/applications/${encodeURIComponent(productId)}/submissions/${encodeURIComponent(submissionId)}/commit`);
+            core.info('Submission enviada a Partner Center. Comprobando estado de commit...');
+
+            function sleep(ms) {
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+            }
+
+            const terminalFailureStates = new Set([
+              'CommitFailed',
+              'PreProcessingFailed',
+              'CertificationFailed',
+              'ReleaseFailed',
+              'PublishFailed',
+              'Canceled',
+            ]);
+
+            const successStates = new Set([
+              'PreProcessing',
+              'Certification',
+              'PendingPublication',
+              'Publishing',
+              'Published',
+              'Release',
+            ]);
+
+            for (let attempt = 1; attempt <= 30; attempt += 1) {
+              const status = await api('GET', `/applications/${encodeURIComponent(productId)}/submissions/${encodeURIComponent(submissionId)}/status`);
+              const value = status?.status || status?.submissionStatus || JSON.stringify(status);
+              core.info(`Partner Center status intento ${attempt}: ${value}`);
+
+              if (terminalFailureStates.has(value)) {
+                throw new Error(`Partner Center devolvió estado de error: ${JSON.stringify(status, null, 2)}`);
+              }
+
+              if (successStates.has(value)) {
+                core.info(`Partner Center aceptó la submission para ingestión: ${value}`);
+                return;
+              }
+
+              sleep(20000);
+            }
+
+            core.warning('La submission fue enviada, pero el estado de commit no cambió antes del timeout del workflow. Revísala en Partner Center.');
 
   publish-latest:
     name: Publicar latest.json en GitHub Pages

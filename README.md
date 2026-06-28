@@ -21,7 +21,11 @@
 
 ## About
 
-ADB App is a modern graphical interface built with [Tauri v2](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), and [Svelte](https://svelte.dev/) featuring a [Material Design](https://github.com/material-components/material-web) UI. Our goal is to provide a powerful and lightweight tool to manage your Android devices through an intuitive and straightforward interface.
+**ADB App** is a modern graphical interface built with [Tauri v2](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), and [Svelte](https://svelte.dev/), featuring a [Material Design](https://github.com/material-components/material-web) UI.
+
+It is a direct replacement for [ADB Manager](https://github.com/agcarbajo/AdbManager), keeping the same features but taking things a step further. Thanks to an idea from [AYA](https://github.com/liriliri/aya), we've integrated app_process to run advanced internal commands, allowing you to query data and perform actions that go well beyond standard ADB capabilities.
+
+Our goal is to provide a powerful, lightweight, and straightforward tool to manage your Android devices.
 
 ## Key Features
 
@@ -68,24 +72,15 @@ If you'd like to build the app yourself or contribute to the codebase:
    bun tauri build
    ```
 
-## Acknowledgments
-
-- [**scrcpy**](https://github.com/Genymobile/scrcpy) - For their excellent tool to display and control Android devices.
-- [**Tauri**](https://github.com/tauri-apps/tauri) - For their amazing desktop application framework.
-- [**Bun**](https://bun.sh/) - For their incredibly fast JavaScript runtime and toolkit.
-- [**Material Design**](https://github.com/material-components/material-web) - For their beautiful UI components.
-- [**AYA**](https://github.com/liriliri/aya) - A great source of inspiration and technical reference; our metadata loading system (apps and icons) is heavily based on their source code.
-- [**ADB Manager**](https://github.com/agcarbajo/AdbManager) - The main inspiration for this project. This application was born as its spiritual successor.
-- **Android Logo** - The icon of this application includes a modification based on a work created and shared by Google and used according to terms described in the Creative Commons 3.0 Attribution License.
-
 ## License
 
 This project is licensed under the [**GPL-3.0**](https://www.gnu.org/licenses/gpl-3.0.html) license. See the [LICENSE](LICENSE) file for details.
 
 ADB App relies on several open-source projects to function:
-- **ADB** (Apache 2.0)
-- **scrcpy** (Apache 2.0)
-- **Bundletool** (Apache 2.0)
+- **ADB** Copyright © The Android Open Source Project. Licensed under the [Apache License, Version 2.0 (the "License").](LICENSE-APACHE2)
+- **scrcpy** Copyright © Genymobile. Licensed under the [Apache License, Version 2.0 (the "License").](LICENSE-APACHE2)
+- **Bundletool** Copyright © Google LLC. Licensed under the [Apache License, Version 2.0 (the "License").](LICENSE-APACHE2)
+- **Android Logo** - The icon of this application includes a modification based on a work created and shared by Google and used according to terms described in the [Creative Commons 3.0 Attribution License](https://creativecommons.org/licenses/by/3.0/).
 
 ## Contributing
 
