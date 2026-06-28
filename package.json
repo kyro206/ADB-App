@@ -1,7 +1,7 @@
 {
   "name": "adb-app",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "scripts": {
     "dev": "bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && vite",

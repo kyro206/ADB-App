@@ -189,7 +189,7 @@ pub async fn install_tool(tool: &str) -> Result<(), String> {
     let (url, kind) = tool_asset(tool, &client).await?;
     let target = managed_dir(tool);
     let staging = crate::app_paths::cache_dir()
-        .join("dependency-install")
+        .join("temp")
         .join(tool);
     remove_dir(&staging)?;
     {

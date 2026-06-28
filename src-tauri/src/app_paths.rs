@@ -87,12 +87,14 @@ pub fn update_base_path(custom_parent_path: Option<&str>) {
             if parent_path.is_dir() {
                 let custom_dir = parent_path.join(&paths.identifier);
                 paths.current_data = custom_dir.clone();
-                paths.current_cache = custom_dir;
+                paths.current_cache = custom_dir.clone();
+                paths.webview_data = custom_dir;
                 return;
             }
         }
         paths.current_data = paths.default_data.clone();
         paths.current_cache = paths.default_cache.clone();
+        paths.webview_data = paths.default_data.clone();
     }
 }
 

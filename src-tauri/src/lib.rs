@@ -17,6 +17,25 @@ use tauri::{Emitter, Manager};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        .register_uri_scheme_protocol("adbapp", |_app, request| {
+            let path = request.uri().path();
+            if let Some(package_name) = path.strip_prefix("/icon/") {
+                let cache_dir = crate::app_paths::cache_dir();
+                let icon_path = cache_dir.join("app-icons").join(format!("{}.webp", package_name));
+                if let Ok(bytes) = std::fs::read(&icon_path) {
+                    return tauri::http::Response::builder()
+                        .status(200)
+                        .header("Content-Type", "image/webp")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .body(bytes)
+                        .unwrap();
+                }
+            }
+            tauri::http::Response::builder()
+                .status(404)
+                .body(Vec::new())
+                .unwrap()
+        })
         .setup(|app| {
             app_paths::initialize(&app.handle())?;
             let settings = crate::commands::operations::read_settings();
@@ -25,8 +44,13 @@ pub fn run() {
             } else {
                 None
             });
-
-            let temp_dir = crate::app_paths::cache_dir().join("temp_downloads");
+            /* BORRAR EN 2.3+*/
+            let app_icons_dir = crate::app_paths::cache_dir().join("app-icons");
+            if app_icons_dir.exists() && !app_icons_dir.join("apps.json").exists() {
+                let _ = crate::commands::operations::clear_application_cache();
+            }
+            /* BORRAR EN 2.3+*/
+            let temp_dir = crate::app_paths::cache_dir().join("temp");
             tauri::async_runtime::spawn(async move {
                 let _ = std::fs::remove_dir_all(temp_dir);
             });
@@ -125,7 +149,7 @@ pub fn run() {
                     return;
                 }
 
-                let temp_dir = crate::app_paths::cache_dir().join("temp_downloads");
+                let temp_dir = crate::app_paths::cache_dir().join("temp");
                 let _ = std::fs::remove_dir_all(temp_dir);
 
                 let settings = crate::commands::operations::read_settings();

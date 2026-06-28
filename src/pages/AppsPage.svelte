@@ -35,7 +35,6 @@
     busy = $bindable(),
     scrcpy,
     tab,
-    appSettings,
     javaAvailable,
   } = $props<{
     serial: string;
@@ -118,9 +117,6 @@
     return result;
   });
 
-  let appsNeedingMetadata = $derived(
-    filteredApps.filter((app) => !app.icon_data_url),
-  );
   let grantedPermissionCount = $derived(
     appDetails?.permissions.filter((permission) => permission.granted).length ??
       0,
@@ -158,8 +154,6 @@
   $effect(() => {
     if (
       tab === "apps" &&
-      appSettings &&
-      !appSettings.cache_enabled &&
       appsNeedingMetadata.length > 0 &&
       !metadataLoading &&
       !attemptedMetadata
@@ -291,10 +285,7 @@
     const snapshot = [...appsNeedingMetadata];
     try {
       for (let start = 0; start < snapshot.length; start += 200) {
-        if (
-          filter !== currentFilter ||
-          (!appSettings?.cache_enabled && tab !== "apps")
-        ) {
+        if (filter !== currentFilter || tab !== "apps") {
           break;
         }
         const batch = snapshot.slice(start, start + 200);
@@ -629,10 +620,8 @@
     ["debloat", m.apps_filter_debloat(), "cleaning_services"],
   ]);
 
-  let pending = $derived(
-    filteredApps.filter(
-      (app) => !app.icon_data_url || app.display_name === app.package_name,
-    ).length,
+  let appsNeedingMetadata = $derived(
+    apps.filter((app) => !app.icon_data_url),
   );
   const count = (value: string) =>
     apps.filter((app) =>
@@ -721,18 +710,6 @@
             </md-icon-button>
           {/if}
         </md-outlined-text-field>
-
-        {#if appSettings?.cache_enabled && pending > 0}
-          <md-filled-tonal-button
-            disabled={metadataLoading ? true : undefined}
-            onclick={loadVisibleMetadata}
-          >
-            <MaterialIcon slot="icon" name="image_search" />
-            {metadataLoading
-              ? m.common_loading()
-              : m.apps_action_loadMetadata({ pending })}
-          </md-filled-tonal-button>
-        {/if}
 
         <md-icon-button
           aria-label={m.apps_action_refresh()}

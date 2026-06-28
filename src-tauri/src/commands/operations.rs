@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,12 +23,6 @@ pub struct AppSummary {
     pub disabled: bool,
     pub uninstalled: bool,
     pub icon_data_url: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct CachedAppPresentation {
-    display_name: String,
-    icon_data_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -510,10 +503,8 @@ pub fn get_default_cache_dir() -> String {
         .to_string()
 }
 
-fn app_summary_cache_path(package_name: &str, _apk_path: &str) -> PathBuf {
-    let mut hasher = DefaultHasher::new();
-    package_name.hash(&mut hasher);
-    application_cache_dir().join(format!("{:x}.json", hasher.finish()))
+fn apps_json_path() -> PathBuf {
+    application_cache_dir().join("apps.json")
 }
 
 fn install_working_dir() -> Result<PathBuf, String> {
@@ -522,7 +513,7 @@ fn install_working_dir() -> Result<PathBuf, String> {
         .map_err(|error| error.to_string())?
         .as_millis();
     let path = crate::app_paths::cache_dir()
-        .join("installs")
+        .join("temp")
         .join(nonce.to_string());
     fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     Ok(path)
@@ -1781,16 +1772,24 @@ pub async fn list_apps(
             })
         })
         .collect::<Vec<_>>();
+    let cache_path = apps_json_path();
+    let cached_apps: std::collections::HashMap<String, String> = fs::read_to_string(&cache_path)
+        .ok()
+        .and_then(|data| serde_json::from_str(&data).ok())
+        .unwrap_or_default();
+
     for app in &mut apps {
-        let cache_path = app_summary_cache_path(&app.package_name, &app.apk_path);
-        if let Ok(cached) = fs::read_to_string(&cache_path) {
-            if let Ok(presentation) = serde_json::from_str::<CachedAppPresentation>(&cached) {
-                if presentation.display_name != app.package_name
-                    || !presentation.icon_data_url.is_empty()
-                {
-                    app.display_name = presentation.display_name;
-                    app.icon_data_url = presentation.icon_data_url;
-                }
+        if let Some(display_name) = cached_apps.get(&app.package_name) {
+            app.display_name = display_name.clone();
+            let icon_path = application_cache_dir().join(format!("{}.webp", app.package_name));
+            if icon_path.exists() {
+                app.icon_data_url = if cfg!(target_os = "windows") {
+                    format!("http://adbapp.localhost/icon/{}", app.package_name)
+                } else {
+                    format!("adbapp://localhost/icon/{}", app.package_name)
+                };
+            } else {
+                app.icon_data_url = "none".to_string();
             }
         }
     }
@@ -1901,38 +1900,8 @@ pub async fn enrich_app_summaries(
     requests: Vec<AppSummaryRequest>,
 ) -> Result<Vec<AppSummary>, String> {
     let mut results = Vec::new();
-    let mut needs_daemon = Vec::new();
-    let settings = read_settings();
 
-    // 1. Check local cache
-    for req in requests {
-        let cache_path = app_summary_cache_path(&req.package_name, &req.apk_path);
-        let mut cached_found = false;
-        
-        if let Ok(cached) = fs::read_to_string(&cache_path) {
-            if let Ok(presentation) = serde_json::from_str::<CachedAppPresentation>(&cached) {
-                if !presentation.icon_data_url.is_empty() {
-                    let summary = AppSummary {
-                        package_name: req.package_name.clone(),
-                        display_name: presentation.display_name,
-                        apk_path: req.apk_path.clone(),
-                        system_app: req.system_app,
-                        disabled: req.disabled,
-                        uninstalled: req.uninstalled,
-                        icon_data_url: presentation.icon_data_url,
-                    };
-                    update_cached_app(&serial, &summary);
-                    results.push(summary);
-                    cached_found = true;
-                }
-            }
-        }
-        
-        if !cached_found {
-            needs_daemon.push(req);
-        }
-    }
-
+    let needs_daemon = requests;
     if needs_daemon.is_empty() {
         return Ok(results);
     }
@@ -1981,6 +1950,18 @@ pub async fn enrich_app_summaries(
         Vec::new()
     });
 
+    let settings = read_settings();
+    let cache_path = apps_json_path();
+    let mut cached_apps: std::collections::HashMap<String, String> = fs::read_to_string(&cache_path)
+        .ok()
+        .and_then(|data| serde_json::from_str(&data).ok())
+        .unwrap_or_default();
+    
+    let app_dir = application_cache_dir();
+    if !app_dir.exists() {
+        let _ = fs::create_dir_all(&app_dir);
+    }
+
     // 4. Map responses back to requests
     for req in needs_daemon {
         let mut display_name = req.package_name.clone();
@@ -1993,21 +1974,29 @@ pub async fn enrich_app_summaries(
                 icon_data_url = resp.icon.clone().unwrap_or_default();
             }
         }
-        
-        if settings.cache_enabled && !icon_data_url.is_empty() {
-            let cache_path = app_summary_cache_path(&req.package_name, &req.apk_path);
-            if let Some(parent) = cache_path.parent() {
-                let _ = fs::create_dir_all(parent);
-            }
-            let presentation = CachedAppPresentation {
-                display_name: display_name.clone(),
-                icon_data_url: icon_data_url.clone(),
-            };
-            if let Ok(serialized) = serde_json::to_string(&presentation) {
-                let _ = fs::write(cache_path, serialized);
+        let mut protocol_url = "none".to_string();
+
+        if !icon_data_url.is_empty() {
+            if settings.cache_enabled {
+                let base64_str = icon_data_url.strip_prefix("data:image/webp;base64,").unwrap_or(&icon_data_url);
+                if let Ok(bytes) = STANDARD.decode(base64_str) {
+                    let icon_path = app_dir.join(format!("{}.webp", req.package_name));
+                    let _ = fs::write(&icon_path, bytes);
+                }
+                protocol_url = if cfg!(target_os = "windows") {
+                    format!("http://adbapp.localhost/icon/{}", req.package_name)
+                } else {
+                    format!("adbapp://localhost/icon/{}", req.package_name)
+                };
+            } else {
+                protocol_url = icon_data_url.clone();
             }
         }
         
+        if settings.cache_enabled {
+            cached_apps.insert(req.package_name.clone(), display_name.clone());
+        }
+
         let summary = AppSummary {
             package_name: req.package_name,
             display_name,
@@ -2015,10 +2004,16 @@ pub async fn enrich_app_summaries(
             system_app: req.system_app,
             disabled: req.disabled,
             uninstalled: req.uninstalled,
-            icon_data_url,
+            icon_data_url: protocol_url,
         };
         update_cached_app(&serial, &summary);
         results.push(summary);
+    }
+
+    if settings.cache_enabled {
+        if let Ok(serialized) = serde_json::to_string(&cached_apps) {
+            let _ = fs::write(cache_path, serialized);
+        }
     }
 
     Ok(results)
@@ -2641,7 +2636,7 @@ pub async fn export_apk(
             .map_err(|error| error.to_string())?
             .as_millis();
         let temp_dir = crate::app_paths::cache_dir()
-            .join("exports")
+            .join("temp")
             .join(nonce.to_string());
         fs::create_dir_all(&temp_dir).map_err(|error| error.to_string())?;
 
@@ -2753,7 +2748,7 @@ pub async fn download_and_open_file(
     remote_path: String,
     file_name: String,
 ) -> Result<String, String> {
-    let temp_dir = crate::app_paths::cache_dir().join("temp_downloads");
+    let temp_dir = crate::app_paths::cache_dir().join("temp");
     std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
     
     // Generar un sufijo aleatorio para evitar conflictos de nombres

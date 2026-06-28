@@ -52,13 +52,13 @@ public class Main {
                     icon.draw(canvas);
 
                     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+                    bitmap.compress(Bitmap.CompressFormat.WEBP, 100, outputStream);
                     String base64Icon = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP);
 
                     String safeLabel = label.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "");
                     
                     if (i > 0) System.out.println(",");
-                    System.out.print("{\"package\": \"" + packageName + "\", \"label\": \"" + safeLabel + "\", \"icon\": \"data:image/png;base64," + base64Icon + "\"}");
+                    System.out.print("{\"package\": \"" + packageName + "\", \"label\": \"" + safeLabel + "\", \"icon\": \"data:image/webp;base64," + base64Icon + "\"}");
                 } catch (Exception e) {
                     if (i > 0) System.out.println(",");
                     String safeError = e.getMessage() != null ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "") : "Unknown Error";
