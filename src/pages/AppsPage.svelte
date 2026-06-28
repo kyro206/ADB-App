@@ -5,6 +5,7 @@
     cache_enabled: boolean;
     cache_path: string;
     kill_adb_on_exit: boolean;
+    auto_save_screenshots: boolean;
     material_you_enabled: boolean;
     material_you_background_tint: boolean;
   }
@@ -274,11 +275,6 @@
   async function loadVisibleMetadata() {
     if (!serial || !appsNeedingMetadata.length || metadataLoading) return;
     metadataLoading = true;
-    if (tab === "apps") {
-      status = m.workbench_status_metadataLoading({
-        count: appsNeedingMetadata.length,
-      });
-    }
     let loaded = 0;
     let failed = 0;
     const currentFilter = filter;
@@ -319,12 +315,6 @@
           }
         }
 
-        if (tab === "apps") {
-          status = m.workbench_status_metadataProgress({
-            processed: Math.min(start + batch.length, snapshot.length),
-            total: snapshot.length,
-          });
-        }
       }
       if (tab === "apps") {
         status = failed ? m.workbench_status_metadataFailed({ failed }) : "";

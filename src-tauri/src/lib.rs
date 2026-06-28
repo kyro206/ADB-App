@@ -23,21 +23,23 @@ pub fn run() {
                 let cache_dir = crate::app_paths::cache_dir();
                 let icon_path = cache_dir.join("app-icons").join(format!("{}.webp", package_name));
                 if let Ok(bytes) = std::fs::read(&icon_path) {
-                    return tauri::http::Response::builder()
+                    if let Ok(response) = tauri::http::Response::builder()
                         .status(200)
                         .header("Content-Type", "image/webp")
                         .header("Access-Control-Allow-Origin", "*")
                         .body(bytes)
-                        .unwrap();
+                    {
+                        return response;
+                    }
                 }
             }
             tauri::http::Response::builder()
                 .status(404)
                 .body(Vec::new())
-                .unwrap()
+                .expect("Failed to build HTTP 404 fallback response")
         })
         .setup(|app| {
-            app_paths::initialize(&app.handle())?;
+            app_paths::initialize(app.handle())?;
             let settings = crate::commands::operations::read_settings();
             crate::app_paths::update_base_path(if !settings.cache_path.trim().is_empty() {
                 Some(&settings.cache_path)

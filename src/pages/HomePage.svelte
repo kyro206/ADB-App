@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as m from "../paraglide/messages";
 
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen, emit } from "@tauri-apps/api/event";
   import { save, open } from "@tauri-apps/plugin-dialog";
@@ -463,6 +463,11 @@
       bootDate?.full || "-",
     ],
   ]);
+
+  onDestroy(() => {
+    devicesState.screenshot = null;
+    autoSavedScreenshotPath = null;
+  });
 </script>
 
 <main class="home-material">

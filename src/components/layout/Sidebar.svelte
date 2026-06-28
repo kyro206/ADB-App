@@ -39,7 +39,6 @@ import * as m from '../../paraglide/messages';
         data-no-material-ripple="true" 
         class="sidebar__tab {activeTab === tab ? 'sidebar__tab--active' : ''}" 
         onclick={() => onTabChange(tab)} 
-        title={labels[tab]}
       >
         <span class="sidebar__tab-icon">
           <MaterialIcon name={TAB_ICONS[tab]} filled={activeTab === tab} />

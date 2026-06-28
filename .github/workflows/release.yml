@@ -20,6 +20,16 @@ name: Release ADB App
         required: true
         default: false
         type: boolean
+      publish_to_partner_center:
+        description: "Subir automáticamente el MSIX bundle a Partner Center tras compilar Microsoft Store"
+        required: true
+        default: true
+        type: boolean
+      store_replace_pending_submission:
+        description: "Eliminar una submission pendiente existente antes de crear la nueva"
+        required: true
+        default: false
+        type: boolean
       build_linux_x64:
         description: "Compilar Linux x64"
         required: true
@@ -48,17 +58,7 @@ name: Release ADB App
       build_microsoft_store:
         description: "Compilar Microsoft Store MSIX bundle x64 + ARM64. No compatible con pre-release"
         required: true
-        default: false
-        type: boolean
-      publish_to_partner_center:
-        description: "Subir automáticamente el MSIX bundle a Partner Center tras compilar Microsoft Store"
-        required: true
         default: true
-        type: boolean
-      store_replace_pending_submission:
-        description: "Eliminar una submission pendiente existente antes de crear la nueva"
-        required: true
-        default: false
         type: boolean
 
 permissions:

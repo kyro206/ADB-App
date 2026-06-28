@@ -38,7 +38,7 @@ import * as m from '../paraglide/messages';
   let status = $state('');
   let busy = $state(false);
   let tools = $derived(toolsState.status);
-  type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean };
+  type AppSettings = { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; auto_save_screenshots: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean };
   let appSettings = $state<AppSettings | null>(null);
   let defaultCacheDir = $state('');
   let toolUpdatesChecking = $derived(toolsState.checkingUpdates);
