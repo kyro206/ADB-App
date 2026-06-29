@@ -115,8 +115,6 @@ import * as m from '../paraglide/messages';
     if (updateState.status === 'downloading') {
       return updateState.totalBytes ? `${m.updater_status_downloading()} (${updateState.progress}%)` : m.updater_status_downloading();
     }
-    if (updateState.status === 'installing') return m.updater_status_installing();
-    if (updateState.status === 'restarting') return m.updater_status_restarting();
     return '';
   }
 
@@ -209,11 +207,11 @@ import * as m from '../paraglide/messages';
       <div class="md3-segmented-button">
         <button class={theme === 'light' ? 'active' : ''} onclick={() => onThemeChange('light')}>
           <MaterialIcon name="light_mode" />
-          <span>{m.settings_theme_light()}</span>
+          <span>{m.common_light()}</span>
         </button>
         <button class={theme === 'dark' ? 'active' : ''} onclick={() => onThemeChange('dark')}>
           <MaterialIcon name="dark_mode" />
-          <span>{m.settings_theme_dark()}</span>
+          <span>{m.common_dark()}</span>
         </button>
         <button class={theme === 'auto' ? 'active' : ''} onclick={() => onThemeChange('auto')}>
           <MaterialIcon name="brightness_auto" />
@@ -343,9 +341,9 @@ import * as m from '../paraglide/messages';
     </section>
   {/snippet}
 
-  {@render toolPanel("ADB", "adb", tools?.adb, adbPath, m.settings_adbPlaceholder(), p => adbPath = p)}
+  {@render toolPanel("ADB", "adb", tools?.adb, adbPath, m.settings_toolPlaceholder(), p => adbPath = p)}
   {#if !appSettings?.store_build}
-    {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_scrcpyPlaceholder(), p => scrcpyPath = p)}
+    {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_toolPlaceholder(), p => scrcpyPath = p)}
   {/if}
   
   {#if !appSettings?.store_build}
@@ -367,7 +365,7 @@ import * as m from '../paraglide/messages';
         <md-outlined-text-field 
           use:materialTextFieldValue={javaPath}
           oninput={(e: any) => javaPath = e.target.value} 
-          label={m.settings_javaPlaceholder()}
+          label={m.settings_toolPlaceholder()}
           style="width: 100%"
         >
           <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => javaPath = p)}>

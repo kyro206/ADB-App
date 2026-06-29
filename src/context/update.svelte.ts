@@ -2,8 +2,7 @@ import { getVersion } from '@tauri-apps/api/app';
 
 type UpdateHandle = {
   version: string;
-  download: (callback: (event: any) => void) => Promise<void>;
-  install: () => Promise<void>;
+  downloadAndInstall: (callback: (event: any) => void) => Promise<void>;
 };
 
 class UpdateState {
@@ -45,19 +44,15 @@ class UpdateState {
     this.totalBytes = null;
 
     try {
-      await this.updateInfo.download(event => {
+      await this.updateInfo.downloadAndInstall(event => {
         if (event.event === 'Started') {
           this.totalBytes = event.data.contentLength ?? null;
           this.downloadedBytes = 0;
           this.status = 'downloading';
         } else if (event.event === 'Progress') {
           this.downloadedBytes += event.data.chunkLength;
-        } else if (event.event === 'Finished') {
-          this.status = 'installing';
         }
       });
-      await this.updateInfo.install();
-      this.status = 'restarting';
       const { relaunch } = await import('@tauri-apps/plugin-process');
       await relaunch();
     } catch (error) {

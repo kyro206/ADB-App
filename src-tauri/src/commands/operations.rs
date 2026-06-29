@@ -95,7 +95,6 @@ fn refs(values: &[String]) -> Vec<&str> {
 fn last_integer(value: &str) -> Option<i32> {
     value
         .split(|character: char| !character.is_ascii_digit())
-        .filter(|part| !part.is_empty())
         .filter_map(|part| part.parse::<i32>().ok())
         .last()
 }
@@ -244,6 +243,54 @@ pub async fn save_app_settings(
     }
 
     Ok(None)
+}
+
+#[tauri::command]
+pub async fn save_device_wallpaper_to_disk(app: tauri::AppHandle, serial: String, path: String) -> Result<(), String> {
+    if crate::mock::enabled() {
+        return Ok(());
+    }
+
+    push_daemons_if_needed(&app, &serial).await?;
+
+    let version = env!("CARGO_PKG_VERSION");
+    let jar_name = format!("wallpaper_extractor_{}.jar", version);
+    let daemon_device_path = format!("/data/local/tmp/{}", jar_name);
+
+    let result = adb::run_adb_for_serial(
+        &serial,
+        &[
+            "shell",
+            &format!(
+                "CLASSPATH={} app_process / com.kyro.adbapp.extractwallpaper.WallpaperExtractor --max-res",
+                daemon_device_path
+            ),
+        ],
+    )
+    .await?;
+
+    if !result.ok() {
+        return Err(format!("Failed to extract wallpaper: {}", result.output));
+    }
+
+    let output = result.output;
+    if let (Some(start_idx), Some(end_idx)) =
+        (output.find("WALLPAPER_START"), output.find("WALLPAPER_END"))
+    {
+        let mut base64 = output[start_idx + 15..end_idx].to_string();
+        base64.retain(|c| !c.is_ascii_whitespace());
+        if !base64.is_empty() {
+            use base64::Engine;
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(&base64)
+                .map_err(|e| format!("Base64 decode error: {}", e))?;
+            std::fs::write(&path, decoded)
+                .map_err(|e| format!("Failed to write wallpaper to disk: {}", e))?;
+            return Ok(());
+        }
+    }
+
+    Err("Extractor did not return encoded image.".to_string())
 }
 
 #[tauri::command]
@@ -962,9 +1009,9 @@ fn resolve_install_files(
 
 fn dump_value(output: &str, key: &str) -> String {
     output
-        .split_whitespace()
-        .find_map(|token| token.strip_prefix(&format!("{key}=")))
-        .map(|value| value.trim_matches(['\'', '"', ',']).to_string())
+        .lines()
+        .find_map(|line| line.trim().strip_prefix(key).and_then(|s| s.strip_prefix('=')))
+        .map(|s| s.trim_matches(['\'', '"', ',']).to_string())
         .filter(|value| !value.is_empty() && value != "null")
         .unwrap_or_else(|| "-".to_string())
 }
@@ -1596,12 +1643,9 @@ pub async fn get_system_state(app: tauri::AppHandle, serial: String) -> Result<S
 }
 
 #[tauri::command]
-pub async fn set_device_dark_mode(serial: String, enabled: bool) -> Result<String, String> {
+pub async fn set_device_dark_mode(serial: String, enabled: bool) -> Result<(), crate::models::AppError> {
     if crate::mock::enabled() {
-        return Ok(format!(
-            "Dark mode {}",
-            if enabled { "enabled" } else { "disabled" }
-        ));
+        return Ok(());
     }
 
     let mode = if enabled { "yes" } else { "no" };
@@ -1616,19 +1660,16 @@ pub async fn set_device_dark_mode(serial: String, enabled: bool) -> Result<Strin
         )
         .await?;
         if !fallback.ok() {
-            return Err(fallback.output.trim().to_string());
+            return Err(fallback.output.trim().into());
         }
     }
 
     let current = adb::run_adb_for_serial(&serial, &["shell", "cmd", "uimode", "night"]).await?;
     let expected = if enabled { "yes" } else { "no" };
     if current.ok() && current.output.to_ascii_lowercase().contains(expected) {
-        Ok(format!(
-            "Dark mode {}",
-            if enabled { "enabled" } else { "disabled" }
-        ))
+        Ok(())
     } else {
-        Err("Android did not confirm the dark mode change".to_string())
+        Err(format!("Failed to verify {} mode", expected).into())
     }
 }
 
@@ -2221,8 +2262,8 @@ pub async fn get_app_details(
         display_name: display_name_from_dump(&dump_out, &package_name),
         apk_path,
         is_split,
-        system_app: package_set(&system_out).contains(&package_name),
-        disabled: package_set(&disabled_out).contains(&package_name),
+        system_app: system_out.lines().any(|line| line.trim().ends_with(&package_name)),
+        disabled: disabled_out.lines().any(|line| line.trim().ends_with(&package_name)),
         version_name: dump_value(&dump_out, "versionName"),
         version_code: dump_value(&dump_out, "versionCode"),
         target_sdk: dump_value(&dump_out, "targetSdk"),

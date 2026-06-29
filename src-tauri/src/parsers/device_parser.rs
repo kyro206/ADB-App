@@ -502,6 +502,10 @@ pub fn build_device_details(
     display_output: &str,
     dark_mode_output: &str,
     screen_timeout_output: &str,
+    window_animation_scale_output: &str,
+    transition_animation_scale_output: &str,
+    animator_duration_scale_output: &str,
+    font_scale_output: &str,
     uptime_output: &str,
 ) -> DeviceDetails {
     let properties = parse_properties(getprop_output);
@@ -526,6 +530,11 @@ pub fn build_device_details(
         .next()
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(-1.0);
+
+    let window_animation_scale = window_animation_scale_output.trim().parse::<f64>().unwrap_or(1.0);
+    let transition_animation_scale = transition_animation_scale_output.trim().parse::<f64>().unwrap_or(1.0);
+    let animator_duration_scale = animator_duration_scale_output.trim().parse::<f64>().unwrap_or(1.0);
+    let font_scale = font_scale_output.trim().parse::<f64>().unwrap_or(1.0);
 
     let manufacturer = safe_value(&first_non_blank(&[
         properties
@@ -631,6 +640,10 @@ pub fn build_device_details(
         dark_mode_enabled: dark_mode,
         screen_off_timeout_ms: screen_timeout,
         uptime_seconds,
+        window_animation_scale,
+        transition_animation_scale,
+        animator_duration_scale,
+        font_scale,
     }
 }
 

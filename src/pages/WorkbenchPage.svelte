@@ -283,7 +283,7 @@ import * as m from '../paraglide/messages';
     displayDarkMode = nextValue;
     darkModeLoading = true;
     try {
-      status = await invoke<string>('set_device_dark_mode', { serial, enabled: nextValue });
+      await invoke('set_device_dark_mode', { serial, enabled: nextValue });
       await devicesState.refreshDevices();
     } catch (error: any) {
       displayDarkMode = !nextValue;
@@ -330,6 +330,7 @@ import * as m from '../paraglide/messages';
           {#if tab === 'display'}
           <DisplayPage
             details={deviceDetails}
+            {serial}
             bind:width={displayWidth} bind:height={displayHeight}
             bind:density={displayDensity} bind:timeout={displayTimeout}
             refreshRate={displayRefreshRate}

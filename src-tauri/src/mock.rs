@@ -55,9 +55,13 @@ pub fn device_details() -> DeviceDetails {
         battery_health: "97%".to_string(),
         total_storage_mb: 126566,
         used_storage_mb: 110899,
-        dark_mode_enabled: false,
+        dark_mode_enabled: true,
         screen_off_timeout_ms: 30000,
         uptime_seconds: 826320.0,
+        window_animation_scale: 1.0,
+        transition_animation_scale: 1.0,
+        animator_duration_scale: 1.0,
+        font_scale: 1.0,
     }
 }
 

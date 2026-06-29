@@ -22,8 +22,6 @@ import * as m from './paraglide/messages';
     if (updateState.status === 'downloading') {
       return updateState.totalBytes ? `${m.updater_status_downloading()} (${updateState.progress}%)` : m.updater_status_downloading();
     }
-    if (updateState.status === 'installing') return m.updater_status_installing();
-    if (updateState.status === 'restarting') return m.updater_status_restarting();
     return '';
   }
 

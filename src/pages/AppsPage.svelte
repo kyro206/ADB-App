@@ -402,7 +402,6 @@
         serial,
         packageName: selectedPackage,
       });
-      status = m.workbench_status_appEnabled();
       appDetails = null;
       selectedPackage = "";
       await refreshApps(true);

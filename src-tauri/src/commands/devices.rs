@@ -77,6 +77,10 @@ pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result
             dark_mode_enabled: false,
             screen_off_timeout_ms: 60000,
             uptime_seconds: -1.0,
+            window_animation_scale: 1.0,
+            transition_animation_scale: 1.0,
+            animator_duration_scale: 1.0,
+            font_scale: 1.0,
         });
     }
 
@@ -92,6 +96,10 @@ pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result
         cmd uimode night 2>/dev/null; echo '---ADBAPPSEP---'; \
         settings get secure ui_night_mode 2>/dev/null; echo '---ADBAPPSEP---'; \
         settings get system screen_off_timeout 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get global window_animation_scale 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get global transition_animation_scale 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get global animator_duration_scale 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get system font_scale 2>/dev/null; echo '---ADBAPPSEP---'; \
         cat /proc/uptime\
     ";
 
@@ -109,6 +117,10 @@ pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result
     let uimode = parts.next().unwrap_or("").trim();
     let secure_uimode = parts.next().unwrap_or("").trim();
     let screen_timeout = parts.next().unwrap_or("").trim();
+    let window_animation_scale = parts.next().unwrap_or("").trim();
+    let transition_animation_scale = parts.next().unwrap_or("").trim();
+    let animator_duration_scale = parts.next().unwrap_or("").trim();
+    let font_scale = parts.next().unwrap_or("").trim();
     let uptime = parts.next().unwrap_or("").trim();
 
     let mut dark_mode = uimode.to_string();
@@ -128,6 +140,10 @@ pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result
         &display,
         &dark_mode,
         &screen_timeout,
+        &window_animation_scale,
+        &transition_animation_scale,
+        &animator_duration_scale,
+        &font_scale,
         &uptime,
     );
     Ok(details)

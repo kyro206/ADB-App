@@ -46,12 +46,7 @@ pub fn run() {
             } else {
                 None
             });
-            /* BORRAR EN 2.3+*/
-            let app_icons_dir = crate::app_paths::cache_dir().join("app-icons");
-            if app_icons_dir.exists() && !app_icons_dir.join("apps.json").exists() {
-                let _ = crate::commands::operations::clear_application_cache();
-            }
-            /* BORRAR EN 2.3+*/
+
             let temp_dir = crate::app_paths::cache_dir().join("temp");
             tauri::async_runtime::spawn(async move {
                 let _ = std::fs::remove_dir_all(temp_dir);
@@ -168,6 +163,7 @@ pub fn run() {
             screenshot::capture_screenshot,
             screenshot::save_screenshot,
             screenshot::save_screenshot_auto,
+            screenshot::capture_and_save_screenshot_auto,
             screenshot::delete_screenshot_auto,
             screenshot::open_screenshot_auto,
             queue::enqueue_job,
@@ -215,6 +211,7 @@ pub fn run() {
             operations::set_window_theme,
             operations::get_window_effect_info,
             operations::get_device_wallpaper,
+            operations::save_device_wallpaper_to_disk,
             operations::sideload_device,
             operations::download_and_open_file,
             operations::search_apkmirror,

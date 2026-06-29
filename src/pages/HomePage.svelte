@@ -161,12 +161,11 @@
       connecting: m.state_connecting(),
       unauthorized: m.state_unauthorized(),
       offline: m.state_offline(),
-      recovery: m.power_btn_recovery ? m.power_btn_recovery() : "Recovery",
-      bootloader: m.power_btn_bootloader
-        ? m.power_btn_bootloader()
-        : "Bootloader",
-      fastboot: m.power_btn_fastbootd ? m.power_btn_fastbootd() : "Fastbootd",
-      download: m.power_btn_download ? m.power_btn_download() : "Download",
+      recovery: m.power_btn_recovery(),
+      unknown: m.device_type_unknown(),
+      bootloader: m.power_btn_bootloader(),
+      fastboot: m.power_btn_fastbootd(),
+      download: m.power_btn_download(),
     };
     return labels[state] || state.charAt(0).toUpperCase() + state.slice(1);
   });
@@ -217,14 +216,14 @@
     if (!devicesState.selectedDevice) return null;
     switch (devicesState.selectedDevice.state) {
       case "recovery":
-        return m.power_hint_recovery ? m.power_hint_recovery() : null;
+        return m.power_hint_recovery();
       case "bootloader":
-        return m.power_hint_bootloader ? m.power_hint_bootloader() : null;
+        return m.power_hint_bootloader();
       case "fastboot":
       case "fastbootd":
-        return m.power_hint_fastbootd ? m.power_hint_fastbootd() : null;
+        return m.power_hint_fastbootd();
       case "download":
-        return m.power_hint_download ? m.power_hint_download() : null;
+        return m.power_hint_download();
       default:
         return null;
     }
@@ -254,21 +253,25 @@
     actionError = null;
     autoSavedScreenshotPath = null;
     try {
-      const base64 = await invoke<string>("capture_screenshot", { serial: selectedDevice.serial });
-      devicesState.screenshot = `data:image/png;base64,${base64}`;
-
       const settings = await invoke<any>("get_app_settings");
       if (settings?.auto_save_screenshots) {
-        try {
-          const deviceNameRaw = devicesState.homeIdentity?.deviceName || selectedDevice.device || selectedDevice.model || "Unknown";
-          const savedPath = await invoke<string>("save_screenshot_auto", {
-            deviceName: deviceNameRaw,
-            pngBase64: base64,
-          });
-          autoSavedScreenshotPath = savedPath;
-        } catch (saveErr) {
-          console.error("Auto-save failed", saveErr);
+        const deviceNameRaw = devicesState.homeIdentity?.deviceName || selectedDevice.device || selectedDevice.model || "Unknown";
+        
+        const result = await invoke<{ base64: string, saved_path: string | null, save_error: string | null }>("capture_and_save_screenshot_auto", {
+          serial: selectedDevice.serial,
+          deviceName: deviceNameRaw,
+        });
+
+        devicesState.screenshot = `data:image/png;base64,${result.base64}`;
+        
+        if (result.save_error) {
+          console.error("Auto-save failed", result.save_error);
+        } else {
+          autoSavedScreenshotPath = result.saved_path;
         }
+      } else {
+        const base64 = await invoke<string>("capture_screenshot", { serial: selectedDevice.serial });
+        devicesState.screenshot = `data:image/png;base64,${base64}`;
       }
     } catch (e) {
       actionError = String(e);
@@ -314,26 +317,9 @@
     savingScreenshot = true;
     actionError = null;
     try {
-      const output = await invoke<string>("run_device_action", {
+      await invoke("save_device_wallpaper_to_disk", {
         serial: selectedDevice.serial,
-        args: [
-          "shell",
-          "CLASSPATH=/data/local/tmp/wallpaper_extractor.jar app_process / com.kyro.adbapp.extractwallpaper.WallpaperExtractor --max-res",
-        ],
-      });
-
-      let base64ToWrite = devicesState.wallpaperImage.replace(
-        /^data:image\/[^;]+;base64,/,
-        "",
-      );
-      const match = output.match(/WALLPAPER_START([\s\S]*?)WALLPAPER_END/);
-      if (match && match[1]) {
-        base64ToWrite = match[1].replace(/[\r\n\s]/g, "");
-      }
-
-      await invoke<string>("save_screenshot", {
         path: destination,
-        pngBase64: base64ToWrite,
       });
     } catch (e) {
       actionError = String(e);
@@ -646,7 +632,7 @@
           <img
             src={devicesState.screenshot}
             alt={m.home_preview_alt()}
-            style="max-height: calc(100% - 70px); object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"
+            style="max-height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"
           />
 
           <div class="home-screenshot-review">
