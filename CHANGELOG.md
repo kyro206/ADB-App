@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The app now automatically switches to a newly connected device if the previous USB device is disconnected.
 - The marketing name of the device is now displayed in the topbar.
 - Optimized overall app loading times.
+- Icons cache is now enabled by default.
 
 ### Fixed
 - Fixed issues preventing proper application installations.

@@ -134,7 +134,7 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            cache_enabled: false,
+            cache_enabled: true,
             cache_path: String::new(),
             kill_adb_on_exit: true,
             auto_save_screenshots: false,
