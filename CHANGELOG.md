@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.2.0] - 2026-06-29
+
+### Added
+- Added automatic saving of screenshots directly to the pictures folder.
+- Updated the app icon to a liquid glass design for macOS.
+
+### Changed
+- App icons are now saved in WebP format, significantly improving loading speeds and reducing space.
+- Operations are now performed in Rust for better performance and stability.
+- The app now automatically switches to a newly connected device if the previous USB device is disconnected.
+- The marketing name of the device is now displayed in the topbar.
+- Optimized overall app loading times.
+
+### Fixed
+- Fixed issues preventing proper application installations.
+- Cleaned up redundant success states in the system.
+
 ## [2.1.0] - 2026-06-26
 
 ### Added
