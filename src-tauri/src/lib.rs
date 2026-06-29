@@ -204,6 +204,7 @@ pub fn run() {
             operations::launch_scrcpy,
             operations::list_scrcpy_cameras,
             operations::get_tools_snapshot,
+            operations::force_check_updates,
             operations::set_tool_path,
             operations::install_or_update_tool,
             operations::confirm_close_with_operations,

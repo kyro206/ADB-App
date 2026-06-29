@@ -509,11 +509,29 @@ pub fn tools_status() -> ToolsStatus {
     }
 
     let config = read_config();
-    let status = ToolsStatus {
-        adb: status_for("adb", &config),
-        scrcpy: status_for("scrcpy", &config),
-        java: status_for("java", &config),
-    };
+    let mut adb = status_for("adb", &config);
+    let mut scrcpy = status_for("scrcpy", &config);
+    let java = status_for("java", &config);
+
+    #[cfg(not(store_build))]
+    {
+        if let Ok(guard) = remote_adb().lock() {
+            if let Some(latest) = guard.as_ref() {
+                adb.update_checked = true;
+                adb.update_available = adb.available && update_available("adb", latest, &adb.version);
+                adb.latest_version = latest.clone();
+            }
+        }
+        if let Ok(guard) = remote_scrcpy().lock() {
+            if let Some(latest) = guard.as_ref() {
+                scrcpy.update_checked = true;
+                scrcpy.update_available = scrcpy.available && update_available("scrcpy", latest, &scrcpy.version);
+                scrcpy.latest_version = latest.clone();
+            }
+        }
+    }
+
+    let status = ToolsStatus { adb, scrcpy, java };
     persist_detected_paths(&status);
 
     if let Ok(mut cache) = cached_status().lock() {
@@ -642,6 +660,25 @@ fn update_available(_tool: &str, latest: &str, installed: &str) -> bool {
     is_newer_version(latest, installed)
 }
 
+#[cfg(not(store_build))]
+static LATEST_REMOTE_ADB: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+#[cfg(not(store_build))]
+static LATEST_REMOTE_SCRCPY: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+#[cfg(not(store_build))]
+fn remote_adb() -> &'static Mutex<Option<String>> {
+    LATEST_REMOTE_ADB.get_or_init(|| Mutex::new(None))
+}
+
+#[cfg(not(store_build))]
+fn remote_scrcpy() -> &'static Mutex<Option<String>> {
+    LATEST_REMOTE_SCRCPY.get_or_init(|| Mutex::new(None))
+}
+
+pub fn force_check_updates_flag() {
+    TOOLS_UPDATES_FINISHED.store(false, Ordering::Release);
+}
+
 pub async fn tools_status_with_updates() -> ToolsStatus {
     if TOOLS_UPDATES_FINISHED.load(Ordering::Acquire) {
         return tools_status_cached().await;
@@ -660,29 +697,30 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
 
     #[cfg(not(store_build))]
     {
-        let mut status = tools_status_cached().await;
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(12))
             .build()
             .unwrap_or_default();
-        let (adb_latest, scrcpy_latest) =
-            tokio::join!(latest_adb_version(&client), latest_scrcpy_version(&client),);
-        if let Ok(latest) = adb_latest {
-            status.adb.update_checked = true;
-            status.adb.update_available =
-                status.adb.available && update_available("adb", &latest, &status.adb.version);
-            status.adb.latest_version = latest;
+        let (adb_latest_res, scrcpy_latest_res) =
+            tokio::join!(latest_adb_version(&client), latest_scrcpy_version(&client));
+            
+        if let Ok(latest) = adb_latest_res {
+            if let Ok(mut guard) = remote_adb().lock() {
+                *guard = Some(latest);
+            }
         }
-        if let Ok(latest) = scrcpy_latest {
-            status.scrcpy.update_checked = true;
-            status.scrcpy.update_available =
-                status.scrcpy.available && update_available("scrcpy", &latest, &status.scrcpy.version);
-            status.scrcpy.latest_version = latest;
+
+        if let Ok(latest) = scrcpy_latest_res {
+            if let Ok(mut guard) = remote_scrcpy().lock() {
+                *guard = Some(latest);
+            }
         }
-        if let Ok(mut cache) = cached_status().lock() {
-            *cache = Some(status.clone());
-        }
+
+        invalidate_tools_cache();
+        let status = tools_status_cached().await;
+
         TOOLS_UPDATES_FINISHED.store(true, Ordering::Release);
+        
         status
     }
 }

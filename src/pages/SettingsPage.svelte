@@ -36,7 +36,8 @@ import * as m from '../paraglide/messages';
     onClearCache,
     appSettings,
     onSaveAppSettings,
-    defaultCacheDir
+    defaultCacheDir,
+    onForceCheckUpdates
   } = $props<{
     theme: 'light' | 'dark' | 'auto';
     language: string;
@@ -53,6 +54,7 @@ import * as m from '../paraglide/messages';
     appSettings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; auto_save_screenshots: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean } | null;
     onSaveAppSettings: (settings: { cache_enabled: boolean; cache_path: string; kill_adb_on_exit: boolean; auto_save_screenshots: boolean; material_you_enabled: boolean; material_you_background_tint: boolean; window_effect: WindowEffectMode; theme: string; language: string; packaged?: boolean; store_build?: boolean }) => void;
     defaultCacheDir: string;
+    onForceCheckUpdates: () => void;
   }>();
 
   let appVersion = $state('...');
@@ -279,15 +281,24 @@ import * as m from '../paraglide/messages';
       <h3 class="settings-title">{title}</h3>
       {#if tool && !appSettings?.store_build}
         <div class="tool-status">
-          <div class="tool-status-header">
-            <MaterialIcon 
-              name={getToolIconName(tool, checkingUpdates)} 
-              size={20} 
-              style={!tool.available ? 'color: var(--md-sys-color-error)' : ''}
-            />
-            <strong style={!tool.available ? 'color: var(--md-sys-color-error)' : ''}>
-              {getToolStateLabel(tool, checkingUpdates)}
-            </strong>
+          <div class="tool-status-header" style="width: 100%; display: flex; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <MaterialIcon 
+                name={getToolIconName(tool, checkingUpdates)} 
+                size={20} 
+                style={!tool.available ? 'color: var(--md-sys-color-error)' : ''}
+              />
+              <strong style={!tool.available ? 'color: var(--md-sys-color-error)' : ''}>
+                {getToolStateLabel(tool, checkingUpdates)}
+              </strong>
+            </div>
+            {#if !tool.update_checked && !checkingUpdates}
+              <div style="margin-left: auto;">
+                <md-icon-button onclick={onForceCheckUpdates} title={m.common_retry()} style="--md-icon-button-icon-size: 18px; width: 32px; height: 32px; padding: 7px;">
+                  <MaterialIcon name="refresh" />
+                </md-icon-button>
+              </div>
+            {/if}
           </div>
           <div class="tool-status-details">
             <span>{m.settings_source()}: {tool.source || '-'}</span>

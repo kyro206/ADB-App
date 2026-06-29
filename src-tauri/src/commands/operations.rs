@@ -2628,6 +2628,21 @@ pub async fn get_tools_snapshot() -> tools::ToolsSnapshot {
 }
 
 #[tauri::command]
+pub async fn force_check_updates(app: tauri::AppHandle) -> tools::ToolsSnapshot {
+    use tauri::Emitter;
+    tools::force_check_updates_flag();
+    tauri::async_runtime::spawn(async move {
+        let status = tools::tools_status_with_updates().await;
+        let _ = app.emit("tools-updates-checked", status);
+    });
+    
+    tools::ToolsSnapshot {
+        tools: tools::tools_status_cached().await,
+        checking_updates: true,
+    }
+}
+
+#[tauri::command]
 pub async fn set_tool_path(tool: String, path: String) -> Result<ToolsStatus, String> {
     tauri::async_runtime::spawn_blocking(move || tools::save_tool_path(&tool, &path))
         .await

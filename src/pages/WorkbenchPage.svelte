@@ -227,6 +227,18 @@ import * as m from '../paraglide/messages';
     }
   }
 
+  async function forceCheckUpdates() {
+    busy = true;
+    try {
+      const value = await invoke<ToolsSnapshot>('force_check_updates');
+      toolsState.set(value.tools, value.checking_updates);
+    } catch (error: any) { 
+      status = translateError(error); 
+    } finally { 
+      busy = false; 
+    }
+  }
+
   $effect(() => {
     if (tab === 'mirroring') {
       refreshMirrorData();
@@ -322,7 +334,24 @@ import * as m from '../paraglide/messages';
 
 <WorkbenchShell title={(m as any)[`nav_${tab}`]?.() ?? tab} {busy} {status}>
   {#if tab === 'settings'}
-    <SettingsPage {theme} {language} {tools} checkingUpdates={toolUpdatesChecking} bind:adbPath bind:scrcpyPath bind:javaPath onThemeChange={handleThemeChange} onLanguageChange={handleLanguageChange} onSaveToolPath={saveToolPath} onInstallTool={installTool} onClearCache={clearApplicationCache} {appSettings} onSaveAppSettings={saveAppSettings} {defaultCacheDir} />
+    <SettingsPage 
+      {theme} 
+      {language} 
+      tools={tools} 
+      checkingUpdates={toolUpdatesChecking} 
+      bind:adbPath 
+      bind:scrcpyPath 
+      bind:javaPath 
+      onThemeChange={handleThemeChange} 
+      onLanguageChange={handleLanguageChange} 
+      onSaveToolPath={saveToolPath} 
+      onInstallTool={installTool} 
+      onClearCache={clearApplicationCache} 
+      appSettings={appSettings} 
+      onSaveAppSettings={saveAppSettings} 
+      {defaultCacheDir} 
+      onForceCheckUpdates={forceCheckUpdates}
+    />
   {:else}
     <DeviceStateScreen {serial} loading={loading || (tab !== 'files' && busy)}>
       {#if serial}
