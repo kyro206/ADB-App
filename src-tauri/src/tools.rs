@@ -1,5 +1,4 @@
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -292,16 +291,6 @@ fn detect_tool_path(tool: &str) -> Option<PathBuf> {
     for root in common_directories(tool) {
         if let Some(path) = normalize_candidate(tool, root.to_string_lossy().as_ref()) {
             return Some(path);
-        }
-        if let Ok(entries) = fs::read_dir(root) {
-            for entry in entries.flatten() {
-                let candidate_path = entry.path();
-                if let Some(path) =
-                    normalize_candidate(tool, candidate_path.to_string_lossy().as_ref())
-                {
-                    return Some(path);
-                }
-            }
         }
     }
 

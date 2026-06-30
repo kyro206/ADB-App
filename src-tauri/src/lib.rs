@@ -86,7 +86,6 @@ pub fn run() {
                 (1180.0, 760.0)
             };
 
-            #[allow(unused_mut)]
             let mut builder = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
