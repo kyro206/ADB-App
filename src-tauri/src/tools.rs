@@ -141,8 +141,9 @@ fn normalize_candidate(tool: &str, value: &str) -> Option<PathBuf> {
 
 fn system_path(tool: &str) -> Option<PathBuf> {
     let lookup = if cfg!(windows) { "where" } else { "which" };
+    let expected_name = executable_name(tool);
     let output = crate::process::command(lookup)
-        .arg(executable_name(tool))
+        .arg(&expected_name)
         .output()
         .ok()?;
     if !output.status.success() {
@@ -151,9 +152,13 @@ fn system_path(tool: &str) -> Option<PathBuf> {
     String::from_utf8_lossy(&output.stdout)
         .lines()
         .map(str::trim)
-        .find(|line| !line.is_empty())
+        .filter(|line| !line.is_empty())
         .map(PathBuf::from)
-        .filter(|path| path.is_file())
+        .find(|path| {
+            path.is_file() && path.file_name().map_or(false, |name| {
+                name.to_string_lossy().eq_ignore_ascii_case(&expected_name)
+            })
+        })
 }
 
 fn detect_java_path() -> Option<PathBuf> {

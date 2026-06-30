@@ -178,6 +178,23 @@ fn remove_dir(path: &Path) -> Result<(), String> {
     }
 }
 
+#[cfg(not(store_build))]
+fn move_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), String> {
+    fs::create_dir_all(&dst).map_err(|error| error.to_string())?;
+    for entry in fs::read_dir(src).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let ty = entry.file_type().map_err(|error| error.to_string())?;
+        let dst_path = dst.as_ref().join(entry.file_name());
+        if ty.is_dir() {
+            move_dir_all(entry.path(), dst_path)?;
+        } else {
+            let _ = fs::remove_file(&dst_path);
+            fs::rename(entry.path(), &dst_path).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(store_build)]
 pub async fn install_tool(_tool: &str) -> Result<(), String> {
     Err("La versión de la tienda no soporta descargas.".to_string())
@@ -204,11 +221,8 @@ pub async fn install_tool(tool: &str) -> Result<(), String> {
     } else {
         executable.parent().unwrap_or(&staging).to_path_buf()
     };
-    remove_dir(&target)?;
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    fs::rename(&extracted_root, &target).map_err(|error| error.to_string())?;
+    fs::create_dir_all(&target).map_err(|error| error.to_string())?;
+    move_dir_all(&extracted_root, &target)?;
     if staging != target {
         remove_dir(&staging)?;
     }

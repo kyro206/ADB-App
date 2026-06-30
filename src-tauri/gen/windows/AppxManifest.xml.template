@@ -26,8 +26,8 @@
   </Dependencies>
 
   <Resources>
-    <Resource Language="en-us" />
-    <Resource Language="es-es" />
+    <Resource Language="en" />
+    <Resource Language="es" />
   </Resources>
 
   <Applications>
