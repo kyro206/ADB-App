@@ -63,15 +63,40 @@ import * as m from '../paraglide/messages';
   let licensesOpen = $state(false);
   let windowEffectInfo = $state<WindowEffectInfo>({ platform: 'linux', windows_11: false });
 
-  type LicenseInfo = { name: string; url: string; licenseType: string; licenseText: string };
-  const LICENSES: LicenseInfo[] = [
-    { name: 'ADB', url: 'https://android.googlesource.com/platform/packages/modules/adb/', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
-    { name: 'scrcpy', url: 'https://github.com/Genymobile/scrcpy', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
-    { name: 'Bundletool', url: 'https://github.com/google/bundletool', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
-    { name: 'Material Web', url: 'https://github.com/material-components/material-web', licenseType: 'Apache License 2.0', licenseText: APACHE_LICENSE_2_0 },
-    { name: 'Tauri', url: 'https://github.com/tauri-apps/tauri', licenseType: 'MIT / Apache 2.0', licenseText: MIT_LICENSE + '\n\n---\n\n' + APACHE_LICENSE_2_0 },
-    { name: 'Svelte', url: 'https://github.com/sveltejs/svelte', licenseType: 'MIT License', licenseText: MIT_LICENSE },
-    { name: 'Android Logo', url: 'https://creativecommons.org/licenses/by/3.0/', licenseType: 'CC BY 3.0', licenseText: ANDROID_LOGO_LICENSE }
+  type LicenseGroup = { type: string; text: string; items: { name: string; url: string }[] };
+  const LICENSE_GROUPS: LicenseGroup[] = [
+    {
+      type: 'MIT License',
+      text: MIT_LICENSE,
+      items: [
+        { name: 'Tauri', url: 'https://github.com/tauri-apps/tauri' },
+        { name: 'Svelte', url: 'https://github.com/sveltejs/svelte' },
+        { name: 'qrcode', url: 'https://www.npmjs.com/package/qrcode' },
+        { name: 'serde', url: 'https://github.com/serde-rs/serde' },
+        { name: 'serde_json', url: 'https://github.com/serde-rs/json' },
+        { name: 'tokio', url: 'https://github.com/tokio-rs/tokio' },
+        { name: 'base64', url: 'https://github.com/marshallpierce/rust-base64' },
+        { name: 'reqwest', url: 'https://github.com/seanmonstar/reqwest' },
+        { name: 'rand', url: 'https://github.com/rust-random/rand' }
+      ]
+    },
+    {
+      type: 'Apache License 2.0',
+      text: APACHE_LICENSE_2_0,
+      items: [
+        { name: 'ADB', url: 'https://android.googlesource.com/platform/packages/modules/adb/' },
+        { name: 'scrcpy', url: 'https://github.com/Genymobile/scrcpy' },
+        { name: 'Bundletool', url: 'https://github.com/google/bundletool' },
+        { name: 'Material Web', url: 'https://github.com/material-components/material-web' }
+      ]
+    },
+    {
+      type: 'CC BY 3.0',
+      text: ANDROID_LOGO_LICENSE,
+      items: [
+        { name: 'Android Logo', url: 'https://creativecommons.org/licenses/by/3.0/' }
+      ]
+    }
   ];
 
 
@@ -528,20 +553,25 @@ import * as m from '../paraglide/messages';
   <AppModal open={licensesOpen} onClose={() => licensesOpen = false} title={m.settings_aboutLicenses()} width="large">
     <div style="display: flex; flex-direction: column; gap: 24px">
       <div style="background: var(--md-sys-color-surface-container); padding: 16px; border-radius: 12px; overflow-y: auto; border: 1px solid var(--md-sys-color-outline-variant)">
-        {#each LICENSES as lic, index}
-          <div style="margin-bottom: {index === LICENSES.length - 1 ? '0' : '32px'}">
+        {#each LICENSE_GROUPS as group, index}
+          <div style="margin-bottom: {index === LICENSE_GROUPS.length - 1 ? '0' : '32px'}">
             <div style="border-bottom: 1px dashed var(--md-sys-color-outline-variant); padding-bottom: 8px; margin-bottom: 12px">
-              <h4 style="margin: 0 0 4px 0; font-size: 16px; color: var(--md-sys-color-on-surface); display: flex; align-items: center; justify-content: space-between">
-                {lic.name}
-                <md-icon-button onclick={() => openUrl(lic.url)} title="Código original" style="--md-icon-button-icon-size: 18px;">
-                  <MaterialIcon name="open_in_new" size={18} />
-                </md-icon-button>
+              <h4 style="margin: 0 0 4px 0; font-size: 16px; color: var(--md-sys-color-on-surface)">
+                {group.type}
               </h4>
-              <span style="font-size: 12px; color: var(--md-sys-color-on-surface-variant)">{lic.licenseType}</span>
+              <div style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); display: flex; flex-wrap: wrap; gap: 4px; align-items: center">
+                <span>{m.settings_licenseUsedBy()}</span>
+                {#each group.items as item, itemIndex}
+                  <a href={item.url} onclick={(e) => { e.preventDefault(); openUrl(item.url); }} style="color: var(--md-sys-color-primary); text-decoration: none;">{item.name}</a>{itemIndex < group.items.length - 1 ? ',' : ''}
+                {/each}
+              </div>
             </div>
-            <div style="font-size: 12px; font-family: monospace; white-space: pre-wrap; color: var(--md-sys-color-on-surface-variant)">
-              {lic.licenseText}
-            </div>
+            <details style="font-size: 12px; color: var(--md-sys-color-on-surface-variant)">
+              <summary style="cursor: pointer; outline: none; margin-bottom: 8px; user-select: none; font-weight: 500;">{m.settings_licenseViewText()}</summary>
+              <div style="font-family: monospace; white-space: pre-wrap; padding: 12px; background: var(--md-sys-color-surface-container-highest); border-radius: 8px;">
+                {group.text}
+              </div>
+            </details>
           </div>
         {/each}
       </div>

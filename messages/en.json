@@ -438,5 +438,7 @@
   "system_advanced_title": "Advanced options",
   "system_advanced_captivePortal": "Captive portal check",
   "system_advanced_captivePortalDesc": "Required for connecting to Wi-Fi networks with captive portals on Wear OS",
-  "system_advanced_recommended": "Recommended for your device"
+  "system_advanced_recommended": "Recommended for your device",
+  "settings_licenseUsedBy": "Used by:",
+  "settings_licenseViewText": "View license text"
 }

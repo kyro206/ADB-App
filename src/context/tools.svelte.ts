@@ -19,7 +19,7 @@ export type ToolsStatus = {
   java: ToolStatus;
 };
 
-type ToolsSnapshot = {
+export type ToolsSnapshot = {
   tools: ToolsStatus;
   checking_updates: boolean;
 };

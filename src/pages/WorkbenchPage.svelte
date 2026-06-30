@@ -19,7 +19,7 @@ import * as m from '../paraglide/messages';
   import WorkbenchShell from './workbench/WorkbenchShell.svelte';
   import DeviceStateScreen from '../components/layout/DeviceStateScreen.svelte';
   import { words, translateError } from './workbench/utils';
-  import type { AppSummary, MirrorMode, ToolsStatus, WorkTab } from './workbench/types';
+  import type { AppSummary, MirrorMode, ToolsStatus, ToolsSnapshot, WorkTab } from './workbench/types';
   let { tab } = $props<{ tab: WorkTab }>();
 
 

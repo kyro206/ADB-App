@@ -438,5 +438,7 @@
   "system_advanced_title": "Opciones avanzadas",
   "system_advanced_captivePortal": "Permitir portal cautivo",
   "system_advanced_captivePortalDesc": "Permite conectarse a redes wifi con portal cautivo en Wear OS",
-  "system_advanced_recommended": "Recomendado para tu dispositivo"
+  "system_advanced_recommended": "Recomendado para tu dispositivo",
+  "settings_licenseUsedBy": "Usado por:",
+  "settings_licenseViewText": "Ver texto de la licencia"
 }

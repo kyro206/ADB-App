@@ -1,5 +1,5 @@
 export type TabId = 'home' | 'display' | 'mirroring' | 'control' | 'apps' | 'files' | 'system' | 'settings';
-export type { ToolStatus, ToolsStatus } from '../../context/tools.svelte';
+export type { ToolStatus, ToolsStatus, ToolsSnapshot } from '../../context/tools.svelte';
 export type WorkTab = Exclude<TabId, 'home'>;
 export type AppSummary = { package_name: string; display_name: string; apk_path: string; system_app: boolean; disabled: boolean; uninstalled: boolean; icon_data_url: string };
 export type AppPermissionInfo = { name: string; granted: boolean; runtime: boolean; changeable: boolean };
