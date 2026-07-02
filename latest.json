@@ -1,27 +1,27 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "notes": "New update available.",
-  "pub_date": "2026-06-29T00:48:23.000Z",
+  "pub_date": "2026-07-02T22:42:14.000Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMFQ1NUNSZkR3aENVdFo2QStWSk0zTmhXYXJ5VVMxVmRHcmN1ajU3SzJESXM0K3g1eW9hRTRzV2d5S2c0VS9PQ21HRkNHV0MwMDhicEE1TmdyNnNvYXdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNjk0NDI0CWZpbGU6QURCIEFwcF8yLjIuMF9hbWQ2NC5BcHBJbWFnZQpGUDlDYkltdlFJRjZ5U00wbDdPbVJlTlFmbnkyMkg0emViWjh6VWdMaFI0SHRmaThEcExaWG00aXBsMjFDaW96T05RaG9WMjRaR2xBc1ZkSThpYVlEQT09Cg==",
-      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.2.0/ADB-App-2.2.0-linux-x64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMFYwdHpWOVg4WnRVQXRMMmRVUmhZMmltdkd3RVZQVGpLeXpndGJXamtxQTJEd0xHdmZBeUlGQzhYeEpwZFFockJaVmQ5YkFBQzZCYUFGOFdIeDRSYUE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzMDMyNDE3CWZpbGU6QURCIEFwcF8yLjMuMF9hbWQ2NC5BcHBJbWFnZQpJckhZTFdzTXBnajZaRUdiZ2c4UkI5cm9mSVJzaUcvQ1VjQjdzOEc0cUhrMERHSTM4RVN0UzBpZzZtQ2tpUFYvTkE3RTJQbFJLMEpuVGpZK3VYeUVCQT09Cg==",
+      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.3.0/ADB-App-2.3.0-linux-x64.AppImage"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMFJaa0RYSFJNT2c4Q3lSR0txQ0hpbmpoMjI3UkZkdkgxTVY0VE9YZlBJb2hKc25qTHZOVmRjTWxrMEZRRzkvbEY1aFVSSGsxR04ySWY0UEZqWU9nQXdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNjk0NzQ3CWZpbGU6QURCIEFwcC5hcHAudGFyLmd6Ckd4dmw5NThvZUVHR0F2Y3FPdnB4cVdOVVI2d0ExZXBYeEpjaGppS1h3aVhzU1FQY3dJcDdwK2I4dWJ6Rkk4OUtKbTg5U1I4OXNPZExRNkgwbW5RTkFBPT0K",
-      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.2.0/ADB-App-2.2.0-macos-x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMFE1TllzTytSZFdYTE94UFFONzRyTnQ3WVMyTWR3RDV6SXE5akhudG5BM09iWVpqNTBhS2xIVW84NGRoa1lmN0grSkZOUXNMaDhjNTFoTXVXdGZ6L3dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzMDMzMDAxCWZpbGU6QURCIEFwcC5hcHAudGFyLmd6Ck5qTXRtTTVYMk5TbkFDQWduYWtaYXBTRzJRVytLRnJGVk9CaHlQQTdzYjdxU2h0Mis0VnFzSWxCc3p3UEFZZ3VMbGNNRXR2U0czd1FveUZmeUNoU0J3PT0K",
+      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.3.0/ADB-App-2.3.0-macos-x64.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMGJXRmw1Rml2djR5UlVBTFRqWWk4cktvY0VONlhQQ2dnb3l3RDFwb0hMaTE3SUlibk4xTzNBMVg5eDFidFI0ZFlndXMxV2tHTUZTdHA1VmpiTmVITkFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNjk0MzE5CWZpbGU6QURCIEFwcC5hcHAudGFyLmd6Ck1LQXd3WEFYSjd3Y1k4UmdsMHRFd0pmQzBTUDhkU3duSGxvTTFrNDdUdVZhV0cxOWUzaS91ei8zZUt4Zi9Dckc3MENkSzdBWWtpRGt3ajNlN0o4ekJBPT0K",
-      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.2.0/ADB-App-2.2.0-macos-arm64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMFRVOVZuSlozblEyVzlidXRQWHcyTUxHaHBPeVkrZkVrdURYUDhjU3NnWlBhcWhKNWNqOXNPY3BweDNxOVQraWlxQXkvOVl4NkNZQjBCU1NSdG9LZlFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzMDMyMzUyCWZpbGU6QURCIEFwcC5hcHAudGFyLmd6CmR0UTRxNTdDK1NhTWIrOG1RN3lWZXdWRUEvczdmbVNIbWVpSmNQaFQ4RGZTWm1RbW9LVng3NUhXSzlBRGI4U254TFNwaGVnTkhPTkliYVBpOGExVkNRPT0K",
+      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.3.0/ADB-App-2.3.0-macos-arm64.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMGNNTnA2bW9JWmpFcFd3bXlaT2pJVmhCcXMvejRLZHp5WTgyalIySEhmZU9kZXJMRFNVQmxxNXZhWjk3OFZoUTNBSVFtRlBpUnMyOXBFVUZyNldUUXc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNjk0NTA2CWZpbGU6QURCIEFwcF8yLjIuMF94NjQtc2V0dXAuZXhlClA4MHhTUVh3cWxlZDcrQVExSXMvRGFheVpWSjhpRUVZdG1CMG1jTlJtMi9CdUVhQzljNElHQXZlTExhMFREODcvMUMvaVRQWktyWkNpVkpqa3hNNkNBPT0K",
-      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.2.0/ADB-App-2.2.0-windows-x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMGNLRDZLV3dFZEVkQVNEcUJLNGhzb0xBRmt5OHJUcVdnaDdvNXBHRDh3RTUyeXFXL28xSzRKOUdUalVHdDFUbUZoaHZ4dm5TU1lxVzVsWmV5Y29BM3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzMDMyNTM5CWZpbGU6QURCIEFwcF8yLjMuMF94NjQtc2V0dXAuZXhlCkZaNjVyRlJjOTZNaFdkQVIrUEx6YUREMkw0Tlp6RTNuak8wRGlMQlZIWGhXV1ZBRlpQZy9GRDdUS0k0ZVdmaVdoYUlsQ1lWVWVCTVVFYmFaSzlnUEN3PT0K",
+      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.3.0/ADB-App-2.3.0-windows-x64-setup.exe"
     },
     "windows-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMFZILzBRR1lhR0dlMEV0blNtQXVtQTRJT2Ryem0vanl1azZiaW9qSG9NdERPOCtNOFJrUXB6bzc2eThkNVNjMkJnaVF1QjdqSTYvWVoyeFNxVmF1MlFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNjk0NzA4CWZpbGU6QURCIEFwcF8yLjIuMF9hcm02NC1zZXR1cC5leGUKRnZNVWJNT0J5ZW9mdmJhMTJxcHVJSFNQbzZSYVhsTTJGNDFWT0o4V3RtMGpEc251QXZzREVrNlBEWkxNSnlSYWIxM2J6c004a0cwb3dXWVVhYVQvQ2c9PQo=",
-      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.2.0/ADB-App-2.2.0-windows-arm64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeU9sWGRTYzNwMFlFRnVUR2gxMDU4cjdaZ0RoSVZEN05uR2VZNkpJOFhpZVJzU0s0UnF2N0MyN1JTT012d3RSNFRrcGNubldxTmRBY21Nckx0N0NqekdNbE13SFdCcFFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzMDMyODIxCWZpbGU6QURCIEFwcF8yLjMuMF9hcm02NC1zZXR1cC5leGUKaWx5WWJQSzVVRCtjOGV3SUFNZm8vNWMwRXdXcTc2aitqSEMyM2lSNGVHeTZRNUsvUGM1WGMzQ3NZdjRud3NyU3hRT2lQQzB6eWhBMVd4Y1hKUFM4RHc9PQo=",
+      "url": "https://github.com/kyro206/ADB-App/releases/download/v2.3.0/ADB-App-2.3.0-windows-arm64-setup.exe"
     }
   }
 }
