@@ -19,7 +19,15 @@
     e.stopPropagation();
     contextMenu = { x: e.clientX, y: e.clientY, job };
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && operationsState.isOpen) {
+      operationsState.isOpen = false;
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#snippet statusIcon(status: OperationStatus)}
   {#if status === 'idle'}

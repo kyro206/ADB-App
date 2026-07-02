@@ -25,7 +25,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@choochmeque/tauri-windows-bundle": "^0.1.26",
+    "@choochmeque/tauri-windows-bundle": "^0.1.28",
     "@inlang/paraglide-js": "^2.20.2",
     "@inlang/plugin-message-format": "^4.4.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
@@ -35,6 +35,6 @@
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.1",
     "typescript": "~6.0.3",
-    "vite": "^8.1.0"
+    "vite": "^8.1.3"
   }
 }
