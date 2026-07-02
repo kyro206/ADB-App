@@ -390,6 +390,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           set -euo pipefail
+          unset CI
           bun run tauri build --target "${{ matrix.target }}" --bundles "${{ matrix.bundles }}"
 
       - name: Preparar assets del release
