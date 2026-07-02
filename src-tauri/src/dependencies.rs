@@ -41,10 +41,7 @@ async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, 
 }
 
 #[cfg(not(store_build))]
-async fn tool_asset(
-    tool: &str,
-    client: &reqwest::Client,
-) -> Result<(String, ArchiveKind), String> {
+async fn tool_asset(tool: &str, client: &reqwest::Client) -> Result<(String, ArchiveKind), String> {
     if std::env::consts::OS == "linux" {
         return Err("Automatic installation is disabled on Linux. Use your distribution's package manager and Auto detect.".to_string());
     }
@@ -205,9 +202,7 @@ pub async fn install_tool(tool: &str) -> Result<(), String> {
     let client = client()?;
     let (url, kind) = tool_asset(tool, &client).await?;
     let target = managed_dir(tool);
-    let staging = crate::app_paths::cache_dir()
-        .join("temp")
-        .join(tool);
+    let staging = crate::app_paths::cache_dir().join("temp").join(tool);
     remove_dir(&staging)?;
     {
         let archive = download_bytes(&client, &url).await?;

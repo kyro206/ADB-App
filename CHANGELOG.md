@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.3.0] - 2026-07-02
+
+### Added
+- Animation speed and font size can be personalized from Display.
+- Display now has more visual coherence.
+- Data updates automatically on the main page (improved) and Control.
+
+### Changed
+- Updated the app icon to a liquid glass design for macOS.
+- The marketing name of the device is now displayed in the topbar.
+- App icons are now saved in WebP format, significantly improving loading speeds and reducing space.
+- Operations are now performed in Rust for better performance and stability.
+- The app now automatically switches to a newly connected device if the previous USB device is disconnected.
+- Optimized overall app loading times.
+- Icons cache is now enabled by default.
+
+### Fixed
+- Fixed issues preventing proper application installations.
+- Cleaned up redundant success states in the system.
+- The Liquid Glass icon for macOS is shown again.
+
 ## [2.2.0] - 2026-06-29
 
 ### Added

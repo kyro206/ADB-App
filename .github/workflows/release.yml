@@ -154,7 +154,7 @@ jobs:
             });
 
             add(process.env.BUILD_MACOS_ARM64, {
-              os: 'macos-latest',
+              os: 'macos-26',
               target: 'aarch64-apple-darwin',
               bundles: 'app,dmg',
               name: 'macos-arm64',

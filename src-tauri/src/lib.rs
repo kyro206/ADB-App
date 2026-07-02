@@ -10,8 +10,8 @@ mod tools;
 
 use commands::devices;
 use commands::operations;
-use commands::screenshot;
 use commands::queue;
+use commands::screenshot;
 use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -21,7 +21,9 @@ pub fn run() {
             let path = request.uri().path();
             if let Some(package_name) = path.strip_prefix("/icon/") {
                 let cache_dir = crate::app_paths::cache_dir();
-                let icon_path = cache_dir.join("app-icons").join(format!("{}.webp", package_name));
+                let icon_path = cache_dir
+                    .join("app-icons")
+                    .join(format!("{}.webp", package_name));
                 if let Ok(bytes) = std::fs::read(&icon_path) {
                     if let Ok(response) = tauri::http::Response::builder()
                         .status(200)
@@ -61,7 +63,7 @@ pub fn run() {
                 let status = crate::tools::tools_status_with_updates().await;
                 let _ = tools_app.emit("tools-updates-checked", status);
             });
-            
+
             app.manage(queue::JobQueueState::default());
             queue::start_job_processor(app.handle().clone());
 
@@ -121,11 +123,11 @@ pub fn run() {
     #[cfg(debug_assertions)]
     let builder = builder.plugin(
         tauri_plugin_prevent_default::Builder::new()
-            .with_flags(
-                tauri_plugin_prevent_default::Flags::all()
-                    .difference(tauri_plugin_prevent_default::Flags::DEV_TOOLS | tauri_plugin_prevent_default::Flags::RELOAD)
-            )
-            .build()
+            .with_flags(tauri_plugin_prevent_default::Flags::all().difference(
+                tauri_plugin_prevent_default::Flags::DEV_TOOLS
+                    | tauri_plugin_prevent_default::Flags::RELOAD,
+            ))
+            .build(),
     );
 
     #[cfg(not(debug_assertions))]
@@ -159,6 +161,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             devices::list_devices,
             devices::get_device_details,
+            devices::get_device_runtime_state,
             screenshot::capture_screenshot,
             screenshot::save_screenshot,
             screenshot::save_screenshot_auto,
@@ -181,6 +184,7 @@ pub fn run() {
             operations::get_system_state,
             operations::set_device_dark_mode,
             operations::get_media_volume,
+            operations::get_control_state,
             operations::set_media_volume,
             operations::list_apps,
             operations::enrich_app_summaries,

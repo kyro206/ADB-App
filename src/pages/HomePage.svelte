@@ -110,14 +110,22 @@
       fetchDeviceNameAndCarrier(selectedSerial);
     }
 
-    const interval = window.setInterval(() => {
+    const runtimeInterval = window.setInterval(() => {
       if (selectedSerial && selectedState === "device") {
-        devicesState.refreshDeviceDetailsSilent();
+        devicesState.refreshDeviceRuntimeStateSilent();
+      }
+    }, 10000);
+
+    const identityInterval = window.setInterval(() => {
+      if (selectedSerial && selectedState === "device") {
         fetchDeviceNameAndCarrier(selectedSerial);
       }
     }, 30000);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(runtimeInterval);
+      window.clearInterval(identityInterval);
+    };
   });
 
   $effect(() => {
@@ -265,7 +273,7 @@
         devicesState.screenshot = `data:image/png;base64,${result.base64}`;
         
         if (result.save_error) {
-          console.error("Auto-save failed", result.save_error);
+          actionError = result.save_error;
         } else {
           autoSavedScreenshotPath = result.saved_path;
         }

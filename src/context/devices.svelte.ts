@@ -44,6 +44,16 @@ export interface DeviceDetails {
   uptime_seconds: number;
 }
 
+export interface DeviceRuntimeState {
+  total_ram_mb: number;
+  used_ram_mb: number;
+  battery_level_percent: number;
+  battery_health: string;
+  total_storage_mb: number;
+  used_storage_mb: number;
+  uptime_seconds: number;
+}
+
 export interface HomeIdentity {
   serial: string;
   deviceName: string;
@@ -69,6 +79,7 @@ class DeviceState {
   #queuedTargetSerial: string | undefined;
   #refreshPromise: Promise<void> | null = null;
   #detailsRequestId = 0;
+  #runtimeRequestId = 0;
   #wallpaperRequestId = 0;
   #wallpaperSerial: string | null = null;
   #homeDetailsCache = new Map<string, DeviceDetails>();
@@ -264,6 +275,37 @@ class DeviceState {
       if (requestId === this.#detailsRequestId
         && this.selectedDevice?.serial === serial
         && this.selectedDevice.state === 'device') {
+        this.deviceDetails = details;
+        if (details.total_ram_mb !== -1 && details.uptime_seconds >= 0) {
+          this.#homeDetailsCache.set(serial, details);
+        }
+      }
+    } catch {
+      // Fallo silencioso, mantenemos los datos antiguos
+    }
+  }
+
+  async refreshDeviceRuntimeStateSilent() {
+    if (this.operationalLoading) return;
+    if (!this.selectedDevice || this.selectedDevice.state !== 'device' || !this.deviceDetails) return;
+    const serial = this.selectedDevice.serial;
+    const requestId = ++this.#runtimeRequestId;
+    try {
+      const runtimeState: DeviceRuntimeState = await invoke('get_device_runtime_state', { serial });
+      if (requestId === this.#runtimeRequestId
+        && this.selectedDevice?.serial === serial
+        && this.selectedDevice.state === 'device'
+        && this.deviceDetails) {
+        const details = {
+          ...this.deviceDetails,
+          total_ram_mb: runtimeState.total_ram_mb,
+          used_ram_mb: runtimeState.used_ram_mb,
+          battery_level_percent: runtimeState.battery_level_percent,
+          battery_health: runtimeState.battery_health,
+          total_storage_mb: runtimeState.total_storage_mb,
+          used_storage_mb: runtimeState.used_storage_mb,
+          uptime_seconds: runtimeState.uptime_seconds,
+        };
         this.deviceDetails = details;
         if (details.total_ram_mb !== -1 && details.uptime_seconds >= 0) {
           this.#homeDetailsCache.set(serial, details);

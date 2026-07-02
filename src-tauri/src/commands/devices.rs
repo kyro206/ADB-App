@@ -1,6 +1,18 @@
 use crate::adb;
 use crate::models::{Device, DeviceDetails};
 use crate::parsers::device_parser;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DeviceRuntimeState {
+    pub total_ram_mb: i64,
+    pub used_ram_mb: i64,
+    pub battery_level_percent: i32,
+    pub battery_health: String,
+    pub total_storage_mb: i64,
+    pub used_storage_mb: i64,
+    pub uptime_seconds: f64,
+}
 
 /// List all connected ADB devices.
 #[tauri::command]
@@ -18,7 +30,10 @@ pub async fn list_devices() -> Result<Vec<Device>, String> {
 
 /// Get detailed information about a specific device.
 #[tauri::command]
-pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result<DeviceDetails, String> {
+pub async fn get_device_details(
+    app: tauri::AppHandle,
+    device: Device,
+) -> Result<DeviceDetails, String> {
     if crate::mock::enabled() {
         return Ok(crate::mock::device_details());
     }
@@ -28,7 +43,8 @@ pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result
     // Lanzar en segundo plano el envío de los daemons
     let serial_for_daemons = serial.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::operations::push_daemons_if_needed(&app, &serial_for_daemons).await;
+        let _ =
+            crate::commands::operations::push_daemons_if_needed(&app, &serial_for_daemons).await;
     });
 
     if device.state != "device" {
@@ -147,6 +163,52 @@ pub async fn get_device_details(app: tauri::AppHandle, device: Device) -> Result
         &uptime,
     );
     Ok(details)
+}
+
+#[tauri::command]
+pub async fn get_device_runtime_state(serial: String) -> Result<DeviceRuntimeState, String> {
+    if crate::mock::enabled() {
+        let details = crate::mock::device_details();
+        return Ok(DeviceRuntimeState {
+            total_ram_mb: details.total_ram_mb,
+            used_ram_mb: details.used_ram_mb,
+            battery_level_percent: details.battery_level_percent,
+            battery_health: details.battery_health,
+            total_storage_mb: details.total_storage_mb,
+            used_storage_mb: details.used_storage_mb,
+            uptime_seconds: details.uptime_seconds,
+        });
+    }
+
+    let script = "\
+        cat /proc/meminfo; echo '---ADBAPPSEP---'; \
+        dumpsys battery; echo '---ADBAPPSEP---'; \
+        df -k /data; echo '---ADBAPPSEP---'; \
+        cat /proc/uptime\
+    ";
+    let result = run_details_query(&serial, &["shell", script]).await?;
+    let mut parts = result.split("---ADBAPPSEP---");
+
+    let meminfo = parts.next().unwrap_or("").trim();
+    let battery = parts.next().unwrap_or("").trim();
+    let storage = parts.next().unwrap_or("").trim();
+    let uptime = parts.next().unwrap_or("").trim();
+    let (total_ram_mb, used_ram_mb) = device_parser::parse_memory(meminfo);
+    let (total_storage_mb, used_storage_mb) = device_parser::parse_storage(storage);
+
+    Ok(DeviceRuntimeState {
+        total_ram_mb,
+        used_ram_mb,
+        battery_level_percent: device_parser::parse_battery_level(battery),
+        battery_health: device_parser::parse_battery_health(battery),
+        total_storage_mb,
+        used_storage_mb,
+        uptime_seconds: uptime
+            .split_whitespace()
+            .next()
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(-1.0),
+    })
 }
 
 async fn run_details_query(serial: &str, args: &[&str]) -> Result<String, String> {

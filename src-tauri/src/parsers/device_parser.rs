@@ -34,7 +34,7 @@ pub fn parse_devices(output: &str) -> Vec<Device> {
 
         let mut state_idx = 0;
         let valid_states = ["device", "offline", "unauthorized", "recovery", "bootloader", "sideload", "host", "connecting"];
-        
+
         for (i, part) in parts.iter().enumerate().skip(1) {
             if valid_states.contains(part) {
                 state_idx = i;
@@ -155,6 +155,7 @@ pub fn parse_battery_level(output: &str) -> i32 {
 
 /// Parse battery health from `dumpsys battery` output.
 pub fn parse_battery_health(output: &str) -> String {
+    let mut fallback_health = "unknown".to_string();
     for line in output.lines() {
         let trimmed = line.trim();
         let lower = trimmed.to_ascii_lowercase();
@@ -168,19 +169,19 @@ pub fn parse_battery_health(output: &str) -> String {
             }
         } else if lower.starts_with("health:") {
             let val_str = trimmed.split(':').nth(1).unwrap_or("").trim();
-            match val_str {
-                "2" => return "good".to_string(),
-                "3" => return "overheat".to_string(),
-                "4" => return "dead".to_string(),
-                "5" => return "over_voltage".to_string(),
-                "6" => return "failure".to_string(),
-                "7" => return "cold".to_string(),
-                _ => return "unknown".to_string(),
-            }
+            fallback_health = match val_str {
+                "2" => "good".to_string(),
+                "3" => "overheat".to_string(),
+                "4" => "dead".to_string(),
+                "5" => "over_voltage".to_string(),
+                "6" => "failure".to_string(),
+                "7" => "cold".to_string(),
+                _ => fallback_health,
+            };
         }
     }
 
-    "unknown".to_string()
+    fallback_health
 }
 
 /// Parse Android's `dumpsys meminfo` summary, falling back to `/proc/meminfo`.
@@ -198,7 +199,11 @@ pub fn parse_memory(output: &str) -> (i64, i64) {
         if lower.starts_with("total ram:") {
             let parts: Vec<&str> = trimmed["Total RAM:".len()..].trim().split_whitespace().collect();
             if let Some(val_str) = parts.first() {
-                dumpsys_total = val_str.replace("K", "").replace(",", "").parse().unwrap_or(-1);
+                dumpsys_total = val_str
+                    .replace("K", "")
+                    .replace(",", "")
+                    .parse()
+                    .unwrap_or(-1);
             }
         } else if lower.starts_with("free ram:") {
             let parts: Vec<&str> = trimmed["Free RAM:".len()..].trim().split_whitespace().collect();
@@ -356,7 +361,13 @@ pub fn parse_refresh_rates(output: &str) -> (f64, Vec<f64>) {
             if let Some(idx) = trimmed.find(keyword) {
                 let rest = &trimmed[idx + keyword.len()..].trim();
                 let rest = rest.trim_start_matches(|c| c == '=' || c == ':' || c == ' ');
-                let val_str = rest.split_whitespace().next().unwrap_or("").split(|c: char| !c.is_ascii_digit() && c != '.').next().unwrap_or("");
+                let val_str = rest
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .split(|c: char| !c.is_ascii_digit() && c != '.')
+                    .next()
+                    .unwrap_or("");
                 if let Ok(rate) = val_str.parse::<f64>() {
                     if rate > 1.0 && rate < 1000.0 {
                         rates.push((rate * 100.0).round() / 100.0);
@@ -531,9 +542,18 @@ pub fn build_device_details(
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(-1.0);
 
-    let window_animation_scale = window_animation_scale_output.trim().parse::<f64>().unwrap_or(1.0);
-    let transition_animation_scale = transition_animation_scale_output.trim().parse::<f64>().unwrap_or(1.0);
-    let animator_duration_scale = animator_duration_scale_output.trim().parse::<f64>().unwrap_or(1.0);
+    let window_animation_scale = window_animation_scale_output
+        .trim()
+        .parse::<f64>()
+        .unwrap_or(1.0);
+    let transition_animation_scale = transition_animation_scale_output
+        .trim()
+        .parse::<f64>()
+        .unwrap_or(1.0);
+    let animator_duration_scale = animator_duration_scale_output
+        .trim()
+        .parse::<f64>()
+        .unwrap_or(1.0);
     let font_scale = font_scale_output.trim().parse::<f64>().unwrap_or(1.0);
 
     let manufacturer = safe_value(&first_non_blank(&[

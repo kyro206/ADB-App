@@ -75,6 +75,16 @@ pub struct MediaVolumeState {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ControlState {
+    pub brightness: i32,
+    pub volume_level: i32,
+    pub volume_maximum: i32,
+    pub rotation_auto: bool,
+    pub rotation: i32,
+    pub sound_mode: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct WirelessQrPayload {
     pub service_name: String,
     pub password: String,
@@ -97,6 +107,10 @@ fn last_integer(value: &str) -> Option<i32> {
         .split(|character: char| !character.is_ascii_digit())
         .filter_map(|part| part.parse::<i32>().ok())
         .last()
+}
+
+fn last_output_line(value: &str) -> &str {
+    value.lines().last().unwrap_or("").trim()
 }
 
 fn package_set(output: &str) -> HashSet<String> {
@@ -246,7 +260,11 @@ pub async fn save_app_settings(
 }
 
 #[tauri::command]
-pub async fn save_device_wallpaper_to_disk(app: tauri::AppHandle, serial: String, path: String) -> Result<(), String> {
+pub async fn save_device_wallpaper_to_disk(
+    app: tauri::AppHandle,
+    serial: String,
+    path: String,
+) -> Result<(), String> {
     if crate::mock::enabled() {
         return Ok(());
     }
@@ -497,7 +515,7 @@ fn is_windows_11() -> bool {
 #[tauri::command]
 pub async fn close_app(old_data_dir: String) -> Result<(), String> {
     let old_dir_path = std::path::PathBuf::from(old_data_dir);
-    
+
     // Spawn a thread to perform cleanup and forcefully exit
     std::thread::spawn(move || {
         for _ in 0..20 {
@@ -596,7 +614,8 @@ fn modern_java_path() -> Result<PathBuf, String> {
         "Java is not configured. Set its path in Settings. It is recommended to install the latest LTS version of Temurin from https://adoptium.net/temurin/releases".to_string()
     })?;
     let output = run_local_command(&java, &["-version".into()])?;
-    let version = output.find("version \"")
+    let version = output
+        .find("version \"")
         .and_then(|idx| {
             let rest = &output[idx + 9..];
             let end_idx = rest.find('"')?;
@@ -609,7 +628,8 @@ fn modern_java_path() -> Result<PathBuf, String> {
                 first
             };
             Some(major)
-        }).unwrap_or(0);
+        })
+        .unwrap_or(0);
     if version < 11 {
         Err(format!(
             "Java {version} is not compatible with bundletool. Configure Java 11 or higher in Settings; the latest LTS version of Temurin is recommended."
@@ -769,11 +789,15 @@ fn resolve_install_files(
         return Ok(apks);
     } else if matches!(extension.as_str(), "apks" | "apkm" | "xapk" | "zip") {
         // Extracción mediante el crate zip para no depender de comandos nativos
-        let file = std::fs::File::open(&package_file).map_err(|e| format!("Failed to open package: {e}"))?;
-        let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
+        let file = std::fs::File::open(&package_file)
+            .map_err(|e| format!("Failed to open package: {e}"))?;
+        let mut archive =
+            zip::ZipArchive::new(file).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
         for i in 0..archive.len() {
             let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
-            let relative = entry.enclosed_name().ok_or_else(|| "Unsafe path in ZIP".to_string())?;
+            let relative = entry
+                .enclosed_name()
+                .ok_or_else(|| "Unsafe path in ZIP".to_string())?;
             let output = extraction_directory.join(relative);
             if entry.is_dir() {
                 std::fs::create_dir_all(&output).map_err(|e| e.to_string())?;
@@ -838,8 +862,13 @@ fn resolve_install_files(
             ],
         )
         .unwrap_or_default();
-        
-        let mut device_lang = locale_output.trim().split('-').next().unwrap_or("").to_lowercase();
+
+        let mut device_lang = locale_output
+            .trim()
+            .split('-')
+            .next()
+            .unwrap_or("")
+            .to_lowercase();
         if device_lang.is_empty() {
             let fallback_locale = run_local_command(
                 &adb_path,
@@ -850,8 +879,14 @@ fn resolve_install_files(
                     "getprop".into(),
                     "ro.product.locale".into(),
                 ],
-            ).unwrap_or_default();
-            device_lang = fallback_locale.trim().split('-').next().unwrap_or("").to_lowercase();
+            )
+            .unwrap_or_default();
+            device_lang = fallback_locale
+                .trim()
+                .split('-')
+                .next()
+                .unwrap_or("")
+                .to_lowercase();
         }
 
         // 3. Obtener la densidad de pantalla
@@ -883,24 +918,28 @@ fn resolve_install_files(
             "x86",
             "mips",
         ];
-        
+
         let known_density_markers = ["ldpi", "mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"];
         let density_values = [120, 160, 240, 320, 480, 640];
-        
+
         let known_language_codes = [
             "af", "sq", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "zh", "hr", "cs",
             "da", "nl", "en", "et", "fi", "fr", "gl", "ka", "de", "el", "gu", "ht", "he", "hi",
             "hu", "is", "id", "it", "ja", "kn", "kk", "km", "ko", "lo", "lv", "lt", "mk", "ms",
             "ml", "mr", "mn", "ne", "no", "fa", "pl", "pt", "pa", "ro", "ru", "sr", "sk", "sl",
-            "es", "sw", "sv", "ta", "te", "th", "tr", "uk", "ur", "vi", "zu"
+            "es", "sw", "sv", "ta", "te", "th", "tr", "uk", "ur", "vi", "zu",
         ];
 
         let all_apks = collect_apks(&extraction_directory)?;
-        
+
         // Buscar la densidad más cercana disponible en el ZIP
         let mut available_densities = Vec::new();
         for apk in &all_apks {
-            let filename = apk.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+            let filename = apk
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_lowercase();
             for (i, marker) in known_density_markers.iter().enumerate() {
                 if filename.contains(marker) && !available_densities.contains(&i) {
                     available_densities.push(i);
@@ -930,7 +969,7 @@ fn resolve_install_files(
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_lowercase();
-            
+
             // --- Filtro de Arquitectura (ABI) ---
             let mut is_abi_split = false;
             let mut matches_device_abi = false;
@@ -972,12 +1011,16 @@ fn resolve_install_files(
                 let dash_lang_dash = format!("-{}-", lang);
                 let dot_lang_dash = format!(".{}-", lang);
                 let config_lang = format!("config.{}.apk", lang);
-                
-                if filename.contains(&dot_lang) || filename.contains(&dash_lang) 
-                   || filename.contains(&dash_lang_dash) || filename.contains(&dot_lang_dash)
-                   || filename.ends_with(&config_lang) {
+
+                if filename.contains(&dot_lang)
+                    || filename.contains(&dash_lang)
+                    || filename.contains(&dash_lang_dash)
+                    || filename.contains(&dot_lang_dash)
+                    || filename.ends_with(&config_lang)
+                {
                     is_lang_split = true;
-                    if *lang == device_lang || *lang == "en" { // Se permite inglés como fallback
+                    if *lang == device_lang || *lang == "en" {
+                        // Se permite inglés como fallback
                         matches_device_lang = true;
                     }
                     break;
@@ -1010,7 +1053,11 @@ fn resolve_install_files(
 fn dump_value(output: &str, key: &str) -> String {
     output
         .lines()
-        .find_map(|line| line.trim().strip_prefix(key).and_then(|s| s.strip_prefix('=')))
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix(key)
+                .and_then(|s| s.strip_prefix('='))
+        })
         .map(|s| s.trim_matches(['\'', '"', ',']).to_string())
         .filter(|value| !value.is_empty() && value != "null")
         .unwrap_or_else(|| "-".to_string())
@@ -1135,13 +1182,7 @@ fn parse_permissions(
 fn mock_run_device_action(args: &[String]) -> String {
     let command = args.join(" ");
     if command.contains("settings get system screen_brightness") {
-        return [
-            "180",
-            "1",
-            "0",
-            "2",
-        ]
-        .join("\n---ADBAPPSEP---\n");
+        return ["180", "1", "0", "2"].join("\n---ADBAPPSEP---\n");
     }
     "OK".to_string()
 }
@@ -1392,7 +1433,10 @@ async fn wireless_host_for_serial(serial: &str) -> Result<String, String> {
     let queries = [
         (vec!["shell", "ip", "route", "show", "dev", "wlan0"], "src "),
         (vec!["shell", "ip", "route"], "src "),
-        (vec!["shell", "ip", "-f", "inet", "addr", "show", "wlan0"], "inet "),
+        (
+            vec!["shell", "ip", "-f", "inet", "addr", "show", "wlan0"],
+            "inet ",
+        ),
     ];
 
     for (args, keyword) in queries {
@@ -1454,11 +1498,11 @@ fn parse_system_users(output: &str, current_user_id: i32) -> Vec<AndroidUser> {
             let end = trimmed[start..].find('}')?;
             let content = &trimmed[start..start + end];
             let suffix = &trimmed[start + end + 1..];
-            
+
             let mut parts = content.split(':');
             let id = parts.next()?.parse::<i32>().ok()?;
             let name = parts.next()?.trim().to_string();
-            
+
             Some(AndroidUser {
                 id,
                 name,
@@ -1499,7 +1543,10 @@ fn keyboard_package_name(id: &str) -> &str {
 }
 
 #[tauri::command]
-pub async fn get_system_state(app: tauri::AppHandle, serial: String) -> Result<SystemState, String> {
+pub async fn get_system_state(
+    app: tauri::AppHandle,
+    serial: String,
+) -> Result<SystemState, String> {
     if crate::mock::enabled() {
         return Ok(crate::mock::system_state());
     }
@@ -1604,7 +1651,9 @@ pub async fn get_system_state(app: tauri::AppHandle, serial: String) -> Result<S
     }
 
     if !keyboard_requests.is_empty() {
-        if let Ok(summaries) = enrich_app_summaries(app.clone(), serial.clone(), keyboard_requests).await {
+        if let Ok(summaries) =
+            enrich_app_summaries(app.clone(), serial.clone(), keyboard_requests).await
+        {
             for summary in summaries {
                 keyboard_labels.insert(summary.package_name, summary.display_name);
             }
@@ -1643,7 +1692,10 @@ pub async fn get_system_state(app: tauri::AppHandle, serial: String) -> Result<S
 }
 
 #[tauri::command]
-pub async fn set_device_dark_mode(serial: String, enabled: bool) -> Result<(), crate::models::AppError> {
+pub async fn set_device_dark_mode(
+    serial: String,
+    enabled: bool,
+) -> Result<(), crate::models::AppError> {
     if crate::mock::enabled() {
         return Ok(());
     }
@@ -1690,6 +1742,66 @@ pub async fn get_media_volume(serial: String) -> Result<MediaVolumeState, String
     Ok(MediaVolumeState {
         level: last_integer(&current.output).unwrap_or(7),
         maximum: last_integer(&maximum.output).unwrap_or(15).max(1),
+    })
+}
+
+#[tauri::command]
+pub async fn get_control_state(serial: String) -> Result<ControlState, String> {
+    if crate::mock::enabled() {
+        let volume = crate::mock::media_volume();
+        return Ok(ControlState {
+            brightness: 128,
+            volume_level: volume.level,
+            volume_maximum: volume.maximum,
+            rotation_auto: true,
+            rotation: 0,
+            sound_mode: "NORMAL".to_string(),
+        });
+    }
+
+    let script = "\
+        settings get system screen_brightness 2>/dev/null; echo '---ADBAPPSEP---'; \
+        cmd audio get-stream-volume 3 2>/dev/null; echo '---ADBAPPSEP---'; \
+        cmd audio get-max-volume 3 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get system accelerometer_rotation 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get system user_rotation 2>/dev/null; echo '---ADBAPPSEP---'; \
+        settings get global mode_ringer 2>/dev/null\
+    ";
+    let result = adb::run_adb_for_serial(&serial, &["shell", script]).await?;
+    if !result.ok() && !result.output.contains("---ADBAPPSEP---") {
+        return Err(result.output);
+    }
+
+    let mut parts = result.output.split("---ADBAPPSEP---");
+    let brightness = last_output_line(parts.next().unwrap_or(""))
+        .parse::<i32>()
+        .unwrap_or(128)
+        .clamp(0, 255);
+    let volume_level = last_integer(parts.next().unwrap_or("")).unwrap_or(7).max(0);
+    let volume_maximum = last_integer(parts.next().unwrap_or(""))
+        .unwrap_or(15)
+        .max(1);
+    let rotation_auto_value = last_output_line(parts.next().unwrap_or(""));
+    let rotation = last_output_line(parts.next().unwrap_or(""))
+        .parse::<i32>()
+        .unwrap_or(0)
+        .clamp(0, 3);
+    let sound_mode = match last_output_line(parts.next().unwrap_or("")) {
+        "0" => "SILENT",
+        "1" => "VIBRATE",
+        _ => "NORMAL",
+    }
+    .to_string();
+
+    Ok(ControlState {
+        brightness,
+        volume_level: volume_level.min(volume_maximum),
+        volume_maximum,
+        rotation_auto: rotation_auto_value == "1"
+            || rotation_auto_value == "null"
+            || rotation_auto_value.is_empty(),
+        rotation,
+        sound_mode,
     })
 }
 
@@ -1770,10 +1882,10 @@ pub async fn list_apps(
     if legacy_details.exists() {
         let _ = fs::remove_dir_all(legacy_details);
     }
-    
+
     let script = "pm list packages -f -u; echo '---ADBAPPSEP---'; pm list packages -s; echo '---ADBAPPSEP---'; pm list packages -d; echo '---ADBAPPSEP---'; pm list packages -f || true";
     let script_result = adb::run_adb_for_serial(&serial, &["shell", script]).await?;
-    
+
     if !script_result.ok() {
         return Err(script_result.output);
     }
@@ -1786,7 +1898,7 @@ pub async fn list_apps(
 
     let system_packages = package_set(system_out);
     let disabled_packages = package_set(disabled_out);
-    
+
     // Parse installed packages to figure out which ones are uninstalled
     let mut installed_packages = HashSet::new();
     for line in installed_out.lines() {
@@ -1890,47 +2002,95 @@ pub async fn push_daemons_if_needed(app: &tauri::AppHandle, serial: &str) -> Res
     let version = env!("CARGO_PKG_VERSION");
 
     // --- info_apps.jar ---
-    let info_apps_local = app.path().resolve("tools/java/info_apps.jar", tauri::path::BaseDirectory::Resource).map_err(|e| e.to_string())?;
+    let info_apps_local = app
+        .path()
+        .resolve(
+            "tools/java/info_apps.jar",
+            tauri::path::BaseDirectory::Resource,
+        )
+        .map_err(|e| e.to_string())?;
     let info_apps_device = format!("/data/local/tmp/info_apps_{}.jar", version);
-    let info_apps_size = std::fs::metadata(&info_apps_local).map_err(|e| e.to_string())?.len() as usize;
+    let info_apps_size = std::fs::metadata(&info_apps_local)
+        .map_err(|e| e.to_string())?
+        .len() as usize;
 
-    let check_info = adb::run_adb_for_serial(serial, &["shell", "ls", "-l", &info_apps_device]).await;
+    let check_info =
+        adb::run_adb_for_serial(serial, &["shell", "ls", "-l", &info_apps_device]).await;
     let needs_push_info = match check_info {
         Ok(res) if res.ok() && !res.output.contains("No such file") => {
             let size_str = res.output.split_whitespace().nth(4).unwrap_or("");
             size_str.parse::<usize>().unwrap_or(0) != info_apps_size
-        },
-        _ => true
+        }
+        _ => true,
     };
 
     if needs_push_info {
-        let _ = adb::run_adb_for_serial(serial, &["shell", "rm", "-f", "/data/local/tmp/info_apps*.jar"]).await;
-        let _ = adb::run_adb_for_serial(serial, &["push", &info_apps_local.to_string_lossy(), &info_apps_device]).await;
-        let _ = adb::run_adb_for_serial(serial, &["shell", "chmod", "777", &info_apps_device]).await;
+        let _ = adb::run_adb_for_serial(
+            serial,
+            &["shell", "rm", "-f", "/data/local/tmp/info_apps*.jar"],
+        )
+        .await;
+        let _ = adb::run_adb_for_serial(
+            serial,
+            &[
+                "push",
+                &info_apps_local.to_string_lossy(),
+                &info_apps_device,
+            ],
+        )
+        .await;
+        let _ =
+            adb::run_adb_for_serial(serial, &["shell", "chmod", "777", &info_apps_device]).await;
     }
 
     // --- wallpaper_extractor.jar ---
-    let wallpaper_local = app.path().resolve("tools/java/wallpaper_extractor.jar", tauri::path::BaseDirectory::Resource).map_err(|e| e.to_string())?;
+    let wallpaper_local = app
+        .path()
+        .resolve(
+            "tools/java/wallpaper_extractor.jar",
+            tauri::path::BaseDirectory::Resource,
+        )
+        .map_err(|e| e.to_string())?;
     let wallpaper_device = format!("/data/local/tmp/wallpaper_extractor_{}.jar", version);
-    let wallpaper_size = std::fs::metadata(&wallpaper_local).map_err(|e| e.to_string())?.len() as usize;
+    let wallpaper_size = std::fs::metadata(&wallpaper_local)
+        .map_err(|e| e.to_string())?
+        .len() as usize;
 
-    let check_wallpaper = adb::run_adb_for_serial(serial, &["shell", "ls", "-l", &wallpaper_device]).await;
+    let check_wallpaper =
+        adb::run_adb_for_serial(serial, &["shell", "ls", "-l", &wallpaper_device]).await;
     let needs_push_wallpaper = match check_wallpaper {
         Ok(res) if res.ok() && !res.output.contains("No such file") => {
             let size_str = res.output.split_whitespace().nth(4).unwrap_or("");
             size_str.parse::<usize>().unwrap_or(0) != wallpaper_size
-        },
-        _ => true
+        }
+        _ => true,
     };
 
     if needs_push_wallpaper {
-        let _ = adb::run_adb_for_serial(serial, &["shell", "rm", "-f", "/data/local/tmp/wallpaper_extractor*.jar"]).await;
-        let _ = adb::run_adb_for_serial(serial, &["push", &wallpaper_local.to_string_lossy(), &wallpaper_device]).await;
+        let _ = adb::run_adb_for_serial(
+            serial,
+            &[
+                "shell",
+                "rm",
+                "-f",
+                "/data/local/tmp/wallpaper_extractor*.jar",
+            ],
+        )
+        .await;
+        let _ = adb::run_adb_for_serial(
+            serial,
+            &[
+                "push",
+                &wallpaper_local.to_string_lossy(),
+                &wallpaper_device,
+            ],
+        )
+        .await;
     }
 
     let mut cache = daemons_cache.lock().unwrap();
     cache.insert(serial.to_string());
-    
+
     Ok(())
 }
 
@@ -1954,9 +2114,12 @@ pub async fn enrich_app_summaries(
     let daemon_device_path = format!("/data/local/tmp/{}", jar_name);
 
     // 3. Run daemon with all packages
-    let package_names: Vec<String> = needs_daemon.iter().map(|r| r.package_name.clone()).collect();
+    let package_names: Vec<String> = needs_daemon
+        .iter()
+        .map(|r| r.package_name.clone())
+        .collect();
     let joined_packages = package_names.join(" ");
-    
+
     let result = adb::run_adb_for_serial(
         &serial,
         &[
@@ -1975,29 +2138,36 @@ pub async fn enrich_app_summaries(
 
     // JSON array could be on multiple lines or a single line.
     let daemon_output = result.output.trim();
-    
+
     // Find the exact boundaries of the JSON array to ignore any Android linker warnings or extra logs
     let json_start = daemon_output.find('[').unwrap_or(0);
-    let json_end = daemon_output.rfind(']').unwrap_or_else(|| daemon_output.len().saturating_sub(1));
-    
+    let json_end = daemon_output
+        .rfind(']')
+        .unwrap_or_else(|| daemon_output.len().saturating_sub(1));
+
     let clean_json = if json_start <= json_end && json_end < daemon_output.len() {
         &daemon_output[json_start..=json_end]
     } else {
         daemon_output
     };
 
-    let parsed_responses: Vec<DaemonResponse> = serde_json::from_str(clean_json).unwrap_or_else(|e| {
-        eprintln!("Failed to parse JSON array: {}. Output was: {}", e, daemon_output);
-        Vec::new()
-    });
+    let parsed_responses: Vec<DaemonResponse> =
+        serde_json::from_str(clean_json).unwrap_or_else(|e| {
+            eprintln!(
+                "Failed to parse JSON array: {}. Output was: {}",
+                e, daemon_output
+            );
+            Vec::new()
+        });
 
     let settings = read_settings();
     let cache_path = apps_json_path();
-    let mut cached_apps: std::collections::HashMap<String, String> = fs::read_to_string(&cache_path)
-        .ok()
-        .and_then(|data| serde_json::from_str(&data).ok())
-        .unwrap_or_default();
-    
+    let mut cached_apps: std::collections::HashMap<String, String> =
+        fs::read_to_string(&cache_path)
+            .ok()
+            .and_then(|data| serde_json::from_str(&data).ok())
+            .unwrap_or_default();
+
     let app_dir = application_cache_dir();
     if !app_dir.exists() {
         let _ = fs::create_dir_all(&app_dir);
@@ -2007,11 +2177,17 @@ pub async fn enrich_app_summaries(
     for req in needs_daemon {
         let mut display_name = req.package_name.clone();
         let mut icon_data_url = String::new();
-        
+
         // Find matching response
-        if let Some(resp) = parsed_responses.iter().find(|r| r.package.as_deref() == Some(&req.package_name)) {
+        if let Some(resp) = parsed_responses
+            .iter()
+            .find(|r| r.package.as_deref() == Some(&req.package_name))
+        {
             if resp.error.is_none() {
-                display_name = resp.label.clone().unwrap_or_else(|| req.package_name.clone());
+                display_name = resp
+                    .label
+                    .clone()
+                    .unwrap_or_else(|| req.package_name.clone());
                 icon_data_url = resp.icon.clone().unwrap_or_default();
             }
         }
@@ -2019,7 +2195,9 @@ pub async fn enrich_app_summaries(
 
         if !icon_data_url.is_empty() {
             if settings.cache_enabled {
-                let base64_str = icon_data_url.strip_prefix("data:image/webp;base64,").unwrap_or(&icon_data_url);
+                let base64_str = icon_data_url
+                    .strip_prefix("data:image/webp;base64,")
+                    .unwrap_or(&icon_data_url);
                 if let Ok(bytes) = STANDARD.decode(base64_str) {
                     let icon_path = app_dir.join(format!("{}.webp", req.package_name));
                     let _ = fs::write(&icon_path, bytes);
@@ -2033,7 +2211,7 @@ pub async fn enrich_app_summaries(
                 protocol_url = icon_data_url.clone();
             }
         }
-        
+
         if settings.cache_enabled {
             cached_apps.insert(req.package_name.clone(), display_name.clone());
         }
@@ -2153,7 +2331,11 @@ pub async fn install_application_packages(
 
 #[tauri::command]
 pub async fn reinstall_app(serial: String, package_name: String) -> Result<String, String> {
-    let result = adb::run_adb_for_serial(&serial, &["shell", "cmd", "package", "install-existing", &package_name]).await?;
+    let result = adb::run_adb_for_serial(
+        &serial,
+        &["shell", "cmd", "package", "install-existing", &package_name],
+    )
+    .await?;
     if result.ok() && result.output.contains("installed for user") {
         invalidate_apps_cache(&serial);
         Ok(format!("{} reinstalled successfully", package_name))
@@ -2211,10 +2393,14 @@ pub async fn get_app_details(
         .first()
         .cloned()
         .unwrap_or_else(|| "-".to_string());
-    
+
     let data_dir = dump_value(&dump_out, "dataDir");
 
-    let safe_apk = if apk_path.is_empty() || apk_path == "-" { "/dev/null".to_string() } else { apk_path.clone() };
+    let safe_apk = if apk_path.is_empty() || apk_path == "-" {
+        "/dev/null".to_string()
+    } else {
+        apk_path.clone()
+    };
 
     let mut code_size_bytes: i64 = -1;
 
@@ -2229,7 +2415,9 @@ pub async fn get_app_details(
             }
         }
     }
-    if safe_apk == "/dev/null" { code_size_bytes = -1; }
+    if safe_apk == "/dev/null" {
+        code_size_bytes = -1;
+    }
 
     let data_size_bytes = -1; // This is now loaded asynchronously via Java daemon
     let cache_size_bytes = -1; // This is now loaded asynchronously via Java daemon
@@ -2244,10 +2432,13 @@ pub async fn get_app_details(
     };
 
     let mut permissions = parse_permissions(&dump_out, &changeable_permissions);
-    
+
     // REQUEST_INSTALL_PACKAGES is an appop, but listed in manifest permissions.
     // If it exists in the manifest, we must mark it as changeable.
-    if let Some(p) = permissions.iter_mut().find(|p| p.name == "android.permission.REQUEST_INSTALL_PACKAGES") {
+    if let Some(p) = permissions
+        .iter_mut()
+        .find(|p| p.name == "android.permission.REQUEST_INSTALL_PACKAGES")
+    {
         p.changeable = true;
         if let Some(pos) = appops_out.find("REQUEST_INSTALL_PACKAGES: ") {
             let after = &appops_out[pos + "REQUEST_INSTALL_PACKAGES: ".len()..];
@@ -2262,8 +2453,12 @@ pub async fn get_app_details(
         display_name: display_name_from_dump(&dump_out, &package_name),
         apk_path,
         is_split,
-        system_app: system_out.lines().any(|line| line.trim().ends_with(&package_name)),
-        disabled: disabled_out.lines().any(|line| line.trim().ends_with(&package_name)),
+        system_app: system_out
+            .lines()
+            .any(|line| line.trim().ends_with(&package_name)),
+        disabled: disabled_out
+            .lines()
+            .any(|line| line.trim().ends_with(&package_name)),
         version_name: dump_value(&dump_out, "versionName"),
         version_code: dump_value(&dump_out, "versionCode"),
         target_sdk: dump_value(&dump_out, "targetSdk"),
@@ -2635,7 +2830,7 @@ pub async fn force_check_updates(app: tauri::AppHandle) -> tools::ToolsSnapshot 
         let status = tools::tools_status_with_updates().await;
         let _ = app.emit("tools-updates-checked", status);
     });
-    
+
     tools::ToolsSnapshot {
         tools: tools::tools_status_cached().await,
         checking_updates: true,
@@ -2806,21 +3001,23 @@ pub async fn download_and_open_file(
 ) -> Result<String, String> {
     let temp_dir = crate::app_paths::cache_dir().join("temp");
     std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
-    
+
     // Generar un sufijo aleatorio para evitar conflictos de nombres
     let nonce: u32 = rand::random();
     let local_file_name = format!("{}_{}", nonce, file_name);
     let local_path = temp_dir.join(&local_file_name);
     let local_path_str = local_path.to_string_lossy().to_string();
-    
+
     let result = adb::run_adb_for_serial(&serial, &["pull", &remote_path, &local_path_str]).await?;
     if !result.ok() {
         return Err(result.output);
     }
-    
+
     use tauri_plugin_opener::OpenerExt;
-    app.opener().open_path(local_path_str, None::<&str>).map_err(|e| e.to_string())?;
-    
+    app.opener()
+        .open_path(local_path_str, None::<&str>)
+        .map_err(|e| e.to_string())?;
+
     Ok("Opened successfully".to_string())
 }
 
@@ -2845,13 +3042,17 @@ struct ApkmirrorResponse {
 pub async fn search_apkmirror(package_name: String) -> Result<Option<String>, String> {
     let client = reqwest::Client::new();
     let url = "https://www.apkmirror.com/wp-json/apkm/v1/app_exists";
-    
+
     let mut map = HashMap::new();
     map.insert("pnames", package_name.clone());
 
-    let res = client.post(url)
+    let res = client
+        .post(url)
         .header("User-Agent", "ADB-App")
-        .header("Authorization", "Basic YXBpLWFwa3VwZGF0ZXI6cm01cmNmcnVVakt5MDRzTXB5TVBKWFc4")
+        .header(
+            "Authorization",
+            "Basic YXBpLWFwa3VwZGF0ZXI6cm01cmNmcnVVakt5MDRzTXB5TVBKWFc4",
+        )
         .header("Content-Type", "application/json")
         .json(&map)
         .send()
@@ -2896,7 +3097,10 @@ pub async fn get_app_storage_sizes(
     package_name: String,
 ) -> Result<StorageSizes, String> {
     if crate::mock::enabled() {
-        return Ok(StorageSizes { data_size_bytes: -1, cache_size_bytes: -1 });
+        return Ok(StorageSizes {
+            data_size_bytes: -1,
+            cache_size_bytes: -1,
+        });
     }
 
     push_daemons_if_needed(&app, &serial).await?;
@@ -2923,17 +3127,18 @@ pub async fn get_app_storage_sizes(
 
     let daemon_output = result.output.trim();
     let json_start = daemon_output.find('[').unwrap_or(0);
-    let json_end = daemon_output.rfind(']').unwrap_or_else(|| daemon_output.len().saturating_sub(1));
-    
+    let json_end = daemon_output
+        .rfind(']')
+        .unwrap_or_else(|| daemon_output.len().saturating_sub(1));
+
     let clean_json = if json_start <= json_end && json_end < daemon_output.len() {
         &daemon_output[json_start..=json_end]
     } else {
         daemon_output
     };
 
-    let parsed_responses: Vec<DaemonResponse> = serde_json::from_str(clean_json).unwrap_or_else(|_| {
-        Vec::new()
-    });
+    let parsed_responses: Vec<DaemonResponse> =
+        serde_json::from_str(clean_json).unwrap_or_else(|_| Vec::new());
 
     if let Some(resp) = parsed_responses.first() {
         Ok(StorageSizes {
@@ -2941,6 +3146,9 @@ pub async fn get_app_storage_sizes(
             cache_size_bytes: resp.cacheSize.unwrap_or(-1),
         })
     } else {
-        Ok(StorageSizes { data_size_bytes: -1, cache_size_bytes: -1 })
+        Ok(StorageSizes {
+            data_size_bytes: -1,
+            cache_size_bytes: -1,
+        })
     }
 }

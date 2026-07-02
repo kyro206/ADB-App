@@ -21,6 +21,7 @@ export interface OperationJob {
 class OperationsState {
   jobs = $state<OperationJob[]>([]);
   isOpen = $state(false);
+  error = $state<string | null>(null);
 
   hasJobs = $derived(this.jobs.length > 0);
   hasError = $derived(this.jobs.some(j => j.status === 'error' || j.children?.some(c => c.status === 'error')));
@@ -39,7 +40,9 @@ class OperationsState {
     // Initialize from backend
     invoke<OperationJob[]>('get_jobs').then((jobs) => {
       this.jobs = jobs;
-    }).catch(console.error);
+    }).catch(error => {
+      this.error = error instanceof Error ? error.message : String(error);
+    });
 
     // Listen for updates from backend
     listen<OperationJob[]>('operations-update', (event) => {
@@ -53,19 +56,27 @@ class OperationsState {
 
     const id = Date.now().toString() + Math.random().toString();
     const job: OperationJob = { id, type, name, source, destination, isDirectory, status: 'idle', serial };
-    invoke('enqueue_job', { job }).catch(console.error);
+    invoke('enqueue_job', { job }).catch(error => {
+      this.error = error instanceof Error ? error.message : String(error);
+    });
   }
 
   clearCompleted() {
-    invoke('clear_completed_jobs').catch(console.error);
+    invoke('clear_completed_jobs').catch(error => {
+      this.error = error instanceof Error ? error.message : String(error);
+    });
   }
 
   retry(id: string, parentId?: string) {
-    invoke('retry_job', { id, parentId }).catch(console.error);
+    invoke('retry_job', { id, parentId }).catch(error => {
+      this.error = error instanceof Error ? error.message : String(error);
+    });
   }
 
   remove(id: string, parentId?: string) {
-    invoke('remove_job', { id, parentId }).catch(console.error);
+    invoke('remove_job', { id, parentId }).catch(error => {
+      this.error = error instanceof Error ? error.message : String(error);
+    });
   }
 
   async #syncCloseGuard(active: boolean) {

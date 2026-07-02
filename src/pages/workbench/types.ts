@@ -13,6 +13,7 @@ export type FileEntry = { name: string; permissions: string; size: number; modif
 export type FileView = 'list' | 'grid';
 export type FileSortKey = 'name' | 'type' | 'size' | 'permissions' | 'modified';
 export type MediaVolumeState = { level: number; maximum: number };
+export type ControlState = { brightness: number; volume_level: number; volume_maximum: number; rotation_auto: boolean; rotation: number; sound_mode: SoundMode };
 export type MirrorMode = 'display' | 'virtual' | 'camera';
 export type SoundMode = 'NORMAL' | 'VIBRATE' | 'SILENT';
 export type AndroidUser = { id: number; name: string; is_running: boolean };

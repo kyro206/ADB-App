@@ -1,11 +1,12 @@
 <script lang="ts">
-import * as m from '../paraglide/messages';
+  import * as m from '../paraglide/messages';
 
 
+  import { onDestroy, onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import MaterialIcon from '../components/MaterialIcon.svelte';
   import { words, translateError } from './workbench/utils';
-  import type { MediaVolumeState, SoundMode } from './workbench/types';
+  import type { ControlState, SoundMode } from './workbench/types';
   import { materialTextFieldValue } from '../actions/materialTextFieldValue';
   let {
     serial,
@@ -28,44 +29,56 @@ import * as m from '../paraglide/messages';
   let inputText = $state('');
   let inputArgs = $state('');
   let loadRequestId = 0;
+  let loadingDeviceState = false;
+  let loadQueued = false;
+  let refreshInterval: number | undefined;
 
-  function loadDeviceState() {
+  async function loadDeviceState() {
     if (!serial) return;
+    if (loadingDeviceState) {
+      loadQueued = true;
+      return;
+    }
+
     const requestId = ++loadRequestId;
+    loadingDeviceState = true;
+    loadQueued = false;
 
-    invoke<MediaVolumeState>('get_media_volume', { serial }).then(value => {
+    try {
+      const value = await invoke<ControlState>('get_control_state', { serial });
       if (requestId !== loadRequestId) return;
-      controlVolume = value.level;
-      controlVolumeMax = value.maximum;
-    }).catch(() => {});
-
-    invoke<string>('run_device_action', { 
-      serial, 
-      args: ['shell', "settings get system screen_brightness; echo '---ADBAPPSEP---'; settings get system accelerometer_rotation; echo '---ADBAPPSEP---'; settings get system user_rotation; echo '---ADBAPPSEP---'; settings get global mode_ringer"] 
-    }).then(res => {
-      if (requestId !== loadRequestId || !res) return;
-      const parts = res.split('---ADBAPPSEP---');
-      
-      const brightness = parts[0]?.trim().split('\n').pop()?.trim();
-      if (brightness && brightness !== 'null' && !isNaN(Number(brightness))) controlBrightness = Number(brightness);
-
-      const rotationAutoVal = parts[1]?.trim().split('\n').pop()?.trim();
-      if (rotationAutoVal) rotationAuto = rotationAutoVal === '1' || rotationAutoVal === 'null';
-
-      const rotationVal = parts[2]?.trim().split('\n').pop()?.trim();
-      if (rotationVal && rotationVal !== 'null' && !isNaN(Number(rotationVal))) rotation = Number(rotationVal);
-
-      const mode = parts[3]?.trim().split('\n').pop()?.trim();
-      if (mode === '0') soundMode = 'SILENT';
-      else if (mode === '1') soundMode = 'VIBRATE';
-      else if (mode === '2' || mode === 'null') soundMode = 'NORMAL';
-    }).catch(() => {});
+      controlBrightness = value.brightness;
+      controlVolume = value.volume_level;
+      controlVolumeMax = value.volume_maximum;
+      rotationAuto = value.rotation_auto;
+      rotation = value.rotation;
+      soundMode = value.sound_mode;
+    } catch {
+      // Fallo silencioso, mantenemos los controles actuales
+    } finally {
+      loadingDeviceState = false;
+      if (loadQueued) void loadDeviceState();
+    }
   }
 
   $effect(() => {
     if (serial) {
       loadDeviceState();
     }
+  });
+
+  onMount(() => {
+    refreshInterval = window.setInterval(() => {
+      if (serial) void loadDeviceState();
+    }, 5000);
+
+    return () => {
+      if (refreshInterval !== undefined) window.clearInterval(refreshInterval);
+    };
+  });
+
+  onDestroy(() => {
+    loadRequestId++;
   });
 
   const sendKey = (code: string) => run(['shell', 'input', 'keyevent', code]);
@@ -77,6 +90,7 @@ import * as m from '../paraglide/messages';
     busy = true;
     try {
       await invoke<string>('set_media_volume', { serial, volume: safeValue });
+      void loadDeviceState();
     } catch (error: any) { 
       status = translateError(error);
     } finally { 
@@ -89,11 +103,13 @@ import * as m from '../paraglide/messages';
     rotationAuto = false;
     await run(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0']);
     await run(['shell', 'settings', 'put', 'system', 'user_rotation', String(value)]);
+    void loadDeviceState();
   }
 
   async function setDeviceSoundMode(mode: SoundMode) {
     soundMode = mode;
     await run(['shell', 'cmd', 'audio', 'set-ringer-mode', mode]);
+    void loadDeviceState();
   }
 
   function importMacro() {
