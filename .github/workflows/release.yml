@@ -51,7 +51,7 @@ name: Release ADB App
         default: false
         type: boolean
       upload_to_partner_center:
-        description: "Crear una nueva submission en Partner Center, subir el MSIX bundle y dejar el envío final desactivado por defecto"
+        description: "Publicar en la Microsoft Store"
         required: true
         default: false
         type: boolean
@@ -601,6 +601,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -615,8 +616,10 @@ jobs:
             exit 1
           fi
 
-          dest="$(basename "$bundle")"
+          safe_version="$(printf '%s' "$VERSION" | sed 's/[^0-9A-Za-z.-]/-/g')"
+          dest="ADB-App-MicrosoftStore-Version-${safe_version}-x64-arm64.msixbundle"
           cp "$bundle" "$OUT/$dest"
+          echo "MSIX bundle versionado para Release y Partner Center: $dest"
           gh release upload "$TAG" "$OUT/$dest" --clobber
 
       - name: Publicar MSIX bundle en Partner Center
@@ -657,8 +660,6 @@ jobs:
 
             const releaseMsixPath = path.resolve('store-assets', releaseMsixName);
 
-            // Partner Center recibe el .msixbundle con el mismo nombre que genera
-            // tauri-windows-bundle. No se renombra para evitar complejidad y desajustes.
             const partnerPackageName = releaseMsixName;
             const partnerPackagePath = releaseMsixPath;
 
@@ -794,12 +795,23 @@ jobs:
             const updatedPackages = [];
             for (const pkg of submission.applicationPackages || []) {
               if (!pkg.fileName) continue;
-              updatedPackages.push({
-                fileName: pkg.fileName,
+
+              // Los paquetes existentes deben reenviarse con su id. Si construimos
+              // un objeto nuevo solo con fileName/fileStatus, Partner Center devuelve:
+              // "Existing Package (...) should contain Id". Por eso preservamos todos
+              // los campos que Microsoft nos devuelve y solo cambiamos fileStatus.
+              const existingPackage = {
+                ...pkg,
                 fileStatus: 'PendingDelete',
                 minimumDirectXVersion: pkg.minimumDirectXVersion || 'None',
                 minimumSystemRam: pkg.minimumSystemRam || 'None',
-              });
+              };
+
+              if (!existingPackage.id) {
+                core.warning(`El paquete existente ${pkg.fileName} no trae id en la submission devuelta por Partner Center. Se enviará igualmente, pero Microsoft puede rechazarlo.`);
+              }
+
+              updatedPackages.push(existingPackage);
             }
             updatedPackages.push(packageEntry);
 
