@@ -63,9 +63,6 @@ concurrency:
   group: release-${{ inputs.version }}
   cancel-in-progress: false
 
-# Enviar submission automaticamente a Partner Center
-env:
-  PARTNER_CENTER_COMMIT_SUBMISSION: "false"
 
 jobs:
   prepare-release:
@@ -154,7 +151,7 @@ jobs:
             });
 
             add(process.env.BUILD_MACOS_ARM64, {
-              os: 'macos-26',
+              os: 'macos-latest',
               target: 'aarch64-apple-darwin',
               bundles: 'app,dmg',
               name: 'macos-arm64',
@@ -631,7 +628,6 @@ jobs:
           STORE_CLIENT_SECRET: ${{ secrets.STORE_CLIENT_SECRET }}
           STORE_PRODUCT_ID_SECRET: ${{ secrets.STORE_PRODUCT_ID }}
           VERSION: ${{ needs.prepare-release.outputs.version }}
-          PARTNER_CENTER_COMMIT_SUBMISSION: ${{ env.PARTNER_CENTER_COMMIT_SUBMISSION }}
         with:
           script: |
             const fs = require('fs');
@@ -644,7 +640,6 @@ jobs:
             const productIdSecret = process.env.STORE_PRODUCT_ID_SECRET?.trim();
             const version = process.env.VERSION;
             const safeVersion = version.replace(/[^0-9A-Za-z.-]/g, '-');
-            const commitSubmission = String(process.env.PARTNER_CENTER_COMMIT_SUBMISSION || '').toLowerCase() === 'true';
 
             if (!clientId || !tenantId || !clientSecret) {
               throw new Error('Faltan secrets de Partner Center. Configura STORE_CLIENT_ID, STORE_TENANT_ID y STORE_CLIENT_SECRET. Recomendado: STORE_PRODUCT_ID.');
@@ -763,7 +758,6 @@ jobs:
             const productId = await resolveProductId();
             const encodedProductId = encodeURIComponent(productId);
             core.info(`Usando Partner Center product/application ID: ${productId}`);
-            core.info(`Commit/envío automático de Partner Center: ${commitSubmission ? 'activado' : 'desactivado'}`);
 
             const app = await api('GET', `/applications/${encodedProductId}`);
             const pendingSubmissionId = app?.pendingApplicationSubmission?.id;
@@ -838,15 +832,6 @@ jobs:
             const uploadText = await uploadResponse.text().catch(() => '');
             if (!uploadResponse.ok) {
               throw new Error(`Falló la subida del ZIP a Azure Blob Storage: HTTP ${uploadResponse.status} ${uploadResponse.statusText}\n${uploadText}`);
-            }
-
-            if (!commitSubmission) {
-              core.notice(
-                `Partner Center actualizado sin enviar a certificación. ` +
-                `Submission creada: ${submission.id}. ` +
-                `Para enviar automáticamente en próximos releases, cambia PARTNER_CENTER_COMMIT_SUBMISSION a "true" en el workflow.`
-              );
-              return;
             }
 
             core.info(`Enviando/commiteando submission ${submission.id} en Partner Center.`);

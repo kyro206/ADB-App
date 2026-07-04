@@ -1,6 +1,6 @@
 [package]
 name = "adb-app"
-version = "2.3.0"
+version = "2.4.0"
 description = "Visual manager for the Android Debug Bridge (ADB)."
 authors = ["you"]
 edition = "2021"
@@ -41,6 +41,9 @@ tauri-plugin-fs = "2.5.1"
 tauri = { version = "2", features = ["macos-private-api"] }
 flate2 = "1"
 tar = "0.4"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-window-state = "2"
 
 [profile.release]
 strip = true # peor para obtener logs

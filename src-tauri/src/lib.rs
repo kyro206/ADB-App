@@ -14,9 +14,9 @@ use commands::queue;
 use commands::screenshot;
 use tauri::{Emitter, Manager};
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .register_uri_scheme_protocol("adbapp", |_app, request| {
             let path = request.uri().path();
             if let Some(package_name) = path.strip_prefix("/icon/") {
@@ -97,22 +97,26 @@ pub fn run() {
             .inner_size(window_width, window_height)
             .min_inner_size(920.0, 620.0)
             .data_directory(crate::app_paths::webview_data_dir())
-            .initialization_script(&init_script);
+            .initialization_script(&init_script)
+            .transparent(true);
 
             #[cfg(target_os = "macos")]
             {
                 builder = builder
-                    .title_bar_style(tauri::TitleBarStyle::Overlay)
                     .hidden_title(true)
-                    .transparent(true);
+                    .title_bar_style(tauri::TitleBarStyle::Overlay);
             }
 
             #[cfg(not(target_os = "macos"))]
             {
-                builder = builder.transparent(true).decorations(false);
+                builder = builder.decorations(false);
             }
 
             let window = builder.build().map_err(|e| e.to_string())?;
+            
+            use tauri_plugin_window_state::{WindowExt, StateFlags};
+            let _ = window.restore_state(StateFlags::all());
+
             operations::apply_window_effect(&window, &settings.window_effect);
             Ok(())
         })

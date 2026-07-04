@@ -1,7 +1,7 @@
 {
   "name": "adb-app",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "scripts": {
     "dev": "bun run scripts/check-i18n.mjs && bun run scripts/update-db.mjs && paraglide-js compile --project ./project.inlang && vite",
@@ -22,6 +22,7 @@
     "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
+    "@tauri-apps/plugin-window-state": "~2",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {

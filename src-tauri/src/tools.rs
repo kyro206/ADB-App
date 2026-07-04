@@ -1,8 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolStatus {
@@ -59,9 +59,7 @@ pub fn invalidate_tools_cache() {
 }
 
 pub(crate) fn managed_dir(tool: &str) -> PathBuf {
-    crate::app_paths::data_dir()
-        .join("tools")
-        .join(tool)
+    crate::app_paths::data_dir().join("tools").join(tool)
 }
 
 pub(crate) fn executable_name(tool: &str) -> String {
@@ -611,9 +609,9 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
 
     let start_idx = repository.find("<remotePackage path=\"platform-tools\"")
         .ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
-    
+
     let block = &repository[start_idx..];
-    
+
     let rev_start = block.find("<revision>").ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
     let rev_end = block[rev_start..].find("</revision>").unwrap_or(block.len());
     let revision_block = &block[rev_start..rev_start+rev_end];
@@ -697,7 +695,7 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
             .unwrap_or_default();
         let (adb_latest_res, scrcpy_latest_res) =
             tokio::join!(latest_adb_version(&client), latest_scrcpy_version(&client));
-            
+
         if let Ok(latest) = adb_latest_res {
             if let Ok(mut guard) = remote_adb().lock() {
                 *guard = Some(latest);
@@ -714,7 +712,7 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
         let status = tools_status_cached().await;
 
         TOOLS_UPDATES_FINISHED.store(true, Ordering::Release);
-        
+
         status
     }
 }
