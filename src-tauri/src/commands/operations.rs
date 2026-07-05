@@ -1051,16 +1051,26 @@ fn resolve_install_files(
 }
 
 fn dump_value(output: &str, key: &str) -> String {
-    output
-        .lines()
-        .find_map(|line| {
-            line.trim()
-                .strip_prefix(key)
-                .and_then(|s| s.strip_prefix('='))
-        })
-        .map(|s| s.trim_matches(['\'', '"', ',']).to_string())
-        .filter(|value| !value.is_empty() && value != "null")
-        .unwrap_or_else(|| "-".to_string())
+    let key_eq = format!("{}=", key);
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if let Some(idx) = trimmed.find(&key_eq) {
+            // Ensure it is either at the start or preceded by a space to avoid partial matches
+            if idx == 0 || trimmed.as_bytes()[idx - 1] == b' ' {
+                let rest = &trimmed[idx + key_eq.len()..];
+                let value = if key == "versionName" {
+                    rest
+                } else {
+                    rest.split_whitespace().next().unwrap_or("")
+                };
+                let value = value.trim().trim_matches(['\'', '"', ',']);
+                if !value.is_empty() && value != "null" {
+                    return value.to_string();
+                }
+            }
+        }
+    }
+    "-".to_string()
 }
 
 fn dump_date_value(output: &str, key: &str) -> String {
