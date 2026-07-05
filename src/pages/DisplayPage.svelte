@@ -111,6 +111,16 @@ import * as m from '../paraglide/messages';
         <header>
           <h3>{m.display_dimensions()}</h3>
         </header>
+        
+        <md-chip-set style="margin-bottom: 8px; flex-wrap: wrap;">
+          {#each suggestions as item (`${item.width}-${item.height}`)}
+            <md-suggestion-chip 
+              label={`${item.width}×${item.height} (${item.density}dpi)`} 
+              onclick={() => { width = item.width; height = item.height; density = item.density; }}>
+            </md-suggestion-chip>
+          {/each}
+        </md-chip-set>
+
         <div class="display-fields two">
           {@render Field(m.display_edit_width(), width, 320, "px", v => width = v)}
           {@render Field(m.display_edit_height(), height, 320, "px", v => height = v)}
@@ -128,24 +138,6 @@ import * as m from '../paraglide/messages';
           <button class="md3-btn-filled" disabled={!canApply} onclick={onApply}>
             {m.common_apply()}
           </button>
-        </div>
-      </article>
-
-      <!-- Panel: Presets -->
-      <article class="display-panel">
-        <header>
-          <h3>{m.display_presets_title()}</h3>
-        </header>
-        <div class="display-presets">
-          {#each suggestions as item (`${item.width}-${item.height}`)}
-            <button onclick={() => { width = item.width; height = item.height; density = item.density; }}>
-              <MaterialIcon name="photo_size_select_large" />
-              <span>
-                <strong>{item.width} × {item.height}</strong>
-                <small>{item.density} dpi</small>
-              </span>
-            </button>
-          {/each}
         </div>
       </article>
 
@@ -273,14 +265,10 @@ import * as m from '../paraglide/messages';
   opacity: 0.9;
 }
 
-.display-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.display-presets button,.display-rates button{display:flex;align-items:center;gap:8px;min-height:42px;padding:8px 11px;color:var(--on-surface);background:var(--surface-container);border:1px solid var(--outline-variant);border-radius:12px;text-align:left}
-.display-presets button:hover,.display-rates button:hover,.display-rates button.selected{color:var(--on-primary-container);background:var(--primary-container);border-color:transparent}
-.display-presets button>:global(.material-symbols-rounded),.display-rates button>:global(.material-symbols-rounded){color:var(--primary);font-size:19px}
-.display-presets button span{display:flex;flex-direction:column}
-.display-presets small{color:var(--on-surface-variant);font-size:11px}
 .display-rates{display:flex;flex-wrap:wrap;gap:8px}
-.display-rates button{min-height:36px;padding:6px 11px}
+.display-rates button{display:flex;align-items:center;gap:8px;min-height:36px;padding:6px 11px;color:var(--on-surface);background:var(--surface-container);border:1px solid var(--outline-variant);border-radius:12px;text-align:left}
+.display-rates button:hover,.display-rates button.selected{color:var(--on-primary-container);background:var(--primary-container);border-color:transparent}
+.display-rates button>:global(.material-symbols-rounded){color:var(--primary);font-size:19px}
 
 .slider-block{display:flex;flex-direction:column;gap:4px;margin-top:8px}
 .slider-header{display:flex;justify-content:space-between;align-items:center;padding:0 8px}
@@ -325,5 +313,5 @@ import * as m from '../paraglide/messages';
 }
 
 @media(max-width:850px){.display-tuner-layout{grid-template-columns:1fr}.display-info-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.display-info-card{aspect-ratio:auto;min-height:150px}}
-@media(max-width:620px){.display-fields.two,.display-presets{grid-template-columns:1fr}}
+@media(max-width:620px){.display-fields.two{grid-template-columns:1fr}}
 </style>
