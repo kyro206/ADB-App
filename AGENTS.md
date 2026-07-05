@@ -1,5 +1,5 @@
 # Contexto del Proyecto
-Estás trabajando en una aplicación de escritorio usando Tauri v2, Rust en el backend y React con Bun en el frontend. El objetivo es crear una app ADB GUI de bajo peso y maximo rendimiento. La aplicación es multiplataforma con lo que usa los elementos nativos de Tauri, trata de usar las menores dependencias posibles.
+Estás trabajando en una aplicación de escritorio usando Tauri v2, Rust en el backend y Svelte con Bun en el frontend. El objetivo es crear una app ADB GUI de bajo peso y maximo rendimiento. La aplicación es multiplataforma con lo que usa los elementos nativos de Tauri, trata de usar las menores dependencias posibles.
 
 # Reglas Estrictas de Tauri v2
 1. NUNCA uses la API de Tauri v1.

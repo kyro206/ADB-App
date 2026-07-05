@@ -81,8 +81,15 @@
     loadRequestId++;
   });
 
-  const sendKey = (code: string) => run(['shell', 'input', 'keyevent', code]);
-
+  const sendKey = async (code: string) => {
+    if (!serial) return;
+    try {
+      await invoke('run_device_action', { serial, args: ['shell', 'input', 'keyevent', code] });
+    } catch (error: any) {
+      status = translateError(error);
+    }
+  };
+  
   async function applyMediaVolume(value: number) {
     if (!serial) { status = m.control_error_noDevice(); return; }
     const safeValue = Math.max(0, Math.min(value, controlVolumeMax));
