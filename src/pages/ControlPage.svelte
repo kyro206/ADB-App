@@ -286,7 +286,7 @@
         <button class="md3-btn-filled">{m.control_input_send()}</button>
       </form>
 
-      <details class="md3-details" open>
+      <details class="md3-details">
         <summary>{m.control_input_advanced()}</summary>
         <div class="md3-text-form" style="flex-direction: column">
           <md-chip-set style="margin-bottom: 8px">
@@ -299,11 +299,11 @@
           <div style="display: flex; gap: 8px; width: 100%">
             <md-outlined-text-field
               type="textarea"
-              rows="5"
+              rows={Math.max(3, inputArgs.split('\n').length)}
               label={m.control_input_advancedDesc()}
               use:materialTextFieldValue={inputArgs}
               oninput={(e: any) => inputArgs = e.target.value}
-              style="flex: 1; resize: vertical;"
+              style="flex: 1; resize: none;"
             ></md-outlined-text-field>
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 8px">
