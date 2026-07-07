@@ -247,6 +247,16 @@
     }
   }
 
+  async function softRefreshFiles() {
+    if (!serial) return;
+    try {
+      const value = await invoke<FileEntry[]>('list_directory', { serial: serial, path });
+      files = value;
+    } catch (error) { 
+      // Ignorar
+    }
+  }
+
   async function openFileEntry(file: FileEntry) {
     if (file.is_directory) return refreshFiles(filePath(file), true);
     if (file.is_link) return refreshFiles(linkPath(file), true);
@@ -426,6 +436,26 @@
       await refreshFiles();
     });
   }
+
+  let completedUploadJobs = new Set<string>();
+
+  $effect(() => {
+    const currentUploads = operationsState.jobs.filter(j => 
+      j.type === 'upload' && j.status === 'success' && j.destination === path
+    );
+    
+    let needsRefresh = false;
+    for (const job of currentUploads) {
+      if (!completedUploadJobs.has(job.id)) {
+        completedUploadJobs.add(job.id);
+        needsRefresh = true;
+      }
+    }
+    
+    if (needsRefresh) {
+      softRefreshFiles();
+    }
+  });
 
   $effect(() => {
     // only runs on serial change because serial is a prop
