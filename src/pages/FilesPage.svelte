@@ -7,6 +7,7 @@
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { stat } from '@tauri-apps/plugin-fs';
   import MaterialIcon from '../components/MaterialIcon.svelte';
+  import DragOverlay from '../components/DragOverlay.svelte';
   import FileActionDialogs from '../components/dialogs/FileActionDialogs.svelte';
   import type { FileConfirmConfig, FilePermissionsConfig, FilePromptConfig } from '../components/dialogs/FileActionDialogs.svelte';
   import ContextMenu from '../components/layout/ContextMenu.svelte';
@@ -603,13 +604,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="file-explorer {osDragHover ? 'os-drag-hover' : ''}" onkeydown={handleKeyDown}>
-  {#if osDragHover}
-    <div class="file-os-drag-overlay">
-      <MaterialIcon name="upload_file" />
-      <span>{m.files_action_upload()}</span>
-    </div>
-  {/if}
+<div class="file-explorer" onkeydown={handleKeyDown}>
   <section class="file-material-toolbar">
     <div class="file-navigation">
       <md-icon-button class="file-back-button" aria-label={m.files_nav_back()} title={m.files_nav_back()} disabled={fileHistoryIndex <= 0 ? true : undefined} onclick={() => goFileHistory(fileHistoryIndex - 1)}>
@@ -714,6 +709,9 @@
   </section>
 
   <section class="file-browser {fileView}" style="display: flex; flex-direction: column; overflow-y: hidden; overflow-x: auto;">
+    {#if osDragHover}
+      <DragOverlay icon="upload_file" text={m.files_action_upload()} />
+    {/if}
     {#if fileView === 'list'}
       <div class="file-list-table" style="display: flex; flex-direction: column; height: 100%;">
         <div class="file-list-header">
@@ -891,9 +889,6 @@
 :global {
 .file-page{min-height:100%}
 .file-actions{padding:12px 0;border-bottom:1px solid var(--border)}
-.file-os-drag-overlay{position:absolute;z-index:99;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(4px);color:var(--action-bg);font-size:24px;font-weight:700}
-.file-os-drag-overlay :global(.material-symbols-rounded){font-size:64px;color:var(--action-bg)}
-.file-explorer.os-drag-hover{border-color:var(--action-bg);box-shadow:0 0 0 4px color-mix(in srgb,var(--action-bg) 20%,transparent)}
 .file-table{margin-top:10px}
 .file-row{display:grid;grid-template-columns:42px minmax(180px,1fr) 110px 80px 70px;gap:8px;align-items:center;padding:7px;border-bottom:1px solid var(--border)}
 .file-row:hover{background:var(--surface-secondary)}

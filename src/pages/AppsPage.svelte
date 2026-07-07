@@ -26,6 +26,7 @@
   import { devicesState } from "../context/devices.svelte";
   import { operationsState } from "../context/operations.svelte";
   import MaterialIcon from "../components/MaterialIcon.svelte";
+  import DragOverlay from "../components/DragOverlay.svelte";
   import { materialTextFieldValue } from "../actions/materialTextFieldValue";
   import { appTone, formatBytes, translateError } from "./workbench/utils";
   import VirtualGrid from "../components/VirtualGrid.svelte";
@@ -667,17 +668,9 @@
   });
 </script>
 
-<div class="apps-material-host {osDragHover ? 'os-drag-hover' : ''}">
+<div class="apps-material-host" style="position: relative;">
   {#if osDragHover}
-    <div
-      class="file-os-drag-overlay"
-      style="position: absolute; inset: 0; z-index: 100; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 16px; backdrop-filter: blur(4px);"
-    >
-      <MaterialIcon name="install_mobile" size={64} />
-      <span style="font-size: 24px; font-weight: 500;"
-        >{m.apps_action_install()}</span
-      >
-    </div>
+    <DragOverlay icon="install_mobile" text={m.apps_action_install()} />
   {/if}
   <div class="apps-material-page {selectedPackage ? 'detail-open' : ''}">
     <section class="apps-material-catalog">
@@ -760,7 +753,7 @@
 
       <div
         class="apps-material-grid-container"
-        style="flex: 1; min-height: 0; padding: 12px; box-sizing: border-box;"
+        style="flex: 1; min-height: 0; padding: 12px; box-sizing: border-box; position: relative;"
       >
         {#if filter === "debloat"}
           <div class="debloat-grouped-view" style="display: flex; flex-direction: column; gap: 24px; padding-bottom: 24px; overflow-y: auto; height: 100%; padding-right: 4px;">
@@ -1213,6 +1206,7 @@
       height: 100%;
       min-height: 0;
       container-type: inline-size;
+      position: relative;
     }
     .apps-material-page {
       height: 100%;
