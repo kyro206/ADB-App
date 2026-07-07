@@ -671,7 +671,7 @@
   {#if osDragHover}
     <div
       class="file-os-drag-overlay"
-      style="position: absolute; inset: 0; z-index: 100; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 16px; border-radius: 24px; backdrop-filter: blur(4px);"
+      style="position: absolute; inset: 0; z-index: 100; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 16px; backdrop-filter: blur(4px);"
     >
       <MaterialIcon name="install_mobile" size={64} />
       <span style="font-size: 24px; font-weight: 500;"
