@@ -127,7 +127,6 @@ pub fn tools_snapshot() -> ToolsSnapshot {
         tools: ToolsStatus {
             adb: tool("ADB", "37.0.0", "37.0.0", "C:\\Android\\platform-tools\\adb.exe", true),
             scrcpy: tool("scrcpy", "4.0", "4.0", "C:\\Android\\scrcpy\\scrcpy.exe", true),
-            java: tool("Java", "25.0.3", "", "C:\\Program Files\\Java\\bin\\java.exe", false),
         },
         checking_updates: false,
     }

@@ -45,7 +45,6 @@ import * as m from '../paraglide/messages';
   
   let adbPath = $state('');
   let scrcpyPath = $state('');
-  let javaPath = $state('');
   
   let displayWidth = $state(0);
   let displayHeight = $state(0);
@@ -198,7 +197,7 @@ import * as m from '../paraglide/messages';
     }
   }
 
-  async function saveToolPath(tool: 'adb' | 'scrcpy' | 'java', pathValue: string) {
+  async function saveToolPath(tool: 'adb' | 'scrcpy', pathValue: string) {
     busy = true;
     try {
       const value = await invoke<ToolsStatus>('set_tool_path', { tool, path: pathValue });
@@ -254,7 +253,6 @@ import * as m from '../paraglide/messages';
     if (!tools) return;
     adbPath = tools.adb.path;
     scrcpyPath = tools.scrcpy.path;
-    javaPath = tools.java.path;
   });
 
   $effect(() => {
@@ -341,7 +339,6 @@ import * as m from '../paraglide/messages';
       checkingUpdates={toolUpdatesChecking} 
       bind:adbPath 
       bind:scrcpyPath 
-      bind:javaPath 
       onThemeChange={handleThemeChange} 
       onLanguageChange={handleLanguageChange} 
       onSaveToolPath={saveToolPath} 
@@ -385,7 +382,7 @@ import * as m from '../paraglide/messages';
           {:else if tab === 'control'}
           <ControlPage {serial} {run} bind:status bind:busy />
           {:else if tab === 'apps'}
-          <AppsPage {serial} bind:status bind:busy {scrcpy} {tab} {appSettings} javaAvailable={tools?.java.available ?? false} />
+          <AppsPage {serial} bind:status bind:busy {scrcpy} {tab} />
           {:else if tab === 'files'}
           <FilesPage {serial} bind:status bind:busy {tab} />
           {:else if tab === 'system'}

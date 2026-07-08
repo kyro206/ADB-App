@@ -21,7 +21,6 @@ pub struct ToolStatus {
 pub struct ToolsStatus {
     pub adb: ToolStatus,
     pub scrcpy: ToolStatus,
-    pub java: ToolStatus,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -86,17 +85,10 @@ pub fn read_config() -> crate::commands::operations::AppSettings {
 
 pub fn save_tool_path(tool: &str, path: &str) -> Result<ToolsStatus, String> {
     let mut config = read_config();
-    let normalized = if tool == "java" && path.trim().is_empty() {
-        detect_java_path()
-            .map(|path| path.to_string_lossy().into_owned())
-            .unwrap_or_default()
-    } else {
-        path.trim().trim_matches('"').to_string()
-    };
+    let normalized = path.trim().trim_matches('"').to_string();
     match tool {
         "adb" => config.adb_path = normalized,
         "scrcpy" => config.scrcpy_path = normalized,
-        "java" => config.java_path = normalized,
         _ => return Err(format!("Unknown tool: {tool}")),
     }
     crate::commands::operations::write_settings_sync(&config)?;
@@ -111,7 +103,6 @@ fn configured_path<'a>(
     match tool {
         "adb" => &config.adb_path,
         "scrcpy" => &config.scrcpy_path,
-        "java" => &config.java_path,
         _ => "",
     }
 }
@@ -125,8 +116,6 @@ fn normalize_candidate(tool: &str, value: &str) -> Option<PathBuf> {
         let direct = candidate.join(executable_name(tool));
         if direct.is_file() {
             direct
-        } else if tool == "java" {
-            candidate.join("bin").join(executable_name(tool))
         } else {
             direct
         }
@@ -158,73 +147,6 @@ fn system_path(tool: &str) -> Option<PathBuf> {
         })
 }
 
-fn detect_java_path() -> Option<PathBuf> {
-    env::var("JAVA_HOME")
-        .ok()
-        .and_then(|path| normalize_candidate("java", &path))
-        .or_else(|| system_path("java"))
-        .or_else(java_platform_path)
-}
-
-#[cfg(windows)]
-fn java_platform_path() -> Option<PathBuf> {
-    const KEYS: [&str; 4] = [
-        r"HKLM\SOFTWARE\Eclipse Adoptium\JDK",
-        r"HKLM\SOFTWARE\Eclipse Adoptium\JRE",
-        r"HKLM\SOFTWARE\JavaSoft\JDK",
-        r"HKLM\SOFTWARE\JavaSoft\Java Runtime Environment",
-    ];
-    for key in KEYS {
-        let Ok(versions) = crate::process::command("reg").args(["query", key]).output() else {
-            continue;
-        };
-        if !versions.status.success() {
-            continue;
-        }
-        for version_key in String::from_utf8_lossy(&versions.stdout)
-            .lines()
-            .map(str::trim)
-            .filter(|line| line.starts_with("HKEY"))
-        {
-            for value_name in ["Path", "JavaHome"] {
-                let Ok(value) = crate::process::command("reg")
-                    .args(["query", version_key, "/v", value_name])
-                    .output()
-                else {
-                    continue;
-                };
-                if !value.status.success() {
-                    continue;
-                }
-                if let Some(path) = String::from_utf8_lossy(&value.stdout)
-                    .lines()
-                    .find_map(|line| line.split_once("REG_SZ").map(|(_, path)| path.trim()))
-                    .and_then(|path| normalize_candidate("java", path))
-                {
-                    return Some(path);
-                }
-            }
-        }
-    }
-    None
-}
-
-#[cfg(target_os = "macos")]
-fn java_platform_path() -> Option<PathBuf> {
-    let output = crate::process::command("/usr/libexec/java_home")
-        .output()
-        .ok()?;
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
-        .and_then(|path| normalize_candidate("java", &path))
-}
-
-#[cfg(not(any(windows, target_os = "macos")))]
-fn java_platform_path() -> Option<PathBuf> {
-    None
-}
 
 fn common_directories(tool: &str) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
@@ -302,10 +224,7 @@ fn resolve_tool_path_with_config(
     #[cfg(store_build)]
     {
         let store_dir = crate::app_paths::resource_dir().join("store_tools");
-        if tool == "java" {
-            let jre_bin = store_dir.join("bundletool").join("java").join("bin").join(executable_name(tool));
-            return jre_bin.is_file().then_some(jre_bin);
-        } else if tool == "scrcpy" {
+        if tool == "scrcpy" {
             let scrcpy_bin = store_dir.join("scrcpy").join(executable_name(tool));
             return scrcpy_bin.is_file().then_some(scrcpy_bin);
         } else if tool == "adb" {
@@ -320,9 +239,6 @@ fn resolve_tool_path_with_config(
     }
     let configured = configured_path(config, tool);
     let custom = normalize_candidate(tool, configured);
-    if tool == "java" {
-        return custom.or_else(detect_java_path);
-    }
     custom
         .or_else(|| {
             managed_executable(tool)
@@ -338,7 +254,6 @@ pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
             let tool_status = match tool {
                 "adb" => &status.adb,
                 "scrcpy" => &status.scrcpy,
-                "java" => &status.java,
                 _ => return None,
             };
             return (!tool_status.path.is_empty()).then(|| PathBuf::from(&tool_status.path));
@@ -350,7 +265,6 @@ pub fn resolve_tool_path(tool: &str) -> Option<PathBuf> {
 fn version_for(tool: &str, path: &Path) -> String {
     let argument = match tool {
         "adb" => "version",
-        "java" => "-version",
         _ => "--version",
     };
     let output = crate::process::command(path).arg(argument).output();
@@ -393,35 +307,6 @@ fn adb_platform_tools_version(output: &str) -> Option<String> {
         })
 }
 
-fn java_major_version(path: &Path) -> i32 {
-    let output = crate::process::command(path).arg("-version").output();
-    let text = output
-        .ok()
-        .map(|result| {
-            format!(
-                "{}{}",
-                String::from_utf8_lossy(&result.stdout),
-                String::from_utf8_lossy(&result.stderr)
-            )
-        })
-        .unwrap_or_default();
-    let Some(version) = text.split('"').nth(1) else {
-        return 0;
-    };
-    let mut parts = version.split('.');
-    let first = parts
-        .next()
-        .and_then(|value| value.parse::<i32>().ok())
-        .unwrap_or(0);
-    if first == 1 {
-        parts
-            .next()
-            .and_then(|value| value.parse().ok())
-            .unwrap_or(0)
-    } else {
-        first
-    }
-}
 
 fn status_for(tool: &str, config: &crate::commands::operations::AppSettings) -> ToolStatus {
     let path = resolve_tool_path_with_config(tool, config);
@@ -433,7 +318,7 @@ fn status_for(tool: &str, config: &crate::commands::operations::AppSettings) -> 
                 && normalize_candidate(tool, configured).as_ref() == Some(candidate)
             {
                 "custom"
-            } else if tool != "java" && candidate == &managed_executable(tool) {
+            } else if candidate == &managed_executable(tool) {
                 "managed"
             } else {
                 "system"
@@ -443,9 +328,7 @@ fn status_for(tool: &str, config: &crate::commands::operations::AppSettings) -> 
         .to_string();
     ToolStatus {
         name: tool.to_string(),
-        available: path
-            .as_ref()
-            .is_some_and(|value| tool != "java" || java_major_version(value) >= 11),
+        available: path.is_some(),
         version: path
             .as_ref()
             .map(|value| version_for(tool, value))
@@ -457,12 +340,12 @@ fn status_for(tool: &str, config: &crate::commands::operations::AppSettings) -> 
             .map(|value| value.to_string_lossy().to_string())
             .unwrap_or_default(),
         source,
-        install_supported: !cfg!(target_os = "linux") && tool != "java",
+        install_supported: !cfg!(target_os = "linux"),
     }
 }
 
 fn persist_detected_paths(status: &ToolsStatus) {
-    let detected = [&status.adb, &status.scrcpy, &status.java];
+    let detected = [&status.adb, &status.scrcpy];
     if !detected
         .iter()
         .any(|tool| tool.available && tool.source == "system" && !tool.path.is_empty())
@@ -479,7 +362,6 @@ fn persist_detected_paths(status: &ToolsStatus) {
         let configured = match tool.name.as_str() {
             "adb" => &mut config.adb_path,
             "scrcpy" => &mut config.scrcpy_path,
-            "java" => &mut config.java_path,
             _ => continue,
         };
         if configured != &tool.path {
@@ -503,7 +385,6 @@ pub fn tools_status() -> ToolsStatus {
     let config = read_config();
     let mut adb = status_for("adb", &config);
     let mut scrcpy = status_for("scrcpy", &config);
-    let java = status_for("java", &config);
 
     #[cfg(not(store_build))]
     {
@@ -523,7 +404,7 @@ pub fn tools_status() -> ToolsStatus {
         }
     }
 
-    let status = ToolsStatus { adb, scrcpy, java };
+    let status = ToolsStatus { adb, scrcpy };
     persist_detected_paths(&status);
 
     if let Ok(mut cache) = cached_status().lock() {

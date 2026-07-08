@@ -79,7 +79,6 @@ This project is licensed under the [**GPL-3.0**](https://www.gnu.org/licenses/gp
 ADB App relies on several open-source projects to function:
 - **ADB** Copyright © The Android Open Source Project. Licensed under the [Apache License, Version 2.0 (the "License")](/tools/LICENSE-APACHE2).
 - **scrcpy** Copyright © Genymobile. Licensed under the [Apache License, Version 2.0 (the "License")](/tools/LICENSE-APACHE2).
-- **Bundletool** Copyright © Google LLC. Licensed under the [Apache License, Version 2.0 (the "License")](/tools/LICENSE-APACHE2).
 - **Android Logo** - The icon of this application includes a modification based on a work created and shared by Google and used according to terms described in the [Creative Commons 3.0 Attribution License](https://creativecommons.org/licenses/by/3.0/).
 
 ## Contributing

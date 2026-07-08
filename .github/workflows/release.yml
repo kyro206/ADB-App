@@ -67,7 +67,7 @@ concurrency:
 jobs:
   prepare-release:
     name: Preparar etiqueta, release y matriz
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     outputs:
       version: ${{ steps.prepare.outputs.version }}
       tag_name: ${{ steps.prepare.outputs.tag_name }}
@@ -843,7 +843,7 @@ jobs:
     needs:
       - prepare-release
       - build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     if: needs.prepare-release.outputs.prerelease == 'false' && needs.prepare-release.outputs.has_standard_builds == 'true' && needs.build.result == 'success'
 
     steps:

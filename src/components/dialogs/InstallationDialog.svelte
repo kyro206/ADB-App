@@ -22,7 +22,6 @@ import * as m from '../../paraglide/messages';
     onRemoveFile,
     onOptionChange,
     onInstall,
-    javaAvailable = true
   } = $props<{
     open: boolean;
     files: string[];
@@ -33,11 +32,7 @@ import * as m from '../../paraglide/messages';
     onRemoveFile: (file: string) => void;
     onOptionChange: (option: keyof InstallOptions, value: boolean) => void;
     onInstall: () => void;
-    javaAvailable?: boolean;
   }>();
-
-  let showJavaModal = $state(false);
-  let hasAab = $derived(files.some((f: string) => f.toLowerCase().endsWith('.aab')));
 
   let optionDefinitions = $derived<Array<[keyof InstallOptions, string, string]>>([
     ['replace', m.install_option_replace(), m.install_option_replaceDesc()],
@@ -46,22 +41,7 @@ import * as m from '../../paraglide/messages';
   ]);
 
   function handleInstallClick() {
-    if (hasAab && !javaAvailable) {
-      showJavaModal = true;
-    } else {
-      onInstall();
-    }
-  }
-
-  function handleCloseJavaModal() {
-    showJavaModal = false;
-  }
-
-  function handleGoToSettings() {
-    showJavaModal = false;
-    onClose();
-    // Dispatch an event so AppLayout can change to the settings tab
-    window.dispatchEvent(new CustomEvent('change-tab', { detail: 'settings' }));
+    onInstall();
   }
 </script>
 
@@ -120,19 +100,6 @@ import * as m from '../../paraglide/messages';
   {/snippet}
 </AppModal>
 
-<AppModal 
-  open={showJavaModal} 
-  onClose={handleCloseJavaModal} 
-  title={m.dialog_missingTool_title({ tool: 'Java' })}
->
-  <p>{m.dialog_missingTool_desc({ tool: 'Java' })}</p>
-  
-  {#snippet actions()}
-    <md-filled-button onclick={handleGoToSettings}>
-      {m.dialog_missingTool_goToSettings()}
-    </md-filled-button>
-  {/snippet}
-</AppModal>
 
 <style>
 :global {

@@ -1,7 +1,6 @@
 <script lang="ts" module>
 import * as m from '../paraglide/messages';
-
-  export type ConfigurableTool = 'adb' | 'scrcpy' | 'java';
+  export type ConfigurableTool = 'adb' | 'scrcpy';
   export type InstallableTool = 'adb' | 'scrcpy';
 </script>
 
@@ -28,7 +27,6 @@ import * as m from '../paraglide/messages';
     checkingUpdates,
     adbPath = $bindable(),
     scrcpyPath = $bindable(),
-    javaPath = $bindable(),
     onThemeChange,
     onLanguageChange,
     onSaveToolPath,
@@ -45,7 +43,6 @@ import * as m from '../paraglide/messages';
     checkingUpdates: boolean;
     adbPath: string;
     scrcpyPath: string;
-    javaPath: string;
     onThemeChange: (theme: 'light' | 'dark' | 'auto') => void;
     onLanguageChange: (language: string) => void;
     onSaveToolPath: (tool: ConfigurableTool, path: string) => void;
@@ -86,7 +83,6 @@ import * as m from '../paraglide/messages';
       items: [
         { name: 'ADB', url: 'https://android.googlesource.com/platform/packages/modules/adb/' },
         { name: 'scrcpy', url: 'https://github.com/Genymobile/scrcpy' },
-        { name: 'Bundletool', url: 'https://github.com/google/bundletool' },
         { name: 'Material Web', url: 'https://github.com/material-components/material-web' }
       ]
     },
@@ -382,44 +378,7 @@ import * as m from '../paraglide/messages';
     {@render toolPanel("scrcpy", "scrcpy", tools?.scrcpy, scrcpyPath, m.settings_toolPlaceholder(), p => scrcpyPath = p)}
   {/if}
   
-  {#if !appSettings?.store_build}
-    <section class="settings-card">
-      <h3 class="settings-title">{m.settings_javaTitle()}</h3>
-      <div class="tool-status">
-        <div class="tool-status-header">
-          <MaterialIcon 
-            name={tools?.java.available ? 'check_circle' : 'warning'} 
-            size={20} 
-          />
-          <strong>{tools?.java.available ? m.settings_javaCompatible() : tools?.java.path ? m.settings_javaNotCompatible() : m.settings_javaNotDetected()}</strong>
-        </div>
-        <div class="tool-status-details">
-          <span>{m.settings_installedVersion()}: {tools?.java.version || '-'}</span>
-        </div>
-      </div>
-      <div class="form-stack">
-        <md-outlined-text-field 
-          use:materialTextFieldValue={javaPath}
-          oninput={(e: any) => javaPath = e.target.value} 
-          label={m.settings_toolPlaceholder()}
-          style="width: 100%"
-        >
-          <md-icon-button slot="trailing-icon" onclick={() => pickDirectory((p) => javaPath = p)}>
-            <MaterialIcon name="folder_open" />
-          </md-icon-button>
-        </md-outlined-text-field>
-        <div class="button-row">
-          <md-filled-button onclick={() => onSaveToolPath('java', javaPath)}>{m.settings_savePath()}</md-filled-button>
-          <md-outlined-button onclick={() => onSaveToolPath('java', '')}>{m.settings_autoDetect()}</md-outlined-button>
-          <md-text-button href="https://adoptium.net/es/temurin/releases" target="_blank" rel="noreferrer">
-            <MaterialIcon name="open_in_new" slot="icon" />
-            {m.settings_downloadTemurin()}
-          </md-text-button>
-        </div>
-      </div>
-    </section>
-  {/if}
-  
+
   <section class="settings-card">
     <h3 class="settings-title">{m.settings_cacheTitle()}</h3>
     {#snippet clearCacheButton()}

@@ -183,33 +183,6 @@ function findAsset(release, predicate, description) {
   return asset;
 }
 
-function createJre(jdkPath, jreDest) {
-  console.log(`Creating JRE with jlink at ${jreDest}...`);
-
-  removeIfExists(jreDest);
-  ensureDir(path.dirname(jreDest));
-
-  const jlinkExe = path.join(
-    jdkPath,
-    'bin',
-    process.platform === 'win32' ? 'jlink.exe' : 'jlink'
-  );
-
-  if (!fs.existsSync(jlinkExe)) {
-    throw new Error(`jlink not found at ${jlinkExe}`);
-  }
-
-  run(jlinkExe, [
-    '--add-modules',
-    'java.base,java.logging,java.xml,java.desktop,java.management,java.naming',
-    '--strip-debug',
-    '--no-man-pages',
-    '--no-header-files',
-    '--compress=2',
-    '--output',
-    jreDest,
-  ]);
-}
 
 function backupFileIfExists(filePath, backupDir, markerPrefix = '.missing-') {
   const name = path.basename(filePath);
@@ -343,42 +316,6 @@ async function downloadStoreDependencies() {
   removeIfExists(scrcpyDest);
   fs.renameSync(path.join(scrcpyExtractDir, scrcpyDirName), scrcpyDest);
 
-  const bundletoolRelease = await fetchLatestGithubRelease('google/bundletool');
-  const bundletoolAsset = findAsset(
-    bundletoolRelease,
-    (asset) => asset.name.startsWith('bundletool-all-') && asset.name.endsWith('.jar'),
-    'bundletool-all jar asset'
-  );
-
-  const bundletoolDir = path.join(STORE_TOOLS_DIR, 'bundletool');
-  ensureDir(bundletoolDir);
-
-  await downloadFile(
-    bundletoolAsset.browser_download_url,
-    path.join(bundletoolDir, 'bundletool-all.jar')
-  );
-
-  const javaData = await fetchJson(
-    'https://api.adoptium.net/v3/assets/latest/21/hotspot?architecture=x64&image_type=jdk&os=windows&vendor=eclipse',
-    'Temurin JDK 21 metadata'
-  );
-
-  const jdkUrl = javaData?.[0]?.binary?.package?.link;
-
-  if (!jdkUrl) {
-    throw new Error('Could not resolve Temurin JDK 21 download URL from Adoptium API response.');
-  }
-
-  const jdkZip = path.join(TEMP_DIR, 'jdk.zip');
-  await downloadFile(jdkUrl, jdkZip, { expectZip: true });
-
-  const jdkExtractDir = path.join(TEMP_DIR, 'jdk_ext');
-  extractZip(jdkZip, jdkExtractDir);
-
-  const jdkDirName = firstDirectory(jdkExtractDir);
-  const jdkPath = path.join(jdkExtractDir, jdkDirName);
-
-  createJre(jdkPath, path.join(bundletoolDir, 'java'));
 
   console.log('All Microsoft Store dependencies downloaded successfully.');
 }

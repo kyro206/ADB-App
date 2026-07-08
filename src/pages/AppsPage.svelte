@@ -1,14 +1,5 @@
 <script lang="ts" module>
   import * as m from "../paraglide/messages";
-
-  export interface AppSettings {
-    cache_enabled: boolean;
-    cache_path: string;
-    kill_adb_on_exit: boolean;
-    auto_save_screenshots: boolean;
-    material_you_enabled: boolean;
-    material_you_background_tint: boolean;
-  }
 </script>
 
 <script lang="ts">
@@ -37,15 +28,12 @@
     busy = $bindable(),
     scrcpy,
     tab,
-    javaAvailable,
   } = $props<{
     serial: string;
     status: string;
     busy: boolean;
     scrcpy?: (args: string[]) => Promise<void>;
     tab: string;
-    appSettings: AppSettings | null;
-    javaAvailable: boolean;
   }>();
 
   async function runQuiet(args: string[]) {
@@ -1195,7 +1183,6 @@
         else if (option === "bypass") installBypass = value;
       }}
       onInstall={installSelectedApps}
-      {javaAvailable}
     />
   {/await}
 </div>

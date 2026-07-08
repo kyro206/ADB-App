@@ -29,12 +29,12 @@
     "@choochmeque/tauri-windows-bundle": "^0.1.28",
     "@inlang/paraglide-js": "^2.20.2",
     "@inlang/plugin-message-format": "^4.4.0",
-    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^25.9.4",
     "@types/qrcode": "^1.5.6",
     "svelte": "^5.56.4",
-    "svelte-check": "^4.7.1",
+    "svelte-check": "^4.7.2",
     "typescript": "~6.0.3",
     "vite": "^8.1.3"
   }

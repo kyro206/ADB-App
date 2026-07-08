@@ -141,7 +141,6 @@ pub struct AppSettings {
     pub language: String,
     pub adb_path: String,
     pub scrcpy_path: String,
-    pub java_path: String,
 }
 
 impl Default for AppSettings {
@@ -158,7 +157,6 @@ impl Default for AppSettings {
             language: String::new(),
             adb_path: String::new(),
             scrcpy_path: String::new(),
-            java_path: String::new(),
         }
     }
 }
@@ -605,39 +603,6 @@ fn run_local_command(program: &Path, args: &[String]) -> Result<String, String> 
     }
 }
 
-fn bundletool_jar() -> Result<PathBuf, String> {
-    tauri::async_runtime::block_on(crate::dependencies::ensure_bundletool())
-}
-
-fn modern_java_path() -> Result<PathBuf, String> {
-    let java = tools::resolve_tool_path("java").ok_or_else(|| {
-        "Java is not configured. Set its path in Settings. It is recommended to install the latest LTS version of Temurin from https://adoptium.net/temurin/releases".to_string()
-    })?;
-    let output = run_local_command(&java, &["-version".into()])?;
-    let version = output
-        .find("version \"")
-        .and_then(|idx| {
-            let rest = &output[idx + 9..];
-            let end_idx = rest.find('"')?;
-            let ver_str = &rest[..end_idx];
-            let mut parts = ver_str.split('.');
-            let first = parts.next()?.parse::<i32>().ok()?;
-            let major = if first == 1 {
-                parts.next()?.parse::<i32>().ok()?
-            } else {
-                first
-            };
-            Some(major)
-        })
-        .unwrap_or(0);
-    if version < 11 {
-        Err(format!(
-            "Java {version} is not compatible with bundletool. Configure Java 11 or higher in Settings; the latest LTS version of Temurin is recommended."
-        ))
-    } else {
-        Ok(java)
-    }
-}
 
 fn collect_apks(directory: &Path) -> Result<Vec<PathBuf>, String> {
     fn visit(path: &Path, result: &mut Vec<PathBuf>) -> Result<(), String> {
@@ -684,110 +649,7 @@ fn resolve_install_files(
     );
     fs::create_dir_all(&extraction_directory).map_err(|error| error.to_string())?;
 
-    // Evaluamos si Java y Bundletool están disponibles (y lo hacemos solo una vez)
-    let (java_path, jar_path) = match (modern_java_path(), bundletool_jar()) {
-        (Ok(java), Ok(jar)) => (Some(java), Some(jar)),
-        _ => (None, None),
-    };
-    let bundletool_available = java_path.is_some() && jar_path.is_some();
-
-    if extension == "aab" {
-        if !bundletool_available {
-            return Err("To install .aab files, you need to configure Java 11+ in Settings and have Bundletool downloaded.".to_string());
-        }
-        let java = java_path.unwrap();
-        let jar = jar_path.unwrap();
-        let adb_path =
-            tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;
-        let device_spec = working_directory.join("device-spec.json");
-
-        run_local_command(
-            &java,
-            &[
-                "-jar".into(),
-                jar.to_string_lossy().into_owned(),
-                "get-device-spec".into(),
-                format!("--output={}", device_spec.display()),
-                format!("--adb={}", adb_path.display()),
-                format!("--device-id={serial}"),
-            ],
-        )?;
-
-        let apks_archive = working_directory.join("device.apks");
-        run_local_command(
-            &java,
-            &[
-                "-jar".into(),
-                jar.to_string_lossy().into_owned(),
-                "build-apks".into(),
-                format!("--bundle={}", package_file.display()),
-                format!("--output={}", apks_archive.display()),
-                format!("--device-spec={}", device_spec.display()),
-                "--overwrite".into(),
-            ],
-        )?;
-
-        run_local_command(
-            &java,
-            &[
-                "-jar".into(),
-                jar.to_string_lossy().into_owned(),
-                "extract-apks".into(),
-                format!("--apks={}", apks_archive.display()),
-                format!("--output-dir={}", extraction_directory.display()),
-                format!("--device-spec={}", device_spec.display()),
-            ],
-        )?;
-
-        let apks = collect_apks(&extraction_directory)?;
-        if apks.is_empty() {
-            return Err(format!(
-                "No compatible APKs found in {}",
-                package_file.display()
-            ));
-        }
-        return Ok(apks);
-    } else if extension == "apks" && bundletool_available {
-        // Vía original para .apks si Java/Bundletool están instalados
-        let java = java_path.unwrap();
-        let jar = jar_path.unwrap();
-        let adb_path =
-            tools::resolve_tool_path("adb").ok_or_else(|| "ADB is not available".to_string())?;
-        let device_spec = working_directory.join("device-spec.json");
-
-        run_local_command(
-            &java,
-            &[
-                "-jar".into(),
-                jar.to_string_lossy().into_owned(),
-                "get-device-spec".into(),
-                format!("--output={}", device_spec.display()),
-                format!("--adb={}", adb_path.display()),
-                format!("--device-id={serial}"),
-            ],
-        )?;
-
-        run_local_command(
-            &java,
-            &[
-                "-jar".into(),
-                jar.to_string_lossy().into_owned(),
-                "extract-apks".into(),
-                format!("--apks={}", package_file.display()),
-                format!("--output-dir={}", extraction_directory.display()),
-                format!("--device-spec={}", device_spec.display()),
-            ],
-        )?;
-
-        let apks = collect_apks(&extraction_directory)?;
-        if apks.is_empty() {
-            return Err(format!(
-                "No compatible APKs found in {}",
-                package_file.display()
-            ));
-        }
-        return Ok(apks);
-    } else if matches!(extension.as_str(), "apks" | "apkm" | "xapk" | "zip") {
+    if matches!(extension.as_str(), "apks" | "apkm" | "xapk" | "zip") {
         // Extracción mediante el crate zip para no depender de comandos nativos
         let file = std::fs::File::open(&package_file)
             .map_err(|e| format!("Failed to open package: {e}"))?;
