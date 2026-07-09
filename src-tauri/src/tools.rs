@@ -503,28 +503,40 @@ async fn latest_adb_version(client: &reqwest::Client) -> Result<String, String> 
         .await
         .map_err(|error| error.to_string())?;
 
-    let start_idx = repository.find("<remotePackage path=\"platform-tools\"")
-        .ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
+    let mut current_idx = 0;
+    while let Some(start_idx) = repository[current_idx..].find("<remotePackage path=\"platform-tools\"") {
+        let block_start = current_idx + start_idx;
+        let block_end = repository[block_start..].find("</remotePackage>").unwrap_or(repository.len() - block_start) + block_start;
+        let block = &repository[block_start..block_end];
 
-    let block = &repository[start_idx..];
+        // Google incluye múltiples canales en el XML (ej. channel-2 para Canary/Beta y channel-0 para Stable).
+        // El archivo zip genérico 'latest' que descargamos corresponde a la versión Stable.
+        // Iteramos los bloques y seleccionamos exclusivamente el channel-0.
+        // Hacer esto evita coger la versión más alta (ej. 37.0.1) cuando el zip descargable
+        // aún sigue entregando la antigua (37.0.0), lo que causaba un bucle de actualización falso.
+        if block.contains("<channelRef ref=\"channel-0\"/>") {
+            let rev_start = block.find("<revision>").ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
+            let rev_end = block[rev_start..].find("</revision>").unwrap_or(block.len() - rev_start) + rev_start;
+            let revision_block = &block[rev_start..rev_end];
 
-    let rev_start = block.find("<revision>").ok_or_else(|| "Could not read the latest Platform Tools version".to_string())?;
-    let rev_end = block[rev_start..].find("</revision>").unwrap_or(block.len());
-    let revision_block = &block[rev_start..rev_start+rev_end];
+            let extract_tag = |tag: &str| -> Option<String> {
+                let open_tag = format!("<{}>", tag);
+                let close_tag = format!("</{}>", tag);
+                let start = revision_block.find(&open_tag)? + open_tag.len();
+                let end = revision_block[start..].find(&close_tag)?;
+                Some(revision_block[start..start+end].trim().to_string())
+            };
 
-    let extract_tag = |tag: &str| -> Option<String> {
-        let open_tag = format!("<{}>", tag);
-        let close_tag = format!("</{}>", tag);
-        let start = revision_block.find(&open_tag)? + open_tag.len();
-        let end = revision_block[start..].find(&close_tag)?;
-        Some(revision_block[start..start+end].trim().to_string())
-    };
+            let major = extract_tag("major").unwrap_or_else(|| "0".to_string());
+            let minor = extract_tag("minor").unwrap_or_else(|| "0".to_string());
+            let micro = extract_tag("micro").unwrap_or_else(|| "0".to_string());
 
-    let major = extract_tag("major").unwrap_or_else(|| "0".to_string());
-    let minor = extract_tag("minor").unwrap_or_else(|| "0".to_string());
-    let micro = extract_tag("micro").unwrap_or_else(|| "0".to_string());
+            return Ok(format!("{}.{}.{}", major, minor, micro));
+        }
+        current_idx = block_end;
+    }
 
-    Ok(format!("{}.{}.{}", major, minor, micro))
+    Err("Could not find the Stable Platform Tools version".to_string())
 }
 
 #[cfg(not(store_build))]
