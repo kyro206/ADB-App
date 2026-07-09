@@ -7,7 +7,7 @@
     "dev": "bun run scripts/check-i18n.mjs && bun run scripts/update-db.mjs && vite",
     "dev:mock": "bun run scripts/check-i18n.mjs && bun run scripts/update-db.mjs && vite --mode mock",
     "tauri:mock": "bun scripts/tauri-mock.mjs",
-    "build": "bun run scripts/check-i18n.mjs && bun run scripts/update-db.mjs && tsc && vite build",
+    "build": "bun run scripts/check-i18n.mjs && bun run scripts/update-db.mjs && vite build && tsc",
     "preview": "vite preview",
     "tauri": "node scripts/tauri.mjs",
     "tauri:windows:build": "bun run scripts/store-build.mjs"
