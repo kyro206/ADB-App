@@ -231,7 +231,7 @@ fn resolve_tool_path_with_config(
             if let Some(path) = custom {
                 return Some(path);
             }
-            let adb_bin = store_dir.join("adb").join("platform-tools").join(executable_name(tool));
+            let adb_bin = store_dir.join("platform-tools").join(executable_name(tool));
             return adb_bin.is_file().then_some(adb_bin);
         }
     }

@@ -295,7 +295,7 @@ async function downloadStoreDependencies() {
     { expectZip: true }
   );
 
-  extractZip(adbZip, path.join(STORE_TOOLS_DIR, 'adb'));
+  extractZip(adbZip, STORE_TOOLS_DIR);
 
   const scrcpyRelease = await fetchLatestGithubRelease('Genymobile/scrcpy');
   const scrcpyAsset = findAsset(
@@ -323,7 +323,7 @@ async function downloadStoreDependencies() {
 function buildMicrosoftStoreBundle() {
   console.log('--- Running Microsoft Store Build ---');
 
-  runTauriWindowsBundle(['build', '--arch', 'x64,arm64', '--runner', 'bun', '--verbose'], {
+  runTauriWindowsBundle(['build', '--arch', 'x64', '--runner', 'bun', '--verbose'], {
     env: {
       ...process.env,
       ADB_APP_STORE_BUILD: '1',
