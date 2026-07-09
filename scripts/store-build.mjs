@@ -325,7 +325,7 @@ async function downloadStoreDependencies() {
 function buildMicrosoftStoreBundle() {
   console.log('--- Running Microsoft Store Build ---');
 
-  runTauriWindowsBundle(['build', '--arch', 'x64,arm64', '--runner', 'bun', '--verbose'], {
+  runTauriWindowsBundle(['build', '--arch', 'x64,arm64', '--runner', 'bun', '--verbose', '--config', 'src-tauri/tauri.store.conf.json'], {
     env: {
       ...process.env,
       ADB_APP_STORE_BUILD: '1',
@@ -346,25 +346,7 @@ async function main() {
 
     removeIfExists(TEMP_DIR);
 
-    const originalTauriConf = fs.readFileSync(TAURI_CONF_PATH, 'utf8');
-    try {
-      console.log('--- Modifying tauri.conf.json ---');
-      const tauriConf = JSON.parse(originalTauriConf);
-      if (!tauriConf.bundle) tauriConf.bundle = {};
-      if (!tauriConf.bundle.resources) tauriConf.bundle.resources = {};
-      if (Array.isArray(tauriConf.bundle.resources)) {
-        tauriConf.bundle.resources.push('tools');
-      } else {
-        tauriConf.bundle.resources['tools'] = 'tools';
-      }
-
-      fs.writeFileSync(TAURI_CONF_PATH, JSON.stringify(tauriConf, null, 2));
-
-      buildMicrosoftStoreBundle();
-    } finally {
-      console.log('--- Restoring tauri.conf.json ---');
-      fs.writeFileSync(TAURI_CONF_PATH, originalTauriConf);
-    }
+    buildMicrosoftStoreBundle();
   } finally {
     if (fs.existsSync(STORE_TOOLS_DIR)) {
       console.log('--- Cleaning up tools ---');

@@ -58,7 +58,7 @@ import * as m from '../paraglide/messages';
   let appName = $state('ADB App');
   let localCachePath = $state<string | null>(null);
   let licensesOpen = $state(false);
-  let windowEffectInfo = $state<WindowEffectInfo>({ platform: 'linux', windows_11: false });
+  let windowEffectInfo = $state<WindowEffectInfo>({ platform: 'linux', mica: false, acrylic: false });
 
   type LicenseGroup = { type: string; text: string; items: { name: string; url: string }[] };
   const LICENSE_GROUPS: LicenseGroup[] = [
@@ -242,8 +242,8 @@ import * as m from '../paraglide/messages';
         </button>
       </div>
 
-      {#if appSettings && (windowEffectInfo.platform === 'windows' || windowEffectInfo.platform === 'macos')}
-        {#if windowEffectInfo.platform === 'windows' && windowEffectInfo.windows_11}
+      {#if appSettings && (windowEffectInfo.mica || windowEffectInfo.acrylic || windowEffectInfo.platform === 'macos')}
+        {#if windowEffectInfo.mica}
           <md-outlined-select
             label={m.settings_windowEffects()}
             value={appSettings.window_effect || 'system'}

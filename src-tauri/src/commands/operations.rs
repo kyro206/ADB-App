@@ -420,17 +420,24 @@ fn update_cached_app(serial: &str, updated: &AppSummary) {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct WindowEffectInfo {
     pub platform: String,
-    pub windows_11: bool,
+    pub mica: bool,
+    pub acrylic: bool,
 }
 
 #[tauri::command]
 pub fn get_window_effect_info() -> WindowEffectInfo {
+    #[cfg(target_os = "windows")]
+    let build = get_windows_build();
+    #[cfg(not(target_os = "windows"))]
+    let build = 0;
+
     WindowEffectInfo {
         platform: std::env::consts::OS.to_string(),
-        windows_11: is_windows_11(),
+        mica: build >= 22000,
+        acrylic: build >= 17763,
     }
 }
 
@@ -447,18 +454,16 @@ pub fn apply_window_effect(window: &tauri::WebviewWindow, mode: &str) {
 
 #[cfg(target_os = "windows")]
 fn window_effects(mode: &str) -> Option<Vec<tauri::window::Effect>> {
+    let build = get_windows_build();
     match mode {
         "disabled" => None,
-        "acrylic" => Some(vec![tauri::window::Effect::Acrylic]),
-        "mica" => Some(vec![
+        "acrylic" if build >= 17763 => Some(vec![tauri::window::Effect::Acrylic]),
+        _ if build >= 22000 => Some(vec![
             tauri::window::Effect::Mica,
             tauri::window::Effect::Acrylic,
         ]),
-        _ if is_windows_11() => Some(vec![
-            tauri::window::Effect::Mica,
-            tauri::window::Effect::Acrylic,
-        ]),
-        _ => Some(vec![tauri::window::Effect::Acrylic]),
+        _ if build >= 17763 => Some(vec![tauri::window::Effect::Acrylic]),
+        _ => None,
     }
 }
 
@@ -477,7 +482,7 @@ fn window_effects(_mode: &str) -> Option<Vec<tauri::window::Effect>> {
 }
 
 #[cfg(target_os = "windows")]
-fn is_windows_11() -> bool {
+fn get_windows_build() -> u32 {
     #[repr(C)]
     struct RtlOsVersionInfo {
         size: u32,
@@ -502,12 +507,13 @@ fn is_windows_11() -> bool {
         csd_version: [0; 128],
     };
 
-    unsafe { RtlGetVersion(&mut version) == 0 && version.build >= 22000 }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn is_windows_11() -> bool {
-    false
+    unsafe {
+        if RtlGetVersion(&mut version) == 0 {
+            version.build
+        } else {
+            0
+        }
+    }
 }
 
 #[tauri::command]
