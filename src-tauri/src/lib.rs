@@ -98,7 +98,7 @@ pub fn run() {
             .min_inner_size(920.0, 620.0)
             .data_directory(crate::app_paths::webview_data_dir())
             .initialization_script(&init_script)
-            .transparent(true);
+            .transparent(cfg!(not(target_os = "linux")));
 
             #[cfg(target_os = "macos")]
             {

@@ -529,7 +529,7 @@ jobs:
 
       - name: Subir assets como workflow artifact
         if: needs.prepare-release.outputs.artifact_mode == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ADB-App-${{ needs.prepare-release.outputs.version }}-${{ matrix.name }}
           path: release-assets/*
@@ -667,7 +667,7 @@ jobs:
 
       - name: Subir MSIX bundle Microsoft Store como workflow artifact
         if: needs.prepare-release.outputs.artifact_mode == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ADB-App-${{ needs.prepare-release.outputs.version }}-microsoft-store
           path: store-assets/*.msixbundle
