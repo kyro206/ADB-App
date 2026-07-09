@@ -10,8 +10,8 @@
     "updater": null
   },
   "bundle": {
-    "resources": [
-      "store_tools/**/*"
-    ]
+    "resources": {
+      "tools": "tools"
+    }
   }
 }

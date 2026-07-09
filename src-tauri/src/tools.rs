@@ -57,11 +57,22 @@ pub fn invalidate_tools_cache() {
     }
 }
 
+pub(crate) fn tools_base_dir() -> PathBuf {
+    #[cfg(store_build)]
+    {
+        crate::app_paths::resource_dir().join("tools")
+    }
+    #[cfg(not(store_build))]
+    {
+        crate::app_paths::data_dir().join("tools")
+    }
+}
+
 pub(crate) fn managed_dir(tool: &str) -> PathBuf {
     if tool == "adb" {
-        crate::app_paths::data_dir().join("tools").join("platform-tools")
+        tools_base_dir().join("platform-tools")
     } else {
-        crate::app_paths::data_dir().join("tools").join(tool)
+        tools_base_dir().join(tool)
     }
 }
 
@@ -100,7 +111,10 @@ fn configured_path<'a>(
 ) -> &'a str {
     match tool {
         "adb" => &config.adb_path,
+        #[cfg(not(store_build))]
         "scrcpy" => &config.scrcpy_path,
+        #[cfg(store_build)]
+        "scrcpy" => "",
         _ => "",
     }
 }
@@ -219,22 +233,6 @@ fn resolve_tool_path_with_config(
     tool: &str,
     config: &crate::commands::operations::AppSettings,
 ) -> Option<PathBuf> {
-    #[cfg(store_build)]
-    {
-        let store_dir = crate::app_paths::resource_dir().join("store_tools");
-        if tool == "scrcpy" {
-            let scrcpy_bin = store_dir.join("scrcpy").join(executable_name(tool));
-            return scrcpy_bin.is_file().then_some(scrcpy_bin);
-        } else if tool == "adb" {
-            let configured = configured_path(config, tool);
-            let custom = normalize_candidate(tool, configured);
-            if let Some(path) = custom {
-                return Some(path);
-            }
-            let adb_bin = store_dir.join("platform-tools").join(executable_name(tool));
-            return adb_bin.is_file().then_some(adb_bin);
-        }
-    }
     let configured = configured_path(config, tool);
     let custom = normalize_candidate(tool, configured);
     custom

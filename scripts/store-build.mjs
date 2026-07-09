@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const STORE_TOOLS_DIR = path.resolve('src-tauri', 'store_tools');
+const STORE_TOOLS_DIR = path.resolve('src-tauri', 'tools');
 const TEMP_DIR = path.join(STORE_TOOLS_DIR, 'temp');
 
 const WINDOWS_GEN_DIR = path.resolve('src-tauri', 'gen', 'windows');
@@ -295,8 +295,6 @@ async function downloadStoreDependencies() {
     { expectZip: true }
   );
 
-  extractZip(adbZip, STORE_TOOLS_DIR);
-
   const scrcpyRelease = await fetchLatestGithubRelease('Genymobile/scrcpy');
   const scrcpyAsset = findAsset(
     scrcpyRelease,
@@ -307,15 +305,19 @@ async function downloadStoreDependencies() {
   const scrcpyZip = path.join(TEMP_DIR, 'scrcpy.zip');
   await downloadFile(scrcpyAsset.browser_download_url, scrcpyZip, { expectZip: true });
 
-  const scrcpyExtractDir = path.join(TEMP_DIR, 'scrcpy_ext');
-  extractZip(scrcpyZip, scrcpyExtractDir);
+  function extractAndRename(zipPath, extFolder, expectedInternalDir, destFolder) {
+    const extDir = path.join(TEMP_DIR, extFolder);
+    extractZip(zipPath, extDir);
+    
+    const internalName = expectedInternalDir || firstDirectory(extDir);
+    const destPath = path.join(STORE_TOOLS_DIR, destFolder);
+    
+    removeIfExists(destPath);
+    fs.renameSync(path.join(extDir, internalName), destPath);
+  }
 
-  const scrcpyDirName = firstDirectory(scrcpyExtractDir);
-  const scrcpyDest = path.join(STORE_TOOLS_DIR, 'scrcpy');
-
-  removeIfExists(scrcpyDest);
-  fs.renameSync(path.join(scrcpyExtractDir, scrcpyDirName), scrcpyDest);
-
+  extractAndRename(adbZip, 'adb_ext', 'platform-tools', 'platform-tools');
+  extractAndRename(scrcpyZip, 'scrcpy_ext', null, 'scrcpy');
 
   console.log('All Microsoft Store dependencies downloaded successfully.');
 }
@@ -323,7 +325,7 @@ async function downloadStoreDependencies() {
 function buildMicrosoftStoreBundle() {
   console.log('--- Running Microsoft Store Build ---');
 
-  runTauriWindowsBundle(['build', '--arch', 'x64', '--runner', 'bun', '--verbose'], {
+  runTauriWindowsBundle(['build', '--arch', 'x64,arm64', '--runner', 'bun', '--verbose'], {
     env: {
       ...process.env,
       ADB_APP_STORE_BUILD: '1',
@@ -351,13 +353,10 @@ async function main() {
       if (!tauriConf.bundle) tauriConf.bundle = {};
       if (!tauriConf.bundle.resources) tauriConf.bundle.resources = {};
       if (Array.isArray(tauriConf.bundle.resources)) {
-        tauriConf.bundle.resources.push('store_tools');
+        tauriConf.bundle.resources.push('tools');
       } else {
-        tauriConf.bundle.resources['store_tools'] = 'store_tools';
+        tauriConf.bundle.resources['tools'] = 'tools';
       }
-      
-      if (!tauriConf.plugins) tauriConf.plugins = {};
-      tauriConf.plugins.updater = null;
 
       fs.writeFileSync(TAURI_CONF_PATH, JSON.stringify(tauriConf, null, 2));
 
@@ -368,7 +367,7 @@ async function main() {
     }
   } finally {
     if (fs.existsSync(STORE_TOOLS_DIR)) {
-      console.log('--- Cleaning up store_tools ---');
+      console.log('--- Cleaning up tools ---');
       fs.rmSync(STORE_TOOLS_DIR, { recursive: true, force: true });
     }
   }
