@@ -193,15 +193,15 @@ fn move_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), Stri
 }
 
 #[cfg(store_build)]
-pub async fn install_tool(_tool: &str) -> Result<(), String> {
+pub async fn install_tool(_tool: &str, _custom_target: Option<PathBuf>) -> Result<(), String> {
     Err("La versión de la tienda no soporta descargas.".to_string())
 }
 
 #[cfg(not(store_build))]
-pub async fn install_tool(tool: &str) -> Result<(), String> {
+pub async fn install_tool(tool: &str, custom_target: Option<PathBuf>) -> Result<(), String> {
     let client = client()?;
     let (url, kind) = tool_asset(tool, &client).await?;
-    let target = managed_dir(tool);
+    let target = custom_target.unwrap_or_else(|| managed_dir(tool));
     let staging = crate::app_paths::cache_dir().join("temp").join(tool);
     remove_dir(&staging)?;
     {
@@ -211,11 +211,7 @@ pub async fn install_tool(tool: &str) -> Result<(), String> {
     }
     let executable = find_file(&staging, &executable_name(tool))
         .ok_or_else(|| format!("The download does not contain {}", executable_name(tool)))?;
-    let extracted_root = if tool == "adb" {
-        staging.clone()
-    } else {
-        executable.parent().unwrap_or(&staging).to_path_buf()
-    };
+    let extracted_root = executable.parent().unwrap_or(&staging).to_path_buf();
     fs::create_dir_all(&target).map_err(|error| error.to_string())?;
     move_dir_all(&extracted_root, &target)?;
     if staging != target {

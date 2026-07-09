@@ -58,7 +58,11 @@ pub fn invalidate_tools_cache() {
 }
 
 pub(crate) fn managed_dir(tool: &str) -> PathBuf {
-    crate::app_paths::data_dir().join("tools").join(tool)
+    if tool == "adb" {
+        crate::app_paths::data_dir().join("tools").join("platform-tools")
+    } else {
+        crate::app_paths::data_dir().join("tools").join(tool)
+    }
 }
 
 pub(crate) fn executable_name(tool: &str) -> String {
@@ -70,13 +74,7 @@ pub(crate) fn executable_name(tool: &str) -> String {
 }
 
 pub(crate) fn managed_executable(tool: &str) -> PathBuf {
-    if tool == "adb" {
-        managed_dir(tool)
-            .join("platform-tools")
-            .join(executable_name(tool))
-    } else {
-        managed_dir(tool).join(executable_name(tool))
-    }
+    managed_dir(tool).join(executable_name(tool))
 }
 
 pub fn read_config() -> crate::commands::operations::AppSettings {
@@ -374,6 +372,19 @@ fn persist_detected_paths(status: &ToolsStatus) {
         let _ = crate::commands::operations::write_settings_sync(&config);
     }
 }
+// REMOVER EN 2.5.0
+#[cfg(not(store_build))]
+fn migrate_legacy_adb_path() {
+    let old_dir = crate::app_paths::data_dir().join("tools").join("adb").join("platform-tools");
+    let new_dir = managed_dir("adb");
+    if old_dir.is_dir() {
+        if std::fs::create_dir_all(&new_dir).is_ok() {
+            let _ = std::fs::rename(&old_dir, &new_dir);
+            let _ = std::fs::remove_dir(crate::app_paths::data_dir().join("tools").join("adb"));
+        }
+    }
+}
+// REMOVER EN 2.5.0
 
 pub fn tools_status() -> ToolsStatus {
     if let Ok(cache) = cached_status().lock() {
@@ -381,6 +392,10 @@ pub fn tools_status() -> ToolsStatus {
             return status;
         }
     }
+    // REMOVER EN 2.5.0
+    #[cfg(not(store_build))]
+    migrate_legacy_adb_path();
+    // REMOVER EN 2.5.0
 
     let config = read_config();
     let mut adb = status_for("adb", &config);
@@ -599,14 +614,22 @@ pub async fn tools_status_with_updates() -> ToolsStatus {
 }
 
 pub async fn install_or_update(tool: &str) -> Result<ToolsStatus, String> {
-    crate::dependencies::install_tool(tool).await?;
-    let mut config = read_config();
-    match tool {
-        "adb" => config.adb_path.clear(),
-        "scrcpy" => config.scrcpy_path.clear(),
-        _ => {}
+    let current_path = resolve_tool_path(tool);
+    let target_dir = current_path.as_ref().and_then(|p| p.parent().map(|p| p.to_path_buf()));
+
+    crate::dependencies::install_tool(tool, target_dir).await?;
+
+    let is_managed = current_path.as_ref().map_or(false, |p| p == &managed_executable(tool));
+    if current_path.is_none() || is_managed {
+        let mut config = read_config();
+        match tool {
+            "adb" => config.adb_path.clear(),
+            "scrcpy" => config.scrcpy_path.clear(),
+            _ => {}
+        }
+        let _ = crate::commands::operations::write_settings_sync(&config);
     }
-    crate::commands::operations::write_settings_sync(&config)?;
+
     invalidate_tools_cache();
     Ok(tools_status())
 }
