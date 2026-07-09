@@ -15,11 +15,15 @@ name: Release ADB App
         description: "Notas del release. Si se deja vacío GitHub genera las notas automáticamente"
         required: false
         type: string
-      prerelease:
-        description: "Crear como pre-release. No crea Microsoft Store ni latest.json"
+      release_type:
+        description: "Tipo de publicación"
         required: true
-        default: false
-        type: boolean
+        default: "Release"
+        type: choice
+        options:
+          - "Release"
+          - "Pre-release (no crea Microsoft Store)"
+          - "Artifacts"
       build_linux_x64:
         description: "Compilar Linux x64"
         required: true
@@ -76,6 +80,9 @@ jobs:
       selected_platforms: ${{ steps.prepare.outputs.selected_platforms }}
       pages_base_url: ${{ steps.prepare.outputs.pages_base_url }}
       prerelease: ${{ steps.prepare.outputs.prerelease }}
+      release_type: ${{ steps.prepare.outputs.release_type }}
+      artifact_mode: ${{ steps.prepare.outputs.artifact_mode }}
+      checkout_ref: ${{ steps.prepare.outputs.checkout_ref }}
       build_microsoft_store: ${{ steps.prepare.outputs.build_microsoft_store }}
       has_standard_builds: ${{ steps.prepare.outputs.has_standard_builds }}
 
@@ -92,7 +99,7 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_RELEASE_NAME: ${{ inputs.release_name }}
           INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
-          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+          INPUT_RELEASE_TYPE: ${{ inputs.release_type }}
           BUILD_LINUX_X64: ${{ inputs.build_linux_x64 }}
           BUILD_MACOS_X64: ${{ inputs.build_macos_x64 }}
           BUILD_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
@@ -112,16 +119,27 @@ jobs:
             }
 
             const tagName = `v${version}`;
-            const prerelease = process.env.INPUT_PRERELEASE === 'true';
-            const buildMicrosoftStore = process.env.BUILD_MICROSOFT_STORE === 'true';
+            const releaseType = (process.env.INPUT_RELEASE_TYPE || 'Release').trim();
+            const artifactMode = releaseType === 'Artifacts';
+            const prerelease = releaseType.startsWith('Pre-release');
+            const buildMicrosoftStoreRequested = process.env.BUILD_MICROSOFT_STORE === 'true';
+            const buildMicrosoftStore = buildMicrosoftStoreRequested && !prerelease;
             const uploadToPartnerCenter = process.env.UPLOAD_TO_PARTNER_CENTER === 'true';
 
-            if (uploadToPartnerCenter && !buildMicrosoftStore) {
-              throw new Error('Para subir a Partner Center necesitas marcar también "Compilar Microsoft Store MSIX bundle x64 + ARM64".');
+            if (!['Release', 'Pre-release (no crea Microsoft Store)', 'Artifacts'].includes(releaseType)) {
+              throw new Error(`release_type no válido: ${releaseType}`);
             }
 
-            if (prerelease && buildMicrosoftStore) {
-              throw new Error('Microsoft Store no se puede compilar en pre-release. Desmarca "Compilar Microsoft Store MSIX bundle x64 + ARM64" o desactiva pre-release.');
+            if (prerelease && buildMicrosoftStoreRequested) {
+              core.warning('Se ha seleccionado Microsoft Store, pero el modo Pre-release no crea Microsoft Store. Esa build se omitirá.');
+            }
+
+            if (uploadToPartnerCenter && artifactMode) {
+              throw new Error('El modo Artifacts no sube nada a Partner Center. Usa Release para publicar en Partner Center.');
+            }
+
+            if (uploadToPartnerCenter && !buildMicrosoftStore) {
+              throw new Error('Para subir a Partner Center necesitas usar Release y marcar también "Compilar Microsoft Store MSIX bundle x64 + ARM64".');
             }
 
             const releaseName = (process.env.INPUT_RELEASE_NAME || '').trim() || `ADB App ${tagName}`;
@@ -185,86 +203,95 @@ jobs:
               ? `https://${owner}.github.io`
               : `https://${owner}.github.io/${repo}`;
 
+            let release = null;
             let tagExists = false;
-            try {
-              const ref = await github.rest.git.getRef({ owner, repo, ref: `tags/${tagName}` });
-              tagExists = true;
-              if (ref.data.object.sha !== context.sha) {
-                throw new Error(
-                  `La etiqueta ${tagName} ya existe y apunta a ${ref.data.object.sha}, pero este workflow corre sobre ${context.sha}. ` +
-                  'Borra la etiqueta o ejecuta el workflow desde el commit correcto.'
-                );
+            let checkoutRef = context.sha;
+
+            if (!artifactMode) {
+              try {
+                const ref = await github.rest.git.getRef({ owner, repo, ref: `tags/${tagName}` });
+                tagExists = true;
+                if (ref.data.object.sha !== context.sha) {
+                  throw new Error(
+                    `La etiqueta ${tagName} ya existe y apunta a ${ref.data.object.sha}, pero este workflow corre sobre ${context.sha}. ` +
+                    'Borra la etiqueta o ejecuta el workflow desde el commit correcto.'
+                  );
+                }
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.git.createRef({
+                    owner,
+                    repo,
+                    ref: `refs/tags/${tagName}`,
+                    sha: context.sha,
+                  });
+                } else {
+                  throw error;
+                }
               }
-            } catch (error) {
-              if (error.status === 404) {
-                await github.rest.git.createRef({
+
+              try {
+                release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag: tagName })).data;
+                const updatePayload = {
                   owner,
                   repo,
-                  ref: `refs/tags/${tagName}`,
-                  sha: context.sha,
-                });
-              } else {
-                throw error;
+                  release_id: release.id,
+                  tag_name: tagName,
+                  target_commitish: context.sha,
+                  name: releaseName,
+                  prerelease,
+                  draft: false,
+                };
+                if (releaseNotes) updatePayload.body = releaseNotes;
+                release = (await github.rest.repos.updateRelease(updatePayload)).data;
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                const createPayload = {
+                  owner,
+                  repo,
+                  tag_name: tagName,
+                  target_commitish: context.sha,
+                  name: releaseName,
+                  prerelease,
+                  draft: false,
+                };
+                if (releaseNotes) {
+                  createPayload.body = releaseNotes;
+                } else {
+                  createPayload.generate_release_notes = true;
+                }
+                release = (await github.rest.repos.createRelease(createPayload)).data;
               }
-            }
 
-            let release;
-            try {
-              release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag: tagName })).data;
-              const updatePayload = {
+              // Evita mezclar assets antiguos si repites el workflow para la misma versión.
+              const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
                 owner,
                 repo,
                 release_id: release.id,
-                tag_name: tagName,
-                target_commitish: context.sha,
-                name: releaseName,
-                prerelease,
-                draft: false,
-              };
-              if (releaseNotes) updatePayload.body = releaseNotes;
-              release = (await github.rest.repos.updateRelease(updatePayload)).data;
-            } catch (error) {
-              if (error.status !== 404) throw error;
-              const createPayload = {
-                owner,
-                repo,
-                tag_name: tagName,
-                target_commitish: context.sha,
-                name: releaseName,
-                prerelease,
-                draft: false,
-              };
-              if (releaseNotes) {
-                createPayload.body = releaseNotes;
-              } else {
-                createPayload.generate_release_notes = true;
+                per_page: 100,
+              });
+
+              for (const asset of assets) {
+                const n = asset.name.toLowerCase();
+                if (
+                  n === 'latest.json' ||
+                  n === 'latest.yml' ||
+                  n.endsWith('.msixbundle') ||
+                  n.startsWith(`adb-app-${version.toLowerCase()}-`)
+                ) {
+                  core.info(`Eliminando asset antiguo: ${asset.name}`);
+                  await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
+                }
               }
-              release = (await github.rest.repos.createRelease(createPayload)).data;
+
+              checkoutRef = tagName;
+              core.info(`${tagExists ? 'Etiqueta existente reutilizada' : 'Etiqueta creada'}: ${tagName}`);
+              core.info(`Release listo: ${release.html_url}`);
+            } else {
+              core.info('Modo Artifacts: no se crea etiqueta, no se crea GitHub Release, no se publica latest.json y no se sube a Partner Center.');
             }
 
-            // Evita mezclar assets antiguos si repites el workflow para la misma versión.
-            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
-              owner,
-              repo,
-              release_id: release.id,
-              per_page: 100,
-            });
-
-            for (const asset of assets) {
-              const n = asset.name.toLowerCase();
-              if (
-                n === 'latest.json' ||
-                n === 'latest.yml' ||
-                n.endsWith('.msixbundle') ||
-                n.startsWith(`adb-app-${version.toLowerCase()}-`)
-              ) {
-                core.info(`Eliminando asset antiguo: ${asset.name}`);
-                await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
-              }
-            }
-
-            core.info(`${tagExists ? 'Etiqueta existente reutilizada' : 'Etiqueta creada'}: ${tagName}`);
-            core.info(`Release listo: ${release.html_url}`);
+            core.info(`Tipo de publicación: ${releaseType}`);
             core.info(`Endpoint updater en GitHub Pages: ${pagesBaseUrl}/latest.json`);
             core.info(`Microsoft Store MSIX bundle: ${buildMicrosoftStore ? 'sí, x64 + ARM64' : 'no'}`);
             core.info(`Builds estándar seleccionadas: ${selected.length}`);
@@ -272,11 +299,14 @@ jobs:
 
             core.setOutput('version', version);
             core.setOutput('tag_name', tagName);
-            core.setOutput('release_id', String(release.id));
+            core.setOutput('release_id', release ? String(release.id) : '');
             core.setOutput('matrix', JSON.stringify({ include: selected }));
             core.setOutput('selected_platforms', JSON.stringify(selected.map((item) => item.platform)));
             core.setOutput('pages_base_url', pagesBaseUrl);
             core.setOutput('prerelease', prerelease ? 'true' : 'false');
+            core.setOutput('release_type', releaseType);
+            core.setOutput('artifact_mode', artifactMode ? 'true' : 'false');
+            core.setOutput('checkout_ref', checkoutRef);
             core.setOutput('build_microsoft_store', buildMicrosoftStore ? 'true' : 'false');
             core.setOutput('has_standard_builds', selected.length > 0 ? 'true' : 'false');
 
@@ -293,7 +323,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare-release.outputs.tag_name }}
+          ref: ${{ needs.prepare-release.outputs.checkout_ref }}
 
       - name: Sincronizar versión y configurar updater
         shell: bash
@@ -488,6 +518,7 @@ jobs:
           ls -1 "$OUT"
 
       - name: Subir assets al GitHub Release
+        if: needs.prepare-release.outputs.artifact_mode != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -495,6 +526,14 @@ jobs:
         run: |
           set -euo pipefail
           gh release upload "$TAG" release-assets/* --clobber
+
+      - name: Subir assets como workflow artifact
+        if: needs.prepare-release.outputs.artifact_mode == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADB-App-${{ needs.prepare-release.outputs.version }}-${{ matrix.name }}
+          path: release-assets/*
+          if-no-files-found: error
 
   microsoft-store-bundle:
     name: Compilar Microsoft Store MSIX bundle x64 + ARM64
@@ -506,7 +545,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare-release.outputs.tag_name }}
+          ref: ${{ needs.prepare-release.outputs.checkout_ref }}
 
       - name: Sincronizar versión y endpoint updater para Microsoft Store
         shell: bash
@@ -593,11 +632,9 @@ jobs:
 
           bun run scripts/store-build.mjs
 
-      - name: Subir MSIX bundle Microsoft Store
+      - name: Preparar MSIX bundle Microsoft Store
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.prepare-release.outputs.tag_name }}
           VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |
           set -euo pipefail
@@ -616,11 +653,28 @@ jobs:
           safe_version="$(printf '%s' "$VERSION" | sed 's/[^0-9A-Za-z.-]/-/g')"
           dest="ADB-App-MicrosoftStore-Version-${safe_version}-x64-arm64.msixbundle"
           cp "$bundle" "$OUT/$dest"
-          echo "MSIX bundle versionado para Release y Partner Center: $dest"
-          gh release upload "$TAG" "$OUT/$dest" --clobber
+          echo "MSIX bundle versionado preparado: $dest"
+
+      - name: Subir MSIX bundle Microsoft Store al GitHub Release
+        if: needs.prepare-release.outputs.artifact_mode != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare-release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" store-assets/*.msixbundle --clobber
+
+      - name: Subir MSIX bundle Microsoft Store como workflow artifact
+        if: needs.prepare-release.outputs.artifact_mode == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADB-App-${{ needs.prepare-release.outputs.version }}-microsoft-store
+          path: store-assets/*.msixbundle
+          if-no-files-found: error
 
       - name: Publicar MSIX bundle en Partner Center
-        if: ${{ inputs.upload_to_partner_center == true }}
+        if: ${{ inputs.upload_to_partner_center == true && needs.prepare-release.outputs.artifact_mode != 'true' }}
         uses: actions/github-script@v9
         env:
           STORE_CLIENT_ID: ${{ secrets.STORE_CLIENT_ID }}
@@ -844,13 +898,13 @@ jobs:
       - prepare-release
       - build
     runs-on: ubuntu-slim
-    if: needs.prepare-release.outputs.prerelease == 'false' && needs.prepare-release.outputs.has_standard_builds == 'true' && needs.build.result == 'success'
+    if: needs.prepare-release.outputs.artifact_mode != 'true' && needs.prepare-release.outputs.prerelease == 'false' && needs.prepare-release.outputs.has_standard_builds == 'true' && needs.build.result == 'success'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare-release.outputs.tag_name }}
+          ref: ${{ needs.prepare-release.outputs.checkout_ref }}
 
       - name: Generar latest.json y actualizar descripción del release
         uses: actions/github-script@v9

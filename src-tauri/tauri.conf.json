@@ -48,10 +48,7 @@
     },
     "linux": {
       "deb": {
-        "depends": ["scrcpy", "android-tools"]
-      },
-      "rpm": {
-        "depends": ["scrcpy", "android-tools"]
+        "depends": ["scrcpy", "android-tools-adb"]
       }
     }
   }
