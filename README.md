@@ -40,7 +40,13 @@ Our goal is to provide a powerful, lightweight, and straightforward tool to mana
 
 *Navigate between tabs using `Ctrl+Tab`. Features full Dark Mode, system theme sync, and comes localized in both English and Spanish.*
 
-## Installation and Usage
+## System Requirements
+
+- **Windows:** Windows 10 or later.
+- **macOS:** macOS 10.15 Catalina or later.
+- **Android Device:** Must have **USB Debugging** enabled in the Developer Options.
+
+## Installation
 
 1. Download the version corresponding to your operating system from our [Releases](https://github.com/kyro206/ADB-App/releases) page.
 2. Install and launch the app. Configure your tools in the Settings tab, and you're ready to go!

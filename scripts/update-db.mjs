@@ -58,8 +58,6 @@ async function main() {
     // Usamos JSON.stringify con minificación
     fs.writeFileSync(debloatPath, JSON.stringify(map));
     console.log(`Successfully compiled debloat list to src/assets/debloat-data.json`);
-  } else {
-    console.log("debloat-data.json already exists. Skipping download.");
   }
 
   // --- 2. Device DB Data ---
@@ -116,8 +114,6 @@ async function main() {
     fs.mkdirSync(path.dirname(deviceDbPath), { recursive: true });
     fs.writeFileSync(deviceDbPath, JSON.stringify(deviceMap));
     console.log(`Successfully compiled device db to src/assets/device-db.json`);
-  } else {
-    console.log("device-db.json already exists. Skipping download.");
   }
 }
 

@@ -2,6 +2,16 @@ import { mount } from 'svelte';
 import App from './App.svelte';
 import './styles/fonts.css';
 import './styles/global.css';
+import { getLocale, setLocale, overwriteSetLocale } from './paraglide/runtime.js';
+
+document.documentElement.lang = getLocale();
+
+const originalSetLocale = setLocale;
+overwriteSetLocale((newLocale, options) => {
+  document.documentElement.lang = newLocale;
+  originalSetLocale(newLocale, options);
+});
+
 Promise.all([
   import('@material/web/button/filled-button.js'),
   import('@material/web/button/outlined-button.js'),

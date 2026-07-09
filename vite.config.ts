@@ -1,12 +1,17 @@
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => ({
-  plugins: [svelte({
+  plugins: [
+    paraglideVitePlugin({
+      project: "./project.inlang",
+      outdir: "./src/paraglide"
+    }),
+    svelte({
     onwarn: (warning, handler) => {
       // Ignore a11y warnings, especially for <md-*> custom elements
       if (warning.code.startsWith('a11y_') || warning.code.startsWith('a11y-')) return;
@@ -39,6 +44,7 @@ export default defineConfig(async ({ mode }) => ({
     },
   },
   build: {
+    target: 'es2022',
     chunkSizeWarningLimit: 2500,
     rolldownOptions: {
       output: {

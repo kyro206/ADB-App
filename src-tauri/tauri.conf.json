@@ -44,14 +44,14 @@
       }
     },
     "macOS": {
-      "minimumSystemVersion": "10.14"
+      "minimumSystemVersion": "10.15"
     },
     "linux": {
       "deb": {
-        "depends": ["scrcpy", "temurin-25-jdk", "android-tools"]
+        "depends": ["scrcpy", "android-tools"]
       },
       "rpm": {
-        "depends": ["scrcpy", "temurin-25-jdk", "android-tools"]
+        "depends": ["scrcpy", "android-tools"]
       }
     }
   }
