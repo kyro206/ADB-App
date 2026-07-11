@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.4.0] - 2026-07-11
+
+### Added
+- The operations menu can now be closed using the ESC key.
+- It is now possible to update custom path components.
+- Uploaded files now appear immediately in the file explorer without needing to refresh (similar to Windows Explorer).
+- ADB App now remembers its window state before closing.
+
+### Changed
+- Temporarily reverted to a standard assets.car icon on macOS due to a Tauri bug preventing the Liquid Glass icon from generating correctly.
+- Combined app and file drag-and-drop mechanics for better visual coherence.
+- The advanced ADB input is now closed by default and resizes automatically.
+- "Quick display settings" are now grouped under "Dimension" for clarity.
+
+### Fixed
+- Fixed issues when detecting dependencies on macOS.
+- Fixed path detection issues on macOS.
+- Fixed some issues related to searching for updates on ADB (due to Google's XML format).
+- Fixed Linux build and resolved Linux dependencies.
+- ADB App now renders correctly on Windows 10 Fall Creators Update and older.
+- Fixed the Microsoft Store build.
+- Fixed a visual bug in the top-left corner.
+- Fixed TargetSDK and MinSDK detection.
+- The Android TV remote no longer displays a loading screen when clicking a button.
+
+### Removed
+- Removed support for installing `.aab` packages due to low usage, the Java dependency requirement, and lack of online distribution.
+
 ## [2.3.0] - 2026-07-02
 
 ### Added
