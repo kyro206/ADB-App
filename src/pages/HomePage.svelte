@@ -265,9 +265,11 @@
       if (settings?.auto_save_screenshots) {
         const deviceNameRaw = devicesState.homeIdentity?.deviceName || selectedDevice.device || selectedDevice.model || "Unknown";
         
+        const fileNameBase = new Date().toISOString().replace(/[:.]/g, "-");
         const result = await invoke<{ base64: string, saved_path: string | null, save_error: string | null }>("capture_and_save_screenshot_auto", {
           serial: selectedDevice.serial,
           deviceName: deviceNameRaw,
+          fileNameBase: fileNameBase,
         });
 
         devicesState.screenshot = `data:image/png;base64,${result.base64}`;

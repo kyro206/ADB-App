@@ -46,7 +46,7 @@ fn decode_and_verify_image(base64: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-async fn save_bytes_to_auto_folder(app: &tauri::AppHandle, device_name: &str, bytes: &[u8]) -> Result<String, String> {
+async fn save_bytes_to_auto_folder(app: &tauri::AppHandle, device_name: &str, file_name_base: &str, bytes: &[u8]) -> Result<String, String> {
     use tauri::Manager;
     let pictures_dir = app
         .path()
@@ -62,15 +62,10 @@ async fn save_bytes_to_auto_folder(app: &tauri::AppHandle, device_name: &str, by
     tokio::fs::create_dir_all(&device_folder)
         .await
         .map_err(|e| format!("Could not create directory: {}", e))?;
-
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
     
     // Determine extension based on magic bytes
     let ext = if bytes.len() >= 3 && &bytes[0..3] == b"\xFF\xD8\xFF" { "jpg" } else { "png" };
-    let file_name = format!("{}.{}", timestamp, ext);
+    let file_name = format!("{}.{}", file_name_base, ext);
     let path = device_folder.join(file_name);
 
     tokio::fs::write(&path, bytes)
@@ -97,10 +92,11 @@ pub async fn save_screenshot(path: String, png_base64: String) -> Result<String,
 pub async fn save_screenshot_auto(
     app: tauri::AppHandle,
     device_name: String,
+    file_name_base: String,
     png_base64: String,
 ) -> Result<String, String> {
     let bytes = decode_and_verify_image(&png_base64)?;
-    save_bytes_to_auto_folder(&app, &device_name, &bytes).await
+    save_bytes_to_auto_folder(&app, &device_name, &file_name_base, &bytes).await
 }
 
 #[derive(serde::Serialize)]
@@ -115,12 +111,13 @@ pub async fn capture_and_save_screenshot_auto(
     app: tauri::AppHandle,
     serial: String,
     device_name: String,
+    file_name_base: String,
 ) -> Result<ScreenshotResult, String> {
     let bytes = capture_screenshot_bytes(&serial).await?;
     let base64 = STANDARD.encode(&bytes);
 
     let save_attempt: Result<String, String> = async {
-        save_bytes_to_auto_folder(&app, &device_name, &bytes).await
+        save_bytes_to_auto_folder(&app, &device_name, &file_name_base, &bytes).await
     }
     .await;
 
