@@ -1,6 +1,6 @@
 [package]
 name = "adb-app"
-version = "2.4.0"
+version = "2.5.0"
 description = "Visual manager for the Android Debug Bridge (ADB)."
 authors = ["you"]
 edition = "2021"

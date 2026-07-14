@@ -370,19 +370,6 @@ fn persist_detected_paths(status: &ToolsStatus) {
         let _ = crate::commands::operations::write_settings_sync(&config);
     }
 }
-// REMOVER EN 2.5.0
-#[cfg(not(store_build))]
-fn migrate_legacy_adb_path() {
-    let old_dir = crate::app_paths::data_dir().join("tools").join("adb").join("platform-tools");
-    let new_dir = managed_dir("adb");
-    if old_dir.is_dir() {
-        if std::fs::create_dir_all(&new_dir).is_ok() {
-            let _ = std::fs::rename(&old_dir, &new_dir);
-            let _ = std::fs::remove_dir(crate::app_paths::data_dir().join("tools").join("adb"));
-        }
-    }
-}
-// REMOVER EN 2.5.0
 
 pub fn tools_status() -> ToolsStatus {
     if let Ok(cache) = cached_status().lock() {
@@ -390,10 +377,6 @@ pub fn tools_status() -> ToolsStatus {
             return status;
         }
     }
-    // REMOVER EN 2.5.0
-    #[cfg(not(store_build))]
-    migrate_legacy_adb_path();
-    // REMOVER EN 2.5.0
 
     let config = read_config();
     let mut adb = status_for("adb", &config);

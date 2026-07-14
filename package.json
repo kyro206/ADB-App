@@ -1,7 +1,7 @@
 {
   "name": "adb-app",
   "private": true,
-  "version": "2.4.0",
+  "version": "2.5.0",
   "type": "module",
   "scripts": {
     "dev": "bun run scripts/check-i18n.mjs && bun run scripts/update-db.mjs && vite",

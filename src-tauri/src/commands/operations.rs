@@ -1293,12 +1293,30 @@ pub async fn pair_wireless_qr(service_name: String, password: String) -> Result<
         let result = adb::run_adb(&["mdns", "services"]).await?;
         if result.ok() {
             for line in result.output.lines() {
+                /*
+                Tracking ADB issue where duplicate mdns entries appear with "(2)", "(3)", etc.
+                Tracking issue: https://issuetracker.google.com/issues/383769302
+                
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 3 && parts[1] == "_adb-tls-pairing._tcp" {
                     if parts[0] == service_name.trim() {
                         let endpoint = parts[2];
                         return pair_wireless_device(endpoint.to_string(), password).await;
                     }
+                }
+                */
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                
+                let (srv_name, srv_type, endpoint) = if parts.len() >= 4 && parts[1].starts_with('(') && parts[1].ends_with(')') {
+                    (parts[0], parts[2], parts[3])
+                } else if parts.len() >= 3 {
+                    (parts[0], parts[1], parts[2])
+                } else {
+                    continue;
+                };
+
+                if srv_type == "_adb-tls-pairing._tcp" && srv_name == service_name.trim() {
+                    return pair_wireless_device(endpoint.to_string(), password).await;
                 }
             }
         }
