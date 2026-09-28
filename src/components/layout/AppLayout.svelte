@@ -20,12 +20,61 @@
   let adbWarningShown = false;
   let pageElement: HTMLDivElement | undefined = $state();
 
+  let showOutdatedModal = $state(false);
+  let outdatedWarningShown = false;
+  let ignoreOutdatedWarning = $state(false);
+
+  function parseVersion(version: string): number[] {
+    const match = version.match(/(\d+)\.(\d+)(?:\.(\d+))?/);
+    if (!match) return [0, 0, 0];
+    return [parseInt(match[1] || '0', 10), parseInt(match[2] || '0', 10), parseInt(match[3] || '0', 10)];
+  }
+
+  function isVersionOlder(version: string, minVersion: string): boolean {
+    const v1 = parseVersion(version);
+    const v2 = parseVersion(minVersion);
+    for (let i = 0; i < 3; i++) {
+      if (v1[i] < v2[i]) return true;
+      if (v1[i] > v2[i]) return false;
+    }
+    return false;
+  }
+
   $effect(() => {
-    if (toolsState.status && !adbAvailable && !adbWarningShown) {
-      showAdbModal = true;
-      adbWarningShown = true;
+    if (toolsState.status) {
+      if (!adbAvailable && !adbWarningShown) {
+        showAdbModal = true;
+        adbWarningShown = true;
+      } else if (adbAvailable && toolsState.status.scrcpy.available && !showAdbModal && !outdatedWarningShown) {
+        const adbVersion = toolsState.status.adb.version;
+        const scrcpyVersion = toolsState.status.scrcpy.version;
+        const ignore = (window as any).__APP_SETTINGS__?.ignore_outdated_warning === true;
+
+        if (!ignore && (isVersionOlder(adbVersion, '37.0.1') || isVersionOlder(scrcpyVersion, '4.0'))) {
+          showOutdatedModal = true;
+          outdatedWarningShown = true;
+        } else {
+          outdatedWarningShown = true;
+        }
+      }
     }
   });
+
+async function closeOutdatedModal() {
+  showOutdatedModal = false;
+  if (ignoreOutdatedWarning) {
+    if ((window as any).__APP_SETTINGS__) {
+      (window as any).__APP_SETTINGS__.ignore_outdated_warning = true;
+    }
+    try {
+      const result: any = await invoke('get_app_settings');
+      const settings = result.settings;
+      settings.ignore_outdated_warning = true;
+      await invoke('save_app_settings', { settings });
+    } catch (e) {
+    }
+  }
+}
 
   function changeTab(tab: TabId) {
     if (tab === activeTab) return;
@@ -124,6 +173,26 @@
     {#snippet actions()}
       <md-filled-button onclick={() => { showAdbModal = false; changeTab('settings'); }}>
         {m.dialog_missingTool_goToSettings()}
+      </md-filled-button>
+    {/snippet}
+  </AppModal>
+
+  <AppModal
+    open={showOutdatedModal}
+    onClose={closeOutdatedModal}
+    title={m.dialog_outdatedTool_title()}
+  >
+    <p>{m.dialog_outdatedTool_desc()}</p>
+    <label style="display: flex; align-items: center; gap: 8px; margin-top: 16px; cursor: pointer;">
+      <md-checkbox
+        checked={ignoreOutdatedWarning}
+        onchange={(e: Event) => ignoreOutdatedWarning = (e.target as HTMLInputElement).checked}
+      ></md-checkbox>
+      <span>{m.dialog_outdatedTool_ignore_label()}</span>
+    </label>
+    {#snippet actions()}
+      <md-filled-button onclick={() => {closeOutdatedModal(); changeTab('settings')}}>
+        {m.common_continue()}
       </md-filled-button>
     {/snippet}
   </AppModal>

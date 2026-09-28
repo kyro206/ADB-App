@@ -434,5 +434,8 @@
   "system_advanced_captivePortalDesc": "Permite conectarse a redes wifi con portal cautivo en Wear OS",
   "system_advanced_recommended": "Recomendado para tu dispositivo",
   "settings_licenseUsedBy": "Usado por:",
-  "settings_licenseViewText": "Ver texto de la licencia"
+  "settings_licenseViewText": "Ver texto de la licencia",
+  "dialog_outdatedTool_title": "ADB y Scrcpy tienen una versión demasiado antigua",
+  "dialog_outdatedTool_desc": "Es posible que algunas funciones no funcionen correctamente. Actualiza ADB y Scrcpy a la última versión.",
+  "dialog_outdatedTool_ignore_label": "No volver a recordar"
 }

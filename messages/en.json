@@ -434,5 +434,8 @@
   "system_advanced_captivePortalDesc": "Required for connecting to Wi-Fi networks with captive portals on Wear OS",
   "system_advanced_recommended": "Recommended for your device",
   "settings_licenseUsedBy": "Used by:",
-  "settings_licenseViewText": "View license text"
+  "settings_licenseViewText": "View license text",
+  "dialog_outdatedTool_title": "ADB and Scrcpy are too old",
+  "dialog_outdatedTool_desc": "Some features may not work correctly. Please update ADB and Scrcpy to the latest version.",
+  "dialog_outdatedTool_ignore_label": "Don't remind me again"
 }
