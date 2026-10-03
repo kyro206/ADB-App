@@ -192,7 +192,7 @@ async function closeOutdatedModal() {
     </label>
     {#snippet actions()}
       <md-filled-button onclick={() => {closeOutdatedModal(); changeTab('settings')}}>
-        {m.common_continue()}
+        {m.dialog_missingTool_goToSettings()}
       </md-filled-button>
     {/snippet}
   </AppModal>

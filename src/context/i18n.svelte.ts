@@ -33,10 +33,17 @@ class I18nState {
         settings = await invoke<{ language: string }>('get_app_settings');
       }
       let targetLang: Language = 'en';
-      if (settings.language === 'en' || settings.language === 'es') {
-        targetLang = settings.language;
+      if (locales.includes(settings.language as Language)) {
+        targetLang = settings.language as Language;
       } else {
-        targetLang = navigator.language.startsWith('es') ? 'es' : 'en';
+        targetLang = navigator.language.split('-')[0] as Language;
+        if (!locales.includes(targetLang)) {
+           if (locales.includes(navigator.language as Language)) {
+             targetLang = navigator.language as Language;
+           } else {
+             targetLang = 'en';
+           }
+        }
       }
       
       if (this.language !== targetLang) {
@@ -44,7 +51,14 @@ class I18nState {
           this.language = targetLang;
       }
     } catch {
-      const targetLang = navigator.language.startsWith('es') ? 'es' : 'en';
+      let targetLang = navigator.language.split('-')[0] as Language;
+      if (!locales.includes(targetLang)) {
+         if (locales.includes(navigator.language as Language)) {
+           targetLang = navigator.language as Language;
+         } else {
+           targetLang = 'en';
+         }
+      }
       if (this.language !== targetLang) {
           setLocale(targetLang, { reload: false });
           this.language = targetLang;
