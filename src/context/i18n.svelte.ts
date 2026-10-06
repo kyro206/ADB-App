@@ -10,6 +10,15 @@ export function getLanguageName(tag: Language): string {
     return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+function getSystemLanguage(): Language {
+    const navLang = navigator.language.toLowerCase();
+    if (navLang.startsWith('es')) return 'es' as Language;
+    if (navLang.startsWith('pt')) {
+        return (locales.includes('pt-br' as any) ? 'pt-br' : 'pt') as Language;
+    }
+    return 'en';
+}
+
 class I18nState {
   language = $state<Language>('en');
   loaded = $state(false);
@@ -33,10 +42,10 @@ class I18nState {
         settings = await invoke<{ language: string }>('get_app_settings');
       }
       let targetLang: Language = 'en';
-      if (settings.language === 'en' || settings.language === 'es') {
-        targetLang = settings.language;
+      if (locales.includes(settings.language as Language)) {
+        targetLang = settings.language as Language;
       } else {
-        targetLang = navigator.language.startsWith('es') ? 'es' : 'en';
+        targetLang = getSystemLanguage();
       }
       
       if (this.language !== targetLang) {
@@ -44,7 +53,7 @@ class I18nState {
           this.language = targetLang;
       }
     } catch {
-      const targetLang = navigator.language.startsWith('es') ? 'es' : 'en';
+      const targetLang = getSystemLanguage();
       if (this.language !== targetLang) {
           setLocale(targetLang, { reload: false });
           this.language = targetLang;
