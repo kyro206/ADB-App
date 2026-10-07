@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.5.0] - 2026-10-08
+
+### Changed
+- Updated the project dependencies to the latest versions.
+
+### Added
+- Added new languages: Japanese, Hindi, Chinese, Russian, Brazilian Portuguese, French, and German.
+- Added a warning when the installed version of ADB or Scrcpy is too old.
+
 ## [2.4.1] - 2026-07-19
 
 ### Changed
