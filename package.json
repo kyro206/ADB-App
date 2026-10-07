@@ -22,7 +22,7 @@
     "@tauri-apps/plugin-opener": "^2.7.0",
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.13.1",
-    "@tauri-apps/plugin-window-state": "~2.4.1",
+    "@tauri-apps/plugin-window-state": "2.5.0",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
