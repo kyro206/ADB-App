@@ -255,7 +255,7 @@
   "settings_install": "Install",
   "settings_update": "Update",
   "settings_toolPlaceholder": "Path to executable or folder",
-  "settings_cacheTitle": "Almacenamiento y Caché",
+  "settings_cacheTitle": "Storage and cache",
   "settings_cacheRestartWarning": "Changing the cache path requires restarting the application",
   "settings_storeManagedPath": "Windows manages the app data folder in the Microsoft Store version. You can move the app to another drive from Settings.",
   "dialog_missingTool_title": "{tool} not found",
