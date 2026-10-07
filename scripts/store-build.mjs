@@ -243,11 +243,12 @@ function prepareMsixAssets() {
     backupFileIfExists(file, backupDir);
   }
 
-  const hasCustomWideLogo = fs.existsSync(WIDE_LOGO);
-
-  if (hasCustomWideLogo) {
-    fs.copyFileSync(WIDE_LOGO, path.join(backupDir, 'Wide310x150Logo.png'));
-    console.log('Custom Wide310x150Logo.png detected. It will be restored after asset generation.');
+  const wideLogos = fs.existsSync(ASSETS_DIR) ? fs.readdirSync(ASSETS_DIR).filter(f => f.startsWith('Wide310x150Logo')) : [];
+  if (wideLogos.length > 0) {
+    for (const logo of wideLogos) {
+      fs.copyFileSync(path.join(ASSETS_DIR, logo), path.join(backupDir, logo));
+    }
+    console.log(`Custom Wide310x150Logo variants (${wideLogos.length}) detected. They will be restored after asset generation.`);
   }
 
   try {
@@ -259,10 +260,12 @@ function prepareMsixAssets() {
     }
   }
 
-  if (hasCustomWideLogo) {
+  if (wideLogos.length > 0) {
     ensureDir(ASSETS_DIR);
-    fs.copyFileSync(path.join(backupDir, 'Wide310x150Logo.png'), WIDE_LOGO);
-    console.log('Custom Wide310x150Logo.png restored over the generated Assets folder.');
+    for (const logo of wideLogos) {
+      fs.copyFileSync(path.join(backupDir, logo), path.join(ASSETS_DIR, logo));
+    }
+    console.log('Custom Wide310x150Logo variants restored over the generated Assets folder.');
   }
 
   if (!fs.existsSync(ASSETS_DIR)) {
