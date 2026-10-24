@@ -75,7 +75,13 @@
     try {
       const response = await invoke<ArrayBuffer | Uint8Array | number[]>('read_file_bytes', { serial: serial, path: remotePath });
       const data = response instanceof ArrayBuffer ? response : new Uint8Array(response as any);
-      const blob = new Blob([data], { type: 'audio/mpeg' });
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const mimeMap: Record<string, string> = {
+        mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', oga: 'audio/ogg',
+        flac: 'audio/flac', m4a: 'audio/mp4', aac: 'audio/aac',
+        opus: 'audio/opus', weba: 'audio/webm',
+      };
+      const blob = new Blob([data], { type: mimeMap[ext] ?? 'audio/mpeg' });
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       audioUrl = URL.createObjectURL(blob);
       
@@ -501,7 +507,7 @@
   import type { Action } from 'svelte/action';
 
   const lazyLoadThumbnail: Action<HTMLElement, string> = (node, remotePath) => {
-    if (!/\.(png|jpe?g|webp|gif)$/i.test(remotePath)) return;
+    if (!/\.(png|jpe?g|webp|gif|avif|jxl|bmp|svg|ico)$/i.test(remotePath)) return;
     
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
@@ -552,9 +558,9 @@
   const fileIcon = (file: FileEntry) => {
     if (file.is_link) return 'shortcut';
     if (file.is_directory) return 'folder';
-    if (/\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(file.name)) return 'image';
-    if (/\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)) return 'audio_file';
-    if (/\.(mp4|mkv|avi|webm|mov)$/i.test(file.name)) return 'video_file';
+    if (/\.(png|jpe?g|webp|gif|svg|bmp|avif|jxl|ico|heic|heif)$/i.test(file.name)) return 'image';
+    if (/\.(mp3|wav|ogg|oga|flac|m4a|aac|opus|weba)$/i.test(file.name)) return 'audio_file';
+    if (/\.(mp4|mkv|avi|webm|mov|3gp|m4v)$/i.test(file.name)) return 'video_file';
     if (/\.(zip|tar|gz|rar|7z)$/i.test(file.name)) return 'folder_zip';
     if (/\.(apk)$/i.test(file.name)) return 'android';
     if (/\.(pdf)$/i.test(file.name)) return 'picture_as_pdf';
@@ -842,7 +848,7 @@
     <span class="file-name-cell {file.is_link ? 'symbolic' : ''}">
       <b style="position: relative;">
         <MaterialIcon name={fileIcon(file)} />
-        {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)}
+        {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac|opus|weba)$/i.test(file.name)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <div class="file-audio-play list-mode {audioPlayingPath === remotePath && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
             {#if audioPlayingPath === remotePath}
@@ -891,7 +897,7 @@
         {:else}
           <MaterialIcon name={fileIcon(file)} size={48} />
         {/if}
-        {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i.test(file.name)}
+        {#if /\.(mp3|wav|ogg|oga|flac|m4a|aac|opus|weba)$/i.test(file.name)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <div class="file-audio-play {audioPlayingPath === remotePath && (audioIsPlaying || audioProgress > 0) ? 'playing' : ''}" role="button" tabindex="0" onclick={e => toggleAudioPlay(e, file)}>
             {#if audioPlayingPath === remotePath}

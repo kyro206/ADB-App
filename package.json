@@ -1,7 +1,7 @@
 {
   "name": "adb-app",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.6.0",
   "type": "module",
   "scripts": {
     "dev": "bun run scripts/check-i18n.mjs && bun run scripts/update-db.mjs && vite",
@@ -13,29 +13,29 @@
     "tauri:windows:build": "bun run scripts/store-build.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/google-sans-flex": "^5.3.1",
-    "@fontsource/material-symbols-rounded": "^5.3.8",
+    "@fontsource-variable/google-sans-flex": "^5.3.2",
+    "@fontsource/material-symbols-rounded": "^5.3.9",
     "@material/web": "^2.5.0",
-    "@tauri-apps/api": "^2.12.1",
-    "@tauri-apps/plugin-dialog": "^2.8.1",
-    "@tauri-apps/plugin-fs": "^2.6.0",
-    "@tauri-apps/plugin-opener": "^2.7.0",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-fs": "^2.7.1",
+    "@tauri-apps/plugin-opener": "^2.7.2",
     "@tauri-apps/plugin-process": "^2.4.0",
-    "@tauri-apps/plugin-updater": "^2.13.1",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "@tauri-apps/plugin-window-state": "2.5.0",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@choochmeque/tauri-windows-bundle": "0.2.0",
-    "@inlang/paraglide-js": "^2.26.0",
-    "@inlang/plugin-message-format": "^4.4.5",
+    "@inlang/paraglide-js": "^2.29.1",
+    "@inlang/plugin-message-format": "^4.5.5",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@tauri-apps/cli": "^2.12.1",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^25.9.9",
     "@types/qrcode": "^1.5.6",
     "svelte": "^5.57.2",
-    "svelte-check": "^4.7.6",
+    "svelte-check": "^4.7.7",
     "typescript": "^7.0.2",
-    "vite": "^8.3.3"
+    "vite": "^8.3.5"
   }
 }

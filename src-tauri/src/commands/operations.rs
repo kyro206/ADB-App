@@ -494,7 +494,7 @@ fn get_windows_build() -> u32 {
     }
 
     #[link(name = "ntdll")]
-    extern "system" {
+    unsafe extern "system" {
         fn RtlGetVersion(version: *mut RtlOsVersionInfo) -> i32;
     }
 
@@ -2533,6 +2533,13 @@ pub async fn get_file_thumbnail(serial: String, path: String) -> Result<String, 
         "jpg" | "jpeg" => "image/jpeg",
         "webp" => "image/webp",
         "gif" => "image/gif",
+        "avif" => "image/avif",
+        "jxl" => "image/jxl",
+        "svg" => "image/svg+xml",
+        "bmp" => "image/bmp",
+        "tiff" | "tif" => "image/tiff",
+        "ico" => "image/x-icon",
+        "heic" | "heif" => "image/heic",
         _ => "image/png",
     };
     Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)))

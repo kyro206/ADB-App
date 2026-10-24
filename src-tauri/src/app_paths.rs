@@ -170,7 +170,7 @@ fn package_family_name() -> Option<String> {
     const ERROR_INSUFFICIENT_BUFFER: i32 = 122;
 
     #[link(name = "kernel32")]
-    extern "system" {
+    unsafe extern "system" {
         fn GetCurrentPackageFamilyName(length: *mut u32, family_name: *mut u16) -> i32;
     }
 

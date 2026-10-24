@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.6.0]
+
+### Added
+- Added thumbnail support for modern image formats: AVIF, JXL, SVG, BMP, ICO, and HEIC/HEIF.
+- Added audio playback support for Opus (`.opus`) and WebM Audio (`.weba`) files.
+- Added file icon detection for new video formats: 3GP and M4V.
+
 ## [2.5.0] - 2026-10-08
 
 ### Changed
