@@ -1,21 +1,40 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppError {
     pub message: String,
 }
 
+impl AppError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.message
+    }
+}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for AppError {}
+
 impl From<String> for AppError {
     fn from(error: String) -> Self {
-        Self { message: error }
+        Self::new(error)
     }
 }
 
 impl From<&str> for AppError {
     fn from(error: &str) -> Self {
-        Self {
-            message: error.to_string(),
-        }
+        Self::new(error)
     }
 }
 
