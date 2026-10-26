@@ -44,10 +44,25 @@ export function appTone(packageName: string): string {
   return `tone-${[...packageName].reduce((total, character) => total + character.charCodeAt(0), 0) % 6}`;
 }
 
+export function normalizeErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error.trim() || 'Unknown error';
+  if (error instanceof Error) return error.message || 'Unknown error';
+  if (error && typeof error === 'object') {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) return maybeMessage.trim();
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unknown error';
+    }
+  }
+  return String(error ?? 'Unknown error');
+}
+
 export function translateError(error: any): string {
-  const msg = error?.message || String(error);
+  const msg = normalizeErrorMessage(error);
   const lowerMsg = msg.toLowerCase();
-  
+
   if (msg === 'ERROR_DEVICE_NOT_FOUND' || (lowerMsg.includes('device') && lowerMsg.includes('not found'))) {
     return m.error_device_not_found();
   }
@@ -57,7 +72,12 @@ export function translateError(error: any): string {
   if (msg === 'ERROR_TIMEOUT' || lowerMsg.includes('timeout')) {
     return m.error_timeout();
   }
-  if (msg === 'ERROR_CONNECTION_FAILED' || lowerMsg.includes('failed to connect') || lowerMsg.includes('connection refused') || lowerMsg.includes('connection failed')) {
+  if (
+    msg === 'ERROR_CONNECTION_FAILED' ||
+    lowerMsg.includes('failed to connect') ||
+    lowerMsg.includes('connection refused') ||
+    lowerMsg.includes('connection failed')
+  ) {
     return m.error_connection_failed();
   }
 
